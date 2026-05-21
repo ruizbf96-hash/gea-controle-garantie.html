@@ -11,7 +11,7 @@
   --bg:#0f1117; --bg2:#161b27; --bg3:#1e2535;
   --border:#2a3347; --border-hi:#3d4f6e;
   --accent:#00d4a8; --accent2:#0099ff;
-  --text:#e2e8f0; --text2:#8a9ab5; --text3:#5a6a82;
+  --text:#e2e8f0; --text2:#c8d8f0; --text3:#9aaabf;
   --warn:#f5a623; --danger:#ff4d6a; --success:#00c896;
   --r:6px;
   --c-fact:#378add; --c-paye:#00c896; --c-rattrap:#f5c842;
@@ -26,7 +26,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;color:var(--text);text-decoration:none;}
 .logo span{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:13px;}
 .nav{display:flex;gap:4px;}
-.nav a{padding:6px 12px;border-radius:var(--r);font-size:12px;color:var(--text2);text-decoration:none;transition:all .15s;}
+.nav a{padding:6px 12px;border-radius:var(--r);font-size:12px;color:#c8d8f0;text-decoration:none;transition:all .15s;}
 .nav a:hover{background:var(--bg3);color:var(--text);}
 .nav a.active{background:var(--bg3);color:var(--accent);}
 
@@ -34,7 +34,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .toolbar{padding:10px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg2);}
 .toolbar select{padding:6px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;}
 .toolbar select:focus{outline:none;border-color:var(--accent2);}
-.btn{padding:6px 14px;border-radius:var(--r);border:1px solid var(--border);background:none;color:var(--text2);font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.btn{padding:6px 14px;border-radius:var(--r);border:1px solid var(--border);background:none;color:#c8d8f0;font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
 .btn:hover{background:var(--bg3);color:var(--text);}
 .btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600;}
 .btn.primary:hover{background:#00efc0;}
@@ -42,7 +42,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .btn.capture:hover{background:#2a1a4a;color:#c4a0ff;}
 
 /* Import strip */
-.import-strip{margin:14px 20px 0;background:var(--bg3);border:1.5px dashed var(--border-hi);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);cursor:pointer;transition:border-color .15s;}
+.import-strip{margin:14px 20px 0;background:var(--bg3);border:1.5px dashed var(--border-hi);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:12px;color:#c8d8f0;cursor:pointer;transition:border-color .15s;}
 .import-strip:hover{border-color:var(--accent);color:var(--text);}
 .import-strip input[type=file]{display:none;}
 .spinner{width:14px;height:14px;border:2px solid var(--border-hi);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
@@ -57,10 +57,12 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .15s;}
 .kpi-card:hover{border-color:var(--border-hi);}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--accent));}
-.kpi-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;line-height:1.3;}
+.kpi-label{font-size:10px;color:#9aaabf;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;line-height:1.3;}
 .kpi-value{font-size:20px;font-weight:600;font-family:'IBM Plex Mono',monospace;line-height:1;}
-.kpi-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.kpi-sub{font-size:11px;color:#a8b8d0;margin-top:4px;}
 .kpi-trend{font-size:11px;margin-top:3px;}
+.kpi-row3{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px;}
+.kpi-type-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:3px;display:inline-block;margin-bottom:6px;}
 .trend-ok{color:var(--success);}
 .trend-warn{color:var(--warn);}
 .trend-bad{color:var(--danger);}
@@ -69,7 +71,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;}
 .panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
 .panel-head h3{font-size:13px;font-weight:500;}
-.panel-head span{font-size:11px;color:var(--text3);}
+.panel-head span{font-size:11px;color:#a8b8d0;}
 .panel-body{padding:16px;}
 .panel-body canvas{max-height:240px;}
 
@@ -92,9 +94,9 @@ tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
 tbody tr:hover{background:var(--bg3);}
 tbody tr.tr-total{background:#1e2535;border-top:2px solid var(--border-hi);}
 tbody tr.tr-total td{font-weight:600;color:var(--text);}
-tbody td{padding:7px 10px;color:var(--text2);border-right:1px solid var(--border);vertical-align:middle;}
+tbody td{padding:7px 10px;color:var(--text);border-right:1px solid var(--border);vertical-align:middle;}
 tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);}
-tbody td.pct{font-size:11px;color:var(--text3);}
+tbody td.pct{font-size:11px;color:#c0d0e8;}
 tbody td.td-fact{color:var(--c-fact);}
 tbody td.td-action{color:var(--c-action);}
 tbody td.td-paye{color:var(--c-paye);}
@@ -156,9 +158,13 @@ tbody td.td-rattrap{color:var(--c-rattrap);}
   </select>
   <select id="f-site" onchange="refresh()">
     <option value="">Tous les sites</option>
-    <option>Seat_Hoenheim</option><option>Skoda_Hoenheim</option>
-    <option>VW_Bischheim</option><option>VW_Illkirch</option>
-    <option>VW_Obernai</option><option>Audi_Hoenheim</option><option>Audi_Obernai</option>
+    <option value="VW_Illkirch">VW Illkirch (02153)</option>
+    <option value="VW_Bischheim">VW Bischheim (02154)</option>
+    <option value="Audi_Hoenheim">Audi Hoenheim (02155)</option>
+    <option value="Seat_Hoenheim">SEAT Hoenheim (63930)</option>
+    <option value="Skoda_Hoenheim">Skoda Hoenheim (02376)</option>
+    <option value="Audi_Obernai">Audi Obernai (02486)</option>
+    <option value="VW_Obernai">VW Obernai (02485)</option>
   </select>
   <button class="btn capture" onclick="startCapture()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="3" x2="12" y2="1"/></svg>
@@ -246,6 +252,47 @@ tbody td.td-rattrap{color:var(--c-rattrap);}
     </div>
   </div>
 
+  <!-- ── KPIs ligne 3 — Types de demande ── -->
+  <div style="font-size:10px;color:#9aaabf;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding:0 2px;">Répartition par type de demande</div>
+  <div class="kpi-row3">
+    <div class="kpi-card" style="--kc:#a78bfa">
+      <div class="kpi-type-label" style="background:#2a1a4a;color:#a78bfa;">7-10</div>
+      <div class="kpi-label">Actions / Rappels</div>
+      <div class="kpi-value" id="kt-710-ca">—</div>
+      <div class="kpi-sub" id="kt-710-nb">— dossiers · —%</div>
+    </div>
+    <div class="kpi-card" style="--kc:#378add">
+      <div class="kpi-type-label" style="background:#0a1a3a;color:#378add;">1-10</div>
+      <div class="kpi-label">Garantie véhicule</div>
+      <div class="kpi-value" id="kt-110-ca">—</div>
+      <div class="kpi-sub" id="kt-110-nb">— dossiers · —%</div>
+    </div>
+    <div class="kpi-card" style="--kc:#60b8ff">
+      <div class="kpi-type-label" style="background:#0a2040;color:#60b8ff;">1-21</div>
+      <div class="kpi-label">Garantie pièce</div>
+      <div class="kpi-value" id="kt-121-ca">—</div>
+      <div class="kpi-sub" id="kt-121-nb">— dossiers · —%</div>
+    </div>
+    <div class="kpi-card" style="--kc:#f5a623">
+      <div class="kpi-type-label" style="background:#2e1800;color:#f5a623;">2-10</div>
+      <div class="kpi-label">Participation client</div>
+      <div class="kpi-value" id="kt-210-ca">—</div>
+      <div class="kpi-sub" id="kt-210-nb">— dossiers · —%</div>
+    </div>
+    <div class="kpi-card" style="--kc:#ffcc66">
+      <div class="kpi-type-label" style="background:#2e2000;color:#ffcc66;">2-SK</div>
+      <div class="kpi-label">Participation SK</div>
+      <div class="kpi-value" id="kt-2sk-ca">—</div>
+      <div class="kpi-sub" id="kt-2sk-nb">— dossiers · —%</div>
+    </div>
+    <div class="kpi-card" style="--kc:#f5c842">
+      <div class="kpi-type-label" style="background:#2a2000;color:#f5c842;">1-M1</div>
+      <div class="kpi-label">VDR</div>
+      <div class="kpi-value" id="kt-1m1-ca">—</div>
+      <div class="kpi-sub" id="kt-1m1-nb">— dossiers · —%</div>
+    </div>
+  </div>
+
   <!-- ── Tableau KPIs par KVPs ── -->
   <div class="panel">
     <div class="panel-head">
@@ -313,19 +360,15 @@ tbody td.td-rattrap{color:var(--c-rattrap);}
     </div>
   </div>
 
-  <!-- ── Top 10 ── -->
-  <div class="g3">
+  <!-- ── CA par type de demande + Top codes ── -->
+  <div class="g2">
     <div class="panel">
-      <div class="panel-head"><h3>🏎 Top 10 modèles en garantie</h3></div>
-      <div class="panel-body"><canvas id="chart-top-modeles"></canvas></div>
+      <div class="panel-head"><h3>CA par type de demande</h3><span>Actions / Garantie / Participation / VDR</span></div>
+      <div class="panel-body"><canvas id="chart-types"></canvas></div>
     </div>
     <div class="panel">
       <div class="panel-head"><h3>🔧 Top 10 codes dommage</h3></div>
       <div class="panel-body"><canvas id="chart-top-codes"></canvas></div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><h3>🪛 Top 10 pièces remplacées</h3></div>
-      <div class="panel-body"><canvas id="chart-top-pieces"></canvas></div>
     </div>
   </div>
 
@@ -384,7 +427,7 @@ onValue(ref(db,'controle_garantie'), snap => {
 <script>
 window._saga={}; window._ctrl={};
 let _ch={};
-const SITES=['Seat_Hoenheim','Skoda_Hoenheim','VW_Bischheim','VW_Illkirch','VW_Obernai','Audi_Hoenheim','Audi_Obernai'];
+const SITES=['VW_Illkirch','VW_Bischheim','Audi_Hoenheim','Seat_Hoenheim','Skoda_Hoenheim','Audi_Obernai','VW_Obernai'];
 const COLORS=['#00d4a8','#0099ff','#f5a623','#ff4d6a','#a78bfa','#34d399','#fb923c'];
 const MOIS_NAMES=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 const fmt=v=>v>0?v.toLocaleString('fr-FR',{maximumFractionDigits:0})+' €':'— €';
@@ -551,6 +594,23 @@ function renderKPIs(saga,ctrl){
   const tauxPct=caFact>0?Math.round(caPaye/caFact*100):0;
   const tauxClass=tauxPct>=95?'trend-ok':tauxPct>=80?'trend-warn':'trend-bad';
 
+  // Types de demande
+  const TYPES={
+    '710':{ids:['7-10'],label:'Actions/Rappels',kca:'kt-710-ca',knb:'kt-710-nb'},
+    '110':{ids:['1-10'],label:'Garantie véhicule',kca:'kt-110-ca',knb:'kt-110-nb'},
+    '121':{ids:['1-21'],label:'Garantie pièce',kca:'kt-121-ca',knb:'kt-121-nb'},
+    '210':{ids:['2-10'],label:'Participation',kca:'kt-210-ca',knb:'kt-210-nb'},
+    '2sk':{ids:['2-SK','2-sk'],label:'Participation SK',kca:'kt-2sk-ca',knb:'kt-2sk-nb'},
+    '1m1':{ids:['1-M1','1-m1'],label:'VDR',kca:'kt-1m1-ca',knb:'kt-1m1-nb'},
+  };
+  Object.values(TYPES).forEach(t=>{
+    const items=saga.filter(d=>t.ids.some(id=>(d.type_demande||'').toUpperCase().includes(id.toUpperCase())));
+    const ca=items.reduce((s,d)=>s+mon(d.valeur_demande),0);
+    const nb=items.length;
+    document.getElementById(t.kca).textContent=fmt(ca);
+    document.getElementById(t.knb).textContent=nb+' dossiers · '+pct(ca,caFact);
+  });
+
   document.getElementById('k-fact').textContent=fmt(caFact);
   document.getElementById('k-fact-nb').textContent=saga.length+' dossiers';
   document.getElementById('k-paye').textContent=fmt(caPaye);
@@ -647,12 +707,13 @@ function renderCharts(saga,ctrl){
   const taux=SITES.map(s=>{const ss=saga.filter(d=>d._site===s);const f=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);const p=ss.reduce((t,d)=>t+mon(d.valeur_payee),0);return f>0?Math.round(p/f*100):0;});
   _ch['chart-taux']=new Chart(document.getElementById('chart-taux'),{type:'bar',data:{labels:SITES.map(s=>s.replace('_',' ')),datasets:[{data:taux,backgroundColor:taux.map(v=>v>=95?'#2ecc7130':v>=80?'#f5a62330':'#ff4d6a30'),borderColor:taux.map(v=>v>=95?'#2ecc71':v>=80?'#f5a623':'#ff4d6a'),borderWidth:1.5,borderRadius:4}]},options:{...BASE,scales:{...BASE.scales,y:{...BASE.scales.y,max:100,ticks:{callback:v=>v+'%',color:'#5a6a82',font:{size:10}}}}}});
 
-  // Top 10 modèles (depuis ctrl)
-  dc('chart-top-modeles');
-  const modCount={};
-  ctrl.forEach(c=>{if(c.modele){const k=(c.modele||'').split(' ').slice(0,3).join(' ');modCount[k]=(modCount[k]||0)+1;}});
-  const top10mod=Object.entries(modCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  _ch['chart-top-modeles']=new Chart(document.getElementById('chart-top-modeles'),{type:'bar',data:{labels:top10mod.map(e=>e[0]),datasets:[{data:top10mod.map(e=>e[1]),backgroundColor:'#0099ff20',borderColor:'#0099ff',borderWidth:1.5,borderRadius:3}]},options:{...BASEY}});
+  // Chart CA par type de demande
+  dc('chart-types');
+  const typeLabels=['Actions 7-10','Gar. véhicule 1-10','Gar. pièce 1-21','Participation 2-10','Participation 2-SK','VDR 1-M1'];
+  const typeIds=[['7-10'],['1-10'],['1-21'],['2-10'],['2-SK','2-sk'],['1-M1','1-m1']];
+  const typeColors=['#a78bfa','#378add','#60b8ff','#f5a623','#ffcc66','#f5c842'];
+  const typeCA=typeIds.map(ids=>saga.filter(d=>ids.some(id=>(d.type_demande||'').toUpperCase().includes(id.toUpperCase()))).reduce((t,d)=>t+mon(d.valeur_demande),0));
+  _ch['chart-types']=new Chart(document.getElementById('chart-types'),{type:'bar',data:{labels:typeLabels,datasets:[{data:typeCA.map(v=>Math.round(v)),backgroundColor:typeColors.map(c=>c+'25'),borderColor:typeColors,borderWidth:1.5,borderRadius:4}]},options:{...BASE}});
 
   // Top 10 codes dommage (depuis SAGA)
   dc('chart-top-codes');
@@ -661,14 +722,7 @@ function renderCharts(saga,ctrl){
   const top10cod=Object.entries(codeCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
   _ch['chart-top-codes']=new Chart(document.getElementById('chart-top-codes'),{type:'bar',data:{labels:top10cod.map(e=>e[0]),datasets:[{data:top10cod.map(e=>e[1]),backgroundColor:'#f5a62320',borderColor:'#f5a623',borderWidth:1.5,borderRadius:3}]},options:{...BASEY}});
 
-  // Top 10 pièces (depuis ctrl)
-  dc('chart-top-pieces');
-  const pieceCount={};
-  ctrl.forEach(c=>{if(c.intervention){const k=(c.intervention||'').toLowerCase().trim().slice(0,30);pieceCount[k]=(pieceCount[k]||0)+1;}});
-  const top10piec=Object.entries(pieceCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  _ch['chart-top-pieces']=new Chart(document.getElementById('chart-top-pieces'),{type:'bar',data:{labels:top10piec.map(e=>e[0]),datasets:[{data:top10piec.map(e=>e[1]),backgroundColor:'#2ecc7120',borderColor:'#2ecc71',borderWidth:1.5,borderRadius:3}]},options:{...BASEY}});
-
-  // Conseillers — dossiers problèmes
+  // Conseillers  // Conseillers — dossiers problèmes
   dc('chart-conseillers');
   const consCount={};
   ctrl.filter(c=>c.annul==='oui'||c.nonfact==='oui'||c.incomplet==='oui').forEach(c=>{if(c.ccs){consCount[c.ccs]=(consCount[c.ccs]||0)+1;}});
@@ -708,7 +762,7 @@ function renderHeatmap(ctrl){
 }
 
 function siteFrom(code){
-  const m={'02153':'VW_Illkirch','02154':'VW_Bischheim','02155':'Audi_Hoenheim','02156':'Seat_Hoenheim','02157':'Skoda_Hoenheim','02158':'Audi_Obernai','02159':'VW_Obernai'};
+  const m={'02153':'VW_Illkirch','02154':'VW_Bischheim','02155':'Audi_Hoenheim','63930':'Seat_Hoenheim','02376':'Skoda_Hoenheim','02486':'Audi_Obernai','02485':'VW_Obernai'};
   return m[code]||'';
 }
 
