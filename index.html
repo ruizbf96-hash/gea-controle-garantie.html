@@ -309,6 +309,10 @@ tbody td.mono { color:var(--text); font-weight:500; font-family:'IBM Plex Mono',
           <input type="text" id="m-vin" placeholder="VSSZZZK...">
         </div>
         <div class="field">
+          <label>Modèle</label>
+          <input type="text" id="m-modele" placeholder="AUDI Q3 45 TFSI e 245ch">
+        </div>
+        <div class="field">
           <label>Nom du CCS</label>
           <input type="text" id="m-ccs" placeholder="OURY Aurélien">
         </div>
@@ -595,6 +599,7 @@ window.openModal = function(id) {
 
   const setV = (elId, val) => { const el=document.getElementById(elId); if(el) el.value=val||''; };
   setV('m-site', d?.site); setV('m-nor', d?.nor); setV('m-vin', d?.vin);
+  setV('m-modele', d?.modele);
   setV('m-date', d?.date); setV('m-ccs', d?.ccs); setV('m-montant', d?.montant);
   setV('m-tech1', d?.tech1); setV('m-tech2', d?.tech2); setV('m-heures', d?.heures);
   setV('m-service', d?.service); setV('m-intervention', d?.intervention);
@@ -618,6 +623,7 @@ window.saveDossier = function() {
   const obj = {
     site:document.getElementById('m-site').value,
     nor, vin:document.getElementById('m-vin').value,
+    modele:document.getElementById('m-modele').value,
     date:document.getElementById('m-date').value,
     ccs:document.getElementById('m-ccs').value,
     montant:document.getElementById('m-montant').value,
@@ -662,24 +668,38 @@ window.handleOcr = async function(file) {
         headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:mime||'image/jpeg',data:b64}},
-          {type:'text',text:`Tu analyses une capture DCSnet Neo (concessions Grand Est Automobiles).
-RÈGLES IMPORTANTES :
-- N°OR = CHIFFRES uniquement après le label "N°OR" dans le bandeau turquoise (ex: 714296). NE PAS mettre le nom du conseiller ici.
-- CCS = NOM du conseiller SANS le numéro de tête (ex: "19 Jeremy Le Brech" → "Jeremy Le Brech")
-- VIN = 17 caractères alphanumériques dans le bloc véhicule
-- site = texte dans la section IMPUTATIONS en bas de page (ex: "GARANTIE BISCHHEIM")
-- montant = chiffres uniquement depuis les lignes de pièces (ex: 382.20)
-- intervention = désignation de la pièce principale remplacée
-- date = date de l'OR ou date livraison format JJ/MM/AAAA
+          {type:'text',text:`Tu analyses une capture DCSnet Neo (logiciel DMS CDK, concessions Grand Est Automobiles).
 
-Retourne UNIQUEMENT ce JSON sans markdown ni texte autour :
-{"site":null,"nor":null,"vin":null,"ccs":null,"tech1":null,"montant":null,"intervention":null,"date":null}
-Remplace null par les vraies valeurs trouvées dans l'image.`}
+STRUCTURE EXACTE de l'écran DCSnet Neo :
+BANDEAU TURQUOISE EN HAUT (ligne principale) :
+  - Label "N°OR" suivi du numéro : ex "N°OR 616042" → nor = "616042" (CHIFFRES UNIQUEMENT, jamais le code d'imputation type "90010 G")
+  - Label "CCS" suivi d'un numéro + nom : ex "10 FABIEN LAMBERT" → ccs = "FABIEN LAMBERT" (nom SANS le numéro)
+  - Label "ORV" : code type "1D - MECANIQUE AUDI" → ignorer
+
+BLOC VÉHICULE (sous le bandeau) :
+  - VIN = 17 caractères alphanumériques (ex: WAUZZZF39N129114)
+  - IMMAT = immatriculation (ex: GH-938-RR)
+  - MODELE/VERSION = modèle du véhicule (ex: AUDI Q3 45 TFSI e 245ch) → mettre dans "modele"
+  - DATE LIV = date livraison JJ/MM/AAAA
+  - KILOM = kilométrage chiffres uniquement
+  - NOM/PRENOM = NOM DU CLIENT → IGNORER, ne pas mettre dans ccs
+
+SECTION IMPUTATIONS (bas de page, fond gris) :
+  - Code imputation (ex: 90010 G) → IGNORER pour le N°OR
+  - Texte site ex "GARANTIE OBERNAI", "GARANTIE BISCHHEIM" → mettre dans "site"
+
+LIGNES PIÈCES (tableau interventions) :
+  - Désignation de la première pièce → "intervention"
+  - Somme des montants colonne "Montant" → "montant"
+
+Retourne UNIQUEMENT ce JSON valide sans markdown :
+{"site":null,"nor":null,"vin":null,"ccs":null,"modele":null,"montant":null,"intervention":null,"date":null}
+Remplace null par les vraies valeurs. nor = chiffres du N°OR uniquement.`}
         ]}]})
       });
       const d=await res.json();
       const obj=JSON.parse(d.content[0].text.replace(/```json|```/g,'').trim());
-      const map={site:'m-site',nor:'m-nor',vin:'m-vin',ccs:'m-ccs',tech1:'m-tech1',montant:'m-montant',intervention:'m-intervention',date:'m-date'};
+      const map={site:'m-site',nor:'m-nor',vin:'m-vin',ccs:'m-ccs',modele:'m-modele',tech1:'m-tech1',montant:'m-montant',intervention:'m-intervention',date:'m-date'};
       Object.entries(map).forEach(([k,id])=>{ if(obj[k]){ const el=document.getElementById(id); if(el){el.value=obj[k]; el.classList.add('ocr-filled');} }});
       lbl.textContent='✓ Extraction réussie — complétez les champs restants';
       toast('Champs pré-remplis','success');

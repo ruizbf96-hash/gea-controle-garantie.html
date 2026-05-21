@@ -768,45 +768,69 @@
   // ══════════════════════════════════════════════
   function getPrompt(source) {
     if (source === 'dcsnet') {
-      return `Tu analyses une capture d'écran de DCSnet Neo (logiciel DMS CDK pour concessions automobiles).
-Extrait les informations suivantes depuis l'image et retourne UNIQUEMENT un objet JSON valide, sans texte autour, sans markdown.
+      return `Tu analyses une capture DCSnet Neo (logiciel DMS CDK, concessions Grand Est Automobiles).
 
+RÈGLES STRICTES — lire attentivement :
+
+BANDEAU TURQUOISE (ligne du haut) :
+- "N°OR" suivi du numéro d'OR : CHIFFRES UNIQUEMENT (ex: 616042, 714296). JAMAIS le code d'imputation "90010 G" ni le nom du conseiller.
+- "CCS" suivi d'un numéro + nom conseiller : ex "10 FABIEN LAMBERT" → conseiller = "FABIEN LAMBERT" (sans le numéro). NE PAS confondre avec le client.
+
+BLOC VÉHICULE (sous le bandeau) :
+- VIN = 17 caractères alphanumériques
+- IMMAT = immatriculation (ex: GH-938-RR)
+- MODELE/VERSION = modèle véhicule (ex: AUDI Q3 45 TFSI e 245ch)
+- DATE LIV = date livraison JJ/MM/AAAA
+- KILOM = kilométrage chiffres
+
+BLOC CLIENT (NOM/PRENOM) → IGNORER complètement, ne pas mettre dans conseiller.
+
+SECTION IMPUTATIONS (bas de page) :
+- Code type "90010 G" → IGNORER, ce n'est PAS le N°OR
+- Texte "GARANTIE OBERNAI", "GARANTIE BISCHHEIM" etc. → c'est le site
+
+TABLEAU PIÈCES :
+- Désignation de la 1ère pièce → plainte_client ou pieces_remplacees
+- Somme colonne Montant → montant
+
+Retourne UNIQUEMENT ce JSON valide sans markdown :
 {
-  "vin": "numéro VIN du véhicule (17 caractères)",
-  "immatriculation": "immatriculation du véhicule",
-  "modele": "modèle et version du véhicule",
-  "kilometrage": "kilométrage (chiffres uniquement)",
-  "date_livraison": "date de livraison au format JJ/MM/AAAA",
-  "nor": "numéro d'OR (ordre de réparation)",
-  "conseiller": "nom du conseiller (champ CCS, sans le numéro)",
-  "site": "nom de la concession/site visible (ex: GARANTIE ILLKIRCH)",
-  "date_or": "date de l'OR si visible",
-  "plainte_client": "texte complet de la plainte client depuis le tableau des interventions",
-  "pieces_remplacees": "liste des pièces remplacées séparées par des virgules (références et désignations)",
-  
-  "montant": "montant total si visible"
+  "nor": "chiffres N°OR uniquement (ex: 616042)",
+  "conseiller": "nom conseiller CCS sans numéro (ex: FABIEN LAMBERT)",
+  "vin": "VIN 17 caractères",
+  "immatriculation": "immatriculation",
+  "modele": "modèle complet (ex: AUDI Q3 45 TFSI e 245ch)",
+  "kilometrage": "kilométrage chiffres",
+  "date_livraison": "date livraison JJ/MM/AAAA",
+  "site": "texte IMPUTATIONS ex GARANTIE OBERNAI",
+  "date_or": "date OR si visible",
+  "plainte_client": "texte plainte client",
+  "pieces_remplacees": "pièces séparées par virgules",
+  "montant": "total montant chiffres"
 }
-
-Si un champ n'est pas visible ou lisible, mets null. Ne devine pas.`;
+null si non visible.`;
     } else {
-      return `Tu analyses une capture d'écran de SAGA/2 (logiciel de gestion des demandes de garantie Volkswagen Group).
-Extrait les informations de la ligne sélectionnée (surlignée en bleu) dans la liste des demandes. Retourne UNIQUEMENT un objet JSON valide, sans texte autour, sans markdown.
+      return `Tu analyses une capture d'écran de SAGA/2 (logiciel garanties VW Group).
 
+STRUCTURE : tableau avec colonnes visibles dans cet ordre :
+Fabricant | VIN (Numéro identification véhicule) | N Demande | N° de TPI | Date de réception | Date de réparation | Date de soumission | Justifié | Valeur de la demande | Valeur note de crédit | Type de demande | Code dommage | Code avarie | Code réparation | Numéro du cas | Code-barres | Niveau de traitement
+
+Extrait les données de la/les ligne(s) visible(s). Retourne UNIQUEMENT ce JSON valide, sans markdown :
 {
-  "vin": "numéro d'identification du véhicule (colonne VIN)",
-  "nor": "N° de la demande SAGA (colonne N Demande)",
-  "date_reception": "date de réception au format JJ.MM.AAAA",
-  "date_reparation": "date de réparation au format JJ.MM.AAAA",
-  "date_soumission": "date de soumission au format JJ.MM.AAAA",
-  "code_dommage": "code dommage (colonne Code dommage)",
-  "code_avarie": "code avarie",
-  "type_demande": "type de demande",
-  "montant": "valeur de la demande (chiffres uniquement)",
-  "kvps": "code numérique du champ Partenaire (ex: 02153)",
-  "niveau_traitement": "texte du niveau de traitement"
+  "vin": "VIN colonne 'Numéro d'identification du véhicule'",
+  "nor": "valeur colonne 'N Demande' (ex: 620239 01)",
+  "date_reception": "colonne 'Date de réception' JJ.MM.AAAA",
+  "date_reparation": "colonne 'Date de réparation' JJ.MM.AAAA",
+  "date_soumission": "colonne 'Date de soumission' JJ.MM.AAAA",
+  "code_dommage": "colonne 'Code dommage'",
+  "code_avarie": "colonne 'Code avarie'",
+  "type_demande": "colonne 'Type de demande'",
+  "montant": "colonne 'Valeur de la demande' chiffres uniquement",
+  "kvps": "champ Partenaire en haut (ex: 02153)",
+  "niveau_traitement": "colonne 'Niveau de traitement'"
 }
 
-Si un champ n'est pas visible ou lisible dans la ligne, mets null. Ne devine pas.`;
+Si non visible = null.`;
     }
   }
 
@@ -1012,6 +1036,11 @@ function compressImage(file, maxW=1400) {
   });
 }
 
+
+function siteFrom(code){
+  const m={'02153':'VW_Illkirch','02154':'VW_Bischheim','02155':'Audi_Hoenheim','63930':'Seat_Hoenheim','02376':'Skoda_Hoenheim','02486':'Audi_Obernai','02485':'VW_Obernai'};
+  return m[code]||'';
+}
 window.toast = function(msg, type = 'info') {
     const t = document.getElementById('toast');
     t.textContent = msg;
