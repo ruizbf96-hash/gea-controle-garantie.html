@@ -451,13 +451,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, push, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
-    apiKey:"AIzaSyDPsep7yTE-UAjGGGSioZfVAozGEo_lSmSQ",
-    authDomain:"demande-kulanzccr.firebaseapp.com",
-    databaseURL:"https://demande-kulanzccr-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId:"demande-kulanzccr",
-    storageBucket:"demande-kulanzccr.firebasestorage.app",
-    messagingSenderId:"128572691256",
-    appId:"1:128572691256:web:43cd3e057b5287199967cd"
+    apiKey:"AIzaSyApg898LLWpWlLy8o0JEU9mTMqkbORKLQ0",
+    authDomain:"controle-garantie.firebaseapp.com",
+    databaseURL:"https://controle-garantie-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId:"controle-garantie",
+    storageBucket:"controle-garantie.firebasestorage.app",
+    messagingSenderId:"988294526180",
+    appId:"1:988294526180:web:119987fabec448679228f1"
   };
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
@@ -467,7 +467,8 @@ onValue(ref(db,'controle_garantie'), snap => {
   window._data = {};
   const v = snap.val();
   if (v) Object.entries(v).forEach(([k,d]) => { window._data[k]={_id:k,...d}; });
-  renderTable();
+  // Attendre que les fonctions du script suivant soient définies
+  setTimeout(() => { if (typeof window.renderTable === 'function') window.renderTable(); }, 50);
 }, { onlyOnce:false });
 </script>
 
