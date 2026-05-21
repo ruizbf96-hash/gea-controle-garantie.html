@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Coûts Garantie — TeamGarantie GEA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+:root {
+  --bg:#0f1117; --bg2:#161b27; --bg3:#1e2535;
+  --border:#2a3347; --border-hi:#3d4f6e;
+  --accent:#00d4a8; --accent2:#0099ff;
+  --text:#e2e8f0; --text2:#8a9ab5; --text3:#5a6a82;
+  --warn:#f5a623; --danger:#ff4d6a; --success:#00c896;
+  --r:6px;
+  --c-fact:#378add; --c-paye:#00c896; --c-rattrap:#f5c842;
+  --c-incomplet:#ffe066; --c-nonfact:#4a9eff; --c-annul:#ff4d6a;
+  --c-sauvee:#2ecc71; --c-action:#a78bfa; --c-delai:#fb923c;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;}
+
+/* Header */
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+.logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;color:var(--text);text-decoration:none;}
+.logo span{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:13px;}
+.nav{display:flex;gap:4px;}
+.nav a{padding:6px 12px;border-radius:var(--r);font-size:12px;color:var(--text2);text-decoration:none;transition:all .15s;}
+.nav a:hover{background:var(--bg3);color:var(--text);}
+.nav a.active{background:var(--bg3);color:var(--accent);}
+
+/* Toolbar */
+.toolbar{padding:10px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg2);}
+.toolbar select{padding:6px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;}
+.toolbar select:focus{outline:none;border-color:var(--accent2);}
+.btn{padding:6px 14px;border-radius:var(--r);border:1px solid var(--border);background:none;color:var(--text2);font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.btn:hover{background:var(--bg3);color:var(--text);}
+.btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600;}
+.btn.primary:hover{background:#00efc0;}
+.btn.capture{background:#1e2535;color:#a78bfa;border-color:#a78bfa40;}
+.btn.capture:hover{background:#2a1a4a;color:#c4a0ff;}
+
+/* Import strip */
+.import-strip{margin:14px 20px 0;background:var(--bg3);border:1.5px dashed var(--border-hi);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);cursor:pointer;transition:border-color .15s;}
+.import-strip:hover{border-color:var(--accent);color:var(--text);}
+.import-strip input[type=file]{display:none;}
+.spinner{width:14px;height:14px;border:2px solid var(--border-hi);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Main */
+.main{padding:16px 20px 60px;}
+
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px;}
+.kpi-row2{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;}
+.kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .15s;}
+.kpi-card:hover{border-color:var(--border-hi);}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--accent));}
+.kpi-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;line-height:1.3;}
+.kpi-value{font-size:20px;font-weight:600;font-family:'IBM Plex Mono',monospace;line-height:1;}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.kpi-trend{font-size:11px;margin-top:3px;}
+.trend-ok{color:var(--success);}
+.trend-warn{color:var(--warn);}
+.trend-bad{color:var(--danger);}
+
+/* Panel */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;}
+.panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.panel-head h3{font-size:13px;font-weight:500;}
+.panel-head span{font-size:11px;color:var(--text3);}
+.panel-body{padding:16px;}
+.panel-body canvas{max-height:240px;}
+
+/* Charts grid */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;}
+
+/* Tables */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{padding:8px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border-hi);border-right:1px solid var(--border);white-space:nowrap;background:var(--bg3);color:var(--text3);}
+thead th.th-kvps{background:#1a2a1a;color:#00c896;}
+thead th.th-fact{background:#0a1a2e;color:var(--c-fact);}
+thead th.th-action{background:#1a1030;color:var(--c-action);}
+thead th.th-paye{background:#0a2218;color:var(--c-paye);}
+thead th.th-annul{background:#2e0010;color:var(--c-annul);}
+thead th.th-sauvee{background:#0a2e18;color:var(--c-sauvee);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+tbody tr:hover{background:var(--bg3);}
+tbody tr.tr-total{background:#1e2535;border-top:2px solid var(--border-hi);}
+tbody tr.tr-total td{font-weight:600;color:var(--text);}
+tbody td{padding:7px 10px;color:var(--text2);border-right:1px solid var(--border);vertical-align:middle;}
+tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);}
+tbody td.pct{font-size:11px;color:var(--text3);}
+tbody td.td-fact{color:var(--c-fact);}
+tbody td.td-action{color:var(--c-action);}
+tbody td.td-paye{color:var(--c-paye);}
+tbody td.td-annul{color:var(--c-annul);}
+tbody td.td-sauvee{color:var(--c-sauvee);}
+tbody td.td-rattrap{color:var(--c-rattrap);}
+
+/* Badge */
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:500;white-space:nowrap;}
+.b-remb{background:#0a2e18;color:#2ecc71;border:1px solid #2ecc7130;}
+.b-paye{background:#0a1a2e;color:#4a9eff;border:1px solid #4a9eff30;}
+.b-autre{background:#2e2400;color:#f5c842;border:1px solid #f5c84230;}
+
+/* Heatmap */
+.heatmap{overflow-x:auto;}
+.heatmap table{min-width:600px;}
+.hm-cell{text-align:center;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:6px 8px!important;border-radius:3px;}
+
+/* Toast */
+#toast{position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:var(--r);font-size:12px;font-weight:500;z-index:999;transform:translateY(60px);opacity:0;transition:all .2s;pointer-events:none;}
+#toast.show{transform:translateY(0);opacity:1;}
+#toast.success{background:#0d2a22;border:1px solid var(--success);color:var(--success);}
+#toast.error{background:#2a0d14;border:1px solid var(--danger);color:var(--danger);}
+#toast.info{background:#2a1f0d;border:1px solid var(--warn);color:var(--warn);}
+
+/* Capture modal */
+.cap-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.cap-modal.open{display:flex;}
+.cap-preview{max-width:80vw;max-height:60vh;border-radius:8px;border:2px solid var(--accent);object-fit:contain;}
+.cap-actions{display:flex;gap:10px;}
+
+@media(max-width:900px){.kpi-row,.kpi-row2{grid-template-columns:repeat(2,1fr);}.g2,.g3,.g21{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <a class="logo" href="#">GEA <span>Dashboard Coûts Garantie</span></a>
+  <nav class="nav">
+    <a href="controle-garantie.html">Contrôle</a>
+    <a href="dashboard-couts.html" class="active">Dashboard coûts</a>
+    <a href="extraction-ocr.html">Extraction OCR</a>
+  </nav>
+</header>
+
+<div class="toolbar">
+  <select id="f-annee" onchange="refresh()">
+    <option value="2026" selected>2026</option>
+    <option value="2025">2025</option>
+  </select>
+  <select id="f-mois" onchange="refresh()">
+    <option value="">Tous les mois</option>
+    <option value="01">Janvier</option><option value="02">Février</option>
+    <option value="03">Mars</option><option value="04">Avril</option>
+    <option value="05">Mai</option><option value="06">Juin</option>
+    <option value="07">Juillet</option><option value="08">Août</option>
+    <option value="09">Septembre</option><option value="10">Octobre</option>
+    <option value="11">Novembre</option><option value="12">Décembre</option>
+  </select>
+  <select id="f-site" onchange="refresh()">
+    <option value="">Tous les sites</option>
+    <option>Seat_Hoenheim</option><option>Skoda_Hoenheim</option>
+    <option>VW_Bischheim</option><option>VW_Illkirch</option>
+    <option>VW_Obernai</option><option>Audi_Hoenheim</option><option>Audi_Obernai</option>
+  </select>
+  <button class="btn capture" onclick="startCapture()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="3" x2="12" y2="1"/></svg>
+    📸 Capturer écran SAGA
+  </button>
+  <button class="btn primary" onclick="document.getElementById('saga-file').click()">↑ Upload capture</button>
+  <button class="btn" onclick="exportCSV()">↓ Export CSV</button>
+  <input type="file" id="saga-file" accept="image/*" style="display:none" onchange="importSaga(this.files[0])">
+  <span id="last-sync" style="font-size:11px;color:var(--text3);margin-left:4px;"></span>
+</div>
+
+<!-- Import strip -->
+<div class="import-strip" onclick="document.getElementById('saga-file').click()">
+  <div id="import-spinner" style="display:none;"><div class="spinner"></div></div>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+  <span id="import-label">📋 Ctrl+V · 📸 Capturer · ou cliquer — import SAGA automatique → toutes les lignes visibles</span>
+</div>
+
+<!-- Capture modal preview -->
+<div class="cap-modal" id="cap-modal">
+  <p style="color:var(--text2);font-size:13px;" id="cap-status">Sélectionnez la fenêtre SAGA dans le sélecteur...</p>
+  <img id="cap-preview" class="cap-preview" src="" alt="" style="display:none;">
+  <div class="cap-actions">
+    <button class="btn primary" id="cap-confirm" onclick="confirmCapture()" style="display:none;">Importer cette capture</button>
+    <button class="btn" onclick="document.getElementById('cap-modal').classList.remove('open')">Annuler</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ── KPIs ligne 1 ── -->
+  <div class="kpi-row">
+    <div class="kpi-card" style="--kc:var(--c-fact)">
+      <div class="kpi-label">CA DG facturées</div>
+      <div class="kpi-value" id="k-fact">—</div>
+      <div class="kpi-sub" id="k-fact-nb">— dossiers</div>
+    </div>
+    <div class="kpi-card" style="--kc:var(--c-paye)">
+      <div class="kpi-label">CA DG payées</div>
+      <div class="kpi-value" id="k-paye">—</div>
+      <div class="kpi-sub" id="k-paye-pct">—% du facturé</div>
+    </div>
+    <div class="kpi-card" style="--kc:var(--c-action)">
+      <div class="kpi-label">CA Actions / Rappels</div>
+      <div class="kpi-value" id="k-action">—</div>
+      <div class="kpi-sub" id="k-action-pct">—% du total</div>
+    </div>
+    <div class="kpi-card" style="--kc:var(--c-annul)">
+      <div class="kpi-label">DG annulées déf.</div>
+      <div class="kpi-value" id="k-annul">—</div>
+      <div class="kpi-sub" id="k-annul-nb">— dossiers</div>
+    </div>
+    <div class="kpi-card" style="--kc:var(--c-sauvee)">
+      <div class="kpi-label">DG sauvées</div>
+      <div class="kpi-value" id="k-sauvee">—</div>
+      <div class="kpi-sub" id="k-sauvee-nb">— dossiers</div>
+    </div>
+  </div>
+  <!-- ── KPIs ligne 2 ── -->
+  <div class="kpi-row2">
+    <div class="kpi-card" style="--kc:var(--c-rattrap)">
+      <div class="kpi-label">DG rattrapées</div>
+      <div class="kpi-value" id="k-rattrap">—</div>
+      <div class="kpi-sub" id="k-rattrap-nb">— dossiers</div>
+    </div>
+    <div class="kpi-card" style="--kc:var(--c-incomplet)">
+      <div class="kpi-label">Dossiers incomplets</div>
+      <div class="kpi-value" id="k-incomplet">—</div>
+      <div class="kpi-sub">dossiers renvoyés</div>
+    </div>
+    <div class="kpi-card" style="--kc:var(--c-nonfact)">
+      <div class="kpi-label">Retour non facturable</div>
+      <div class="kpi-value" id="k-nonfact">—</div>
+      <div class="kpi-sub" id="k-nonfact-ca">— €</div>
+    </div>
+    <div class="kpi-card" style="--kc:var(--c-delai)">
+      <div class="kpi-label">Délai moyen réception → soumission</div>
+      <div class="kpi-value" id="k-delai">—</div>
+      <div class="kpi-sub" id="k-delai-sub">jours</div>
+    </div>
+    <div class="kpi-card" style="--kc:var(--warn)">
+      <div class="kpi-label">Dossiers risque actif</div>
+      <div class="kpi-value" id="k-risque">—</div>
+      <div class="kpi-sub">en cours</div>
+    </div>
+  </div>
+
+  <!-- ── Tableau KPIs par KVPs ── -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3>KPIs par KVPs (site)</h3>
+      <span id="kvps-period">—</span>
+    </div>
+    <div class="table-wrap">
+      <table id="kvps-table">
+        <thead>
+          <tr>
+            <th class="th-kvps" rowspan="2">KVPs / Site</th>
+            <th class="th-fact" colspan="4">DG facturées</th>
+            <th class="th-action" colspan="3">Actions / Rappels</th>
+            <th class="th-paye" colspan="2">DG payées</th>
+            <th class="th-annul" colspan="2">Annulées déf.</th>
+            <th class="th-sauvee" colspan="2">DG sauvées</th>
+            <th style="background:#2a1f0d;color:var(--c-rattrap);" colspan="2">Rattrapées</th>
+          </tr>
+          <tr>
+            <th class="th-fact">Nb DG</th>
+            <th class="th-fact">CA facturé €</th>
+            <th class="th-fact">% CA total</th>
+            <th class="th-fact">Taux paiement</th>
+            <th class="th-action">Nb actions</th>
+            <th class="th-action">CA actions €</th>
+            <th class="th-action">% du facturé</th>
+            <th class="th-paye">CA payé €</th>
+            <th class="th-paye">%</th>
+            <th class="th-annul">Nb</th>
+            <th class="th-annul">CA €</th>
+            <th class="th-sauvee">Nb</th>
+            <th class="th-sauvee">CA €</th>
+            <th style="background:#2a1f0d;color:var(--c-rattrap);">Nb</th>
+            <th style="background:#2a1f0d;color:var(--c-rattrap);">CA €</th>
+          </tr>
+        </thead>
+        <tbody id="kvps-body">
+          <tr><td colspan="16" style="text-align:center;padding:30px;color:var(--text3);">Importez une capture SAGA pour commencer</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Charts ligne 1 ── -->
+  <div class="g21">
+    <div class="panel">
+      <div class="panel-head"><h3>CA facturé vs CA actions/rappels par site</h3></div>
+      <div class="panel-body"><canvas id="chart-fact-action"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Répartition des anomalies (nb)</h3></div>
+      <div class="panel-body"><canvas id="chart-anomalies"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── Charts ligne 2 ── -->
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-head"><h3>Évolution mensuelle CA facturé (€)</h3></div>
+      <div class="panel-body"><canvas id="chart-mensuel"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Taux de paiement par site (%)</h3></div>
+      <div class="panel-body"><canvas id="chart-taux"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── Top 10 ── -->
+  <div class="g3">
+    <div class="panel">
+      <div class="panel-head"><h3>🏎 Top 10 modèles en garantie</h3></div>
+      <div class="panel-body"><canvas id="chart-top-modeles"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>🔧 Top 10 codes dommage</h3></div>
+      <div class="panel-body"><canvas id="chart-top-codes"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>🪛 Top 10 pièces remplacées</h3></div>
+      <div class="panel-body"><canvas id="chart-top-pieces"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── Heatmap site × défaut ── -->
+  <div class="panel">
+    <div class="panel-head"><h3>Carte thermique — Défauts par site</h3><span>Nombre de dossiers</span></div>
+    <div class="heatmap panel-body" id="heatmap-container">
+      <p style="color:var(--text3);text-align:center;">Données insuffisantes</p>
+    </div>
+  </div>
+
+  <!-- ── Top conseillers ── -->
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-head"><h3>👤 Conseillers — dossiers retournés / annulés</h3></div>
+      <div class="panel-body"><canvas id="chart-conseillers"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>📅 Ratio DG sauvées vs annulées par mois</h3></div>
+      <div class="panel-body"><canvas id="chart-ratio"></canvas></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+<div id="toast"></div>
+
+<!-- ══════ FIREBASE ══════ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+const firebaseConfig = {
+    apiKey:"AIzaSyDPsep7yTE-UAjGGGSioZfVAozGEo_lSmSQ",
+    authDomain:"demande-kulanzccr.firebaseapp.com",
+    databaseURL:"https://demande-kulanzccr-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId:"demande-kulanzccr",
+    storageBucket:"demande-kulanzccr.firebasestorage.app",
+    messagingSenderId:"128572691256",
+    appId:"1:128572691256:web:43cd3e057b5287199967cd"
+  };
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+window._db=db; window._ref=ref; window._push=push;
+onValue(ref(db,'saga_lignes'), snap => {
+  window._saga={};
+  const v=snap.val(); if(v) Object.entries(v).forEach(([k,d])=>{window._saga[k]={_id:k,...d};});
+  refresh();
+},{onlyOnce:false});
+onValue(ref(db,'controle_garantie'), snap => {
+  window._ctrl={};
+  const v=snap.val(); if(v) Object.entries(v).forEach(([k,d])=>{window._ctrl[k]={_id:k,...d};});
+  refresh();
+},{onlyOnce:false});
+</script>
+
+<!-- ══════ SCRIPT ══════ -->
+<script>
+window._saga={}; window._ctrl={};
+let _ch={};
+const SITES=['Seat_Hoenheim','Skoda_Hoenheim','VW_Bischheim','VW_Illkirch','VW_Obernai','Audi_Hoenheim','Audi_Obernai'];
+const COLORS=['#00d4a8','#0099ff','#f5a623','#ff4d6a','#a78bfa','#34d399','#fb923c'];
+const MOIS_NAMES=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+const fmt=v=>v>0?v.toLocaleString('fr-FR',{maximumFractionDigits:0})+' €':'— €';
+const fmtn=v=>v.toLocaleString('fr-FR',{maximumFractionDigits:0});
+const pct=(a,b)=>b>0?Math.round(a/b*100)+'%':'—';
+const mon=s=>parseFloat((s||'0').toString().replace(',','.'))||0;
+
+// ── Capture d'écran native ──
+let _capturedBlob = null;
+window.startCapture = async function() {
+  try {
+    document.getElementById('cap-modal').classList.add('open');
+    document.getElementById('cap-status').textContent = 'Sélectionnez la fenêtre SAGA dans le sélecteur...';
+    document.getElementById('cap-preview').style.display='none';
+    document.getElementById('cap-confirm').style.display='none';
+
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video:{ cursor:'never' }, audio:false });
+    const track = stream.getVideoTracks()[0];
+    const imageCapture = new ImageCapture(track);
+    const bitmap = await imageCapture.grabFrame();
+    stream.getTracks().forEach(t=>t.stop());
+
+    const canvas = document.createElement('canvas');
+    canvas.width=bitmap.width; canvas.height=bitmap.height;
+    canvas.getContext('2d').drawImage(bitmap,0,0);
+    canvas.toBlob(blob => {
+      _capturedBlob = blob;
+      const url = URL.createObjectURL(blob);
+      const img = document.getElementById('cap-preview');
+      img.src=url; img.style.display='block';
+      document.getElementById('cap-status').textContent = 'Aperçu — confirmez pour importer';
+      document.getElementById('cap-confirm').style.display='flex';
+    },'image/png');
+  } catch(err) {
+    document.getElementById('cap-status').textContent = 'Capture annulée ou non supportée sur ce navigateur.';
+    console.error(err);
+  }
+};
+
+window.confirmCapture = function() {
+  if (_capturedBlob) {
+    document.getElementById('cap-modal').classList.remove('open');
+    importSaga(_capturedBlob);
+  }
+};
+
+// Ctrl+V
+document.addEventListener('paste',e=>{
+  const items=e.clipboardData?.items;
+  if(!items) return;
+  for(const item of items){ if(item.type.startsWith('image/')){ importSaga(item.getAsFile()); break; } }
+});
+
+// ── Import SAGA OCR ──
+window.importSaga = async function(file) {
+  if(!file) return;
+  const key=localStorage.getItem('gea_anthropic_key');
+  if(!key){ toast('Clé API non configurée','error'); return; }
+  const lbl=document.getElementById('import-label'), spn=document.getElementById('import-spinner');
+  lbl.textContent='Extraction en cours...'; spn.style.display='block';
+  try {
+    const b64 = await compressImage(file);
+    try {
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4000,messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/png',data:b64}},
+          {type:'text',text:`Capture SAGA/2 liste des demandes de garanties VW Group.
+Extrais TOUTES les lignes du tableau. Retourne UNIQUEMENT un tableau JSON:
+[{"fabricant":"V-0100","vin":"VIN","nor":"620239 01","date_reception":"JJ.MM.AAAA","date_reparation":"JJ.MM.AAAA","date_soumission":"JJ.MM.AAAA","valeur_demande":106.25,"valeur_payee":null,"code_dommage":"69DV","code_avarie":"0099","type_demande":"7-10","niveau_traitement":"Demande remboursée","partenaire":"02153","est_action":false}]
+est_action=true si type_demande contient "action" ou "rappel" ou code type commence par "M" ou "R".
+null si non visible. Toutes les lignes.`}
+        ]}]})
+      });
+      const data=await res.json();
+      const txt=data.content[0].text.replace(/```json|```/g,'').trim();
+      const lignes=JSON.parse(txt);
+      if(!Array.isArray(lignes)||!lignes.length) throw new Error('Aucune ligne');
+      let saved=0;
+      for(const l of lignes){
+        if(!l.nor) continue;
+        l._import_ts=Date.now();
+        const dp=l.date_reception||'';
+        l._annee=dp.slice(-4)||new Date().getFullYear().toString();
+        l._mois=dp.slice(3,5)||'';
+        await window._push(window._ref(window._db,'saga_lignes'),l);
+        saved++;
+      }
+      lbl.textContent=`✓ ${saved} lignes importées depuis SAGA`;
+      document.getElementById('last-sync').textContent='Sync '+new Date().toLocaleTimeString('fr-FR');
+      toast(`${saved} lignes importées`,'success');
+    } catch(err){ lbl.textContent='Erreur — réessayez'; toast('Erreur: '+err.message,'error'); console.error(err); }
+    finally{ spn.style.display='none'; }
+  } catch(outerErr){ toast('Erreur lecture image','error'); spn.style.display='none'; }
+};
+
+// ── Refresh ──
+window.refresh=function(){
+  const annee=document.getElementById('f-annee').value;
+  const mois=document.getElementById('f-mois').value;
+  const site=document.getElementById('f-site').value;
+
+  let saga=Object.values(window._saga);
+  let ctrl=Object.values(window._ctrl);
+
+  if(annee) saga=saga.filter(d=>d._annee===annee||(d.date_reception||'').includes(annee));
+  if(mois)  saga=saga.filter(d=>d._mois===mois);
+  saga=saga.map(s=>({...s,_site:ctrl.find(c=>c.vin===s.vin||c.nor===s.nor?.split(' ')[0])?.site||siteFrom(s.partenaire)||''}));
+  if(site)  saga=saga.filter(d=>d._site===site);
+  if(site)  ctrl=ctrl.filter(d=>d.site===site);
+
+  document.getElementById('kvps-period').textContent=(mois?mois+'/':'')+annee+(site?' — '+site:' — Tous sites');
+
+  renderKPIs(saga,ctrl);
+  renderKVPsTable(saga,ctrl,annee,mois,site);
+  renderCharts(saga,ctrl);
+  renderHeatmap(ctrl);
+};
+
+// ── KPIs ──
+function renderKPIs(saga,ctrl){
+  const caFact=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
+  const caPaye=saga.reduce((t,d)=>t+mon(d.valeur_payee),0);
+  const caAction=saga.filter(d=>d.est_action).reduce((t,d)=>t+mon(d.valeur_demande),0);
+  const nbAction=saga.filter(d=>d.est_action).length;
+
+  const ctrlMon=type=>ctrl.filter(c=>c[type]==='oui').reduce((t,c)=>t+mon(c.montant),0);
+  const ctrlNb=type=>ctrl.filter(c=>c[type]==='oui').length;
+
+  const caAnnul=ctrlMon('annul'), nbAnnul=ctrlNb('annul');
+  const caSauv=ctrlMon('sauvee'), nbSauv=ctrlNb('sauvee');
+  const caRatt=ctrlMon('rattrapage'), nbRatt=ctrlNb('rattrapage');
+  const nbInco=ctrlNb('incomplet');
+  const nbNonf=ctrlNb('nonfact'), caNonf=ctrlMon('nonfact');
+  const nbRisque=ctrl.filter(c=>c.risque==='oui').length;
+
+  // Délai moyen
+  const delais=saga.map(d=>{
+    if(!d.date_reception||!d.date_soumission) return null;
+    const p=s=>{const x=s.split('.');return x.length===3?new Date(`${x[2]}-${x[1]}-${x[0]}`):null;};
+    const d1=p(d.date_reception),d2=p(d.date_soumission);
+    if(!d1||!d2) return null;
+    return Math.round((d2-d1)/86400000);
+  }).filter(x=>x!==null&&x>=0&&x<365);
+  const mDelai=delais.length?Math.round(delais.reduce((a,b)=>a+b,0)/delais.length):null;
+
+  // Taux paiement
+  const tauxPct=caFact>0?Math.round(caPaye/caFact*100):0;
+  const tauxClass=tauxPct>=95?'trend-ok':tauxPct>=80?'trend-warn':'trend-bad';
+
+  document.getElementById('k-fact').textContent=fmt(caFact);
+  document.getElementById('k-fact-nb').textContent=saga.length+' dossiers';
+  document.getElementById('k-paye').textContent=fmt(caPaye);
+  document.getElementById('k-paye-pct').innerHTML=`<span class="${tauxClass}">${tauxPct}% du facturé</span>`;
+  document.getElementById('k-action').textContent=fmt(caAction);
+  document.getElementById('k-action-pct').textContent=nbAction+' dossiers ('+pct(caAction,caFact)+')';
+  document.getElementById('k-annul').textContent=fmt(caAnnul);
+  document.getElementById('k-annul-nb').textContent=nbAnnul+' dossiers';
+  document.getElementById('k-sauvee').textContent=fmt(caSauv);
+  document.getElementById('k-sauvee-nb').textContent=nbSauv+' dossiers';
+  document.getElementById('k-rattrap').textContent=fmt(caRatt);
+  document.getElementById('k-rattrap-nb').textContent=nbRatt+' dossiers';
+  document.getElementById('k-incomplet').textContent=nbInco;
+  document.getElementById('k-nonfact').textContent=nbNonf;
+  document.getElementById('k-nonfact-ca').textContent=fmt(caNonf);
+  document.getElementById('k-delai').textContent=mDelai!==null?mDelai:'—';
+  document.getElementById('k-delai-sub').textContent=delais.length?'jours ('+delais.length+' dossiers)':'jours';
+  document.getElementById('k-risque').textContent=nbRisque;
+}
+
+// ── KVPs Table ──
+function renderKVPsTable(saga,ctrl,annee,mois,site){
+  const siteList=[...new Set([...SITES,...saga.map(d=>d._site).filter(Boolean)])];
+  const rows=[];
+  const totFact=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
+
+  siteList.forEach(s=>{
+    const ss=saga.filter(d=>d._site===s);
+    const cs=ctrl.filter(c=>c.site===s);
+    if(!ss.length&&!cs.length) return;
+    const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
+    const caP=ss.reduce((t,d)=>t+mon(d.valeur_payee),0);
+    const ssA=ss.filter(d=>d.est_action);
+    const caA=ssA.reduce((t,d)=>t+mon(d.valeur_demande),0);
+    const nbAnn=cs.filter(c=>c.annul==='oui').length;
+    const caAnn=cs.filter(c=>c.annul==='oui').reduce((t,c)=>t+mon(c.montant),0);
+    const nbSav=cs.filter(c=>c.sauvee==='oui').length;
+    const caSav=cs.filter(c=>c.sauvee==='oui').reduce((t,c)=>t+mon(c.montant),0);
+    const nbRat=cs.filter(c=>c.rattrapage==='oui').length;
+    const caRat=cs.filter(c=>c.rattrapage==='oui').reduce((t,c)=>t+mon(c.montant),0);
+    rows.push({s,nb:ss.length,caF,caP,nbA:ssA.length,caA,nbAnn,caAnn,nbSav,caSav,nbRat,caRat});
+  });
+
+  const tot={s:'TOTAL',nb:rows.reduce((t,r)=>t+r.nb,0),caF:rows.reduce((t,r)=>t+r.caF,0),caP:rows.reduce((t,r)=>t+r.caP,0),nbA:rows.reduce((t,r)=>t+r.nbA,0),caA:rows.reduce((t,r)=>t+r.caA,0),nbAnn:rows.reduce((t,r)=>t+r.nbAnn,0),caAnn:rows.reduce((t,r)=>t+r.caAnn,0),nbSav:rows.reduce((t,r)=>t+r.nbSav,0),caSav:rows.reduce((t,r)=>t+r.caSav,0),nbRat:rows.reduce((t,r)=>t+r.nbRat,0),caRat:rows.reduce((t,r)=>t+r.caRat,0)};
+
+  const rr=(r,isTot=false)=>`<tr class="${isTot?'tr-total':''}">
+    <td class="mono" style="font-weight:600;color:var(--text);">${r.s.replace('_',' ')}</td>
+    <td class="mono td-fact">${r.nb}</td>
+    <td class="mono td-fact">${fmt(r.caF)}</td>
+    <td class="pct">${pct(r.caF,totFact)}</td>
+    <td class="pct ${r.caF>0?(Math.round(r.caP/r.caF*100)>=95?'td-paye':Math.round(r.caP/r.caF*100)>=80?'td-rattrap':'td-annul'):''}">${pct(r.caP,r.caF)}</td>
+    <td class="mono td-action">${r.nbA}</td>
+    <td class="mono td-action">${fmt(r.caA)}</td>
+    <td class="pct">${pct(r.caA,r.caF)}</td>
+    <td class="mono td-paye">${fmt(r.caP)}</td>
+    <td class="pct">${pct(r.caP,r.caF)}</td>
+    <td class="mono td-annul">${r.nbAnn}</td>
+    <td class="mono td-annul">${fmt(r.caAnn)}</td>
+    <td class="mono td-sauvee">${r.nbSav}</td>
+    <td class="mono td-sauvee">${fmt(r.caSav)}</td>
+    <td class="mono td-rattrap">${r.nbRat}</td>
+    <td class="mono td-rattrap">${fmt(r.caRat)}</td>
+  </tr>`;
+
+  document.getElementById('kvps-body').innerHTML=rows.length
+    ?rows.map(r=>rr(r)).join('')+rr(tot,true)
+    :'<tr><td colspan="16" style="text-align:center;padding:30px;color:var(--text3);">Importez une capture SAGA</td></tr>';
+}
+
+// ── Charts ──
+function renderCharts(saga,ctrl){
+  const dc=(id)=>{if(_ch[id]){_ch[id].destroy();delete _ch[id];}};
+  const BASE={responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e2535',borderColor:'#2a3347',borderWidth:1,titleColor:'#e2e8f0',bodyColor:'#8a9ab5',titleFont:{family:'IBM Plex Sans',size:11},bodyFont:{family:'IBM Plex Mono',size:12}}},scales:{x:{ticks:{color:'#5a6a82',font:{size:10}},grid:{color:'#2a334720'},border:{display:false}},y:{ticks:{color:'#5a6a82',font:{size:10}},grid:{color:'#2a334740'},border:{display:false}}}};
+  const BASEY={...BASE,indexAxis:'y',scales:{x:{...BASE.scales.x},y:{...BASE.scales.y,ticks:{color:'#5a6a82',font:{size:10},maxTicksLimit:10}}}};
+
+  // CA facturé vs actions par site
+  dc('chart-fact-action');
+  const caFSite=SITES.map(s=>saga.filter(d=>d._site===s).reduce((t,d)=>t+mon(d.valeur_demande),0));
+  const caASite=SITES.map(s=>saga.filter(d=>d._site===s&&d.est_action).reduce((t,d)=>t+mon(d.valeur_demande),0));
+  _ch['chart-fact-action']=new Chart(document.getElementById('chart-fact-action'),{type:'bar',data:{labels:SITES.map(s=>s.replace('_',' ')),datasets:[{label:'CA Garantie',data:caFSite.map(v=>Math.round(v)),backgroundColor:'#378add25',borderColor:'#378add',borderWidth:1.5,borderRadius:4},{label:'CA Actions',data:caASite.map(v=>Math.round(v)),backgroundColor:'#a78bfa25',borderColor:'#a78bfa',borderWidth:1.5,borderRadius:4}]},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'top',labels:{color:'#8a9ab5',font:{size:11},boxWidth:12}}}}});
+
+  // Anomalies donut
+  dc('chart-anomalies');
+  const an=[ctrl.filter(c=>c.rattrapage==='oui').length,ctrl.filter(c=>c.incomplet==='oui').length,ctrl.filter(c=>c.nonfact==='oui').length,ctrl.filter(c=>c.annul==='oui').length,ctrl.filter(c=>c.sauvee==='oui').length,ctrl.filter(c=>c.risque==='oui').length,ctrl.filter(c=>c.temps==='oui').length];
+  _ch['chart-anomalies']=new Chart(document.getElementById('chart-anomalies'),{type:'doughnut',data:{labels:['Rattrap.','Incomplets','Non fact.','Annulés','Sauvées','Risque','Temps supp.'],datasets:[{data:an,backgroundColor:['#f5c842','#ffe066','#4a9eff','#ff4d6a','#2ecc71','#f5a623','#a78bfa'],borderWidth:0,hoverOffset:4}]},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#8a9ab5',font:{size:10},padding:8,boxWidth:10}}},scales:{}}});
+
+  // Mensuel
+  dc('chart-mensuel');
+  const mData=['01','02','03','04','05','06','07','08','09','10','11','12'].map(m=>Math.round(saga.filter(d=>d._mois===m).reduce((t,d)=>t+mon(d.valeur_demande),0)));
+  _ch['chart-mensuel']=new Chart(document.getElementById('chart-mensuel'),{type:'bar',data:{labels:MOIS_NAMES,datasets:[{data:mData,backgroundColor:'#00d4a820',borderColor:'#00d4a8',borderWidth:1.5,borderRadius:4}]},options:BASE});
+
+  // Taux paiement
+  dc('chart-taux');
+  const taux=SITES.map(s=>{const ss=saga.filter(d=>d._site===s);const f=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);const p=ss.reduce((t,d)=>t+mon(d.valeur_payee),0);return f>0?Math.round(p/f*100):0;});
+  _ch['chart-taux']=new Chart(document.getElementById('chart-taux'),{type:'bar',data:{labels:SITES.map(s=>s.replace('_',' ')),datasets:[{data:taux,backgroundColor:taux.map(v=>v>=95?'#2ecc7130':v>=80?'#f5a62330':'#ff4d6a30'),borderColor:taux.map(v=>v>=95?'#2ecc71':v>=80?'#f5a623':'#ff4d6a'),borderWidth:1.5,borderRadius:4}]},options:{...BASE,scales:{...BASE.scales,y:{...BASE.scales.y,max:100,ticks:{callback:v=>v+'%',color:'#5a6a82',font:{size:10}}}}}});
+
+  // Top 10 modèles (depuis ctrl)
+  dc('chart-top-modeles');
+  const modCount={};
+  ctrl.forEach(c=>{if(c.modele){const k=(c.modele||'').split(' ').slice(0,3).join(' ');modCount[k]=(modCount[k]||0)+1;}});
+  const top10mod=Object.entries(modCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _ch['chart-top-modeles']=new Chart(document.getElementById('chart-top-modeles'),{type:'bar',data:{labels:top10mod.map(e=>e[0]),datasets:[{data:top10mod.map(e=>e[1]),backgroundColor:'#0099ff20',borderColor:'#0099ff',borderWidth:1.5,borderRadius:3}]},options:{...BASEY}});
+
+  // Top 10 codes dommage (depuis SAGA)
+  dc('chart-top-codes');
+  const codeCount={};
+  saga.forEach(d=>{if(d.code_dommage){codeCount[d.code_dommage]=(codeCount[d.code_dommage]||0)+1;}});
+  const top10cod=Object.entries(codeCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _ch['chart-top-codes']=new Chart(document.getElementById('chart-top-codes'),{type:'bar',data:{labels:top10cod.map(e=>e[0]),datasets:[{data:top10cod.map(e=>e[1]),backgroundColor:'#f5a62320',borderColor:'#f5a623',borderWidth:1.5,borderRadius:3}]},options:{...BASEY}});
+
+  // Top 10 pièces (depuis ctrl)
+  dc('chart-top-pieces');
+  const pieceCount={};
+  ctrl.forEach(c=>{if(c.intervention){const k=(c.intervention||'').toLowerCase().trim().slice(0,30);pieceCount[k]=(pieceCount[k]||0)+1;}});
+  const top10piec=Object.entries(pieceCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _ch['chart-top-pieces']=new Chart(document.getElementById('chart-top-pieces'),{type:'bar',data:{labels:top10piec.map(e=>e[0]),datasets:[{data:top10piec.map(e=>e[1]),backgroundColor:'#2ecc7120',borderColor:'#2ecc71',borderWidth:1.5,borderRadius:3}]},options:{...BASEY}});
+
+  // Conseillers — dossiers problèmes
+  dc('chart-conseillers');
+  const consCount={};
+  ctrl.filter(c=>c.annul==='oui'||c.nonfact==='oui'||c.incomplet==='oui').forEach(c=>{if(c.ccs){consCount[c.ccs]=(consCount[c.ccs]||0)+1;}});
+  const top5cons=Object.entries(consCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  _ch['chart-conseillers']=new Chart(document.getElementById('chart-conseillers'),{type:'bar',data:{labels:top5cons.map(e=>e[0].split(' ').pop()),datasets:[{data:top5cons.map(e=>e[1]),backgroundColor:'#ff4d6a20',borderColor:'#ff4d6a',borderWidth:1.5,borderRadius:3}]},options:{...BASEY}});
+
+  // Ratio sauvées vs annulées par mois
+  dc('chart-ratio');
+  const mSauv=['01','02','03','04','05','06','07','08','09','10','11','12'].map(m=>ctrl.filter(c=>c.sauvee==='oui'&&(c._ts||0)&&new Date(c._ts).getMonth()===parseInt(m)-1).length);
+  const mAnnu=['01','02','03','04','05','06','07','08','09','10','11','12'].map(m=>ctrl.filter(c=>c.annul==='oui'&&(c._ts||0)&&new Date(c._ts).getMonth()===parseInt(m)-1).length);
+  _ch['chart-ratio']=new Chart(document.getElementById('chart-ratio'),{type:'bar',data:{labels:MOIS_NAMES,datasets:[{label:'Sauvées',data:mSauv,backgroundColor:'#2ecc7130',borderColor:'#2ecc71',borderWidth:1.5,borderRadius:4},{label:'Annulées',data:mAnnu,backgroundColor:'#ff4d6a30',borderColor:'#ff4d6a',borderWidth:1.5,borderRadius:4}]},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'top',labels:{color:'#8a9ab5',font:{size:11},boxWidth:12}}}}});
+}
+
+// ── Heatmap site × défaut ──
+function renderHeatmap(ctrl){
+  const DEFAUTS_TOP=['Photo/vidéo manquante','Commentaire incomplet','Protocole non conforme','IQ non conforme','TPI non appliquée','Kilométrage erroné','Ticket clim absent','Mise hors tension'];
+  const map={};
+  SITES.forEach(s=>{map[s]={};DEFAUTS_TOP.forEach(d=>{map[s][d]=0;});});
+  ctrl.forEach(c=>{
+    if(!c.site||!c.defaut1) return;
+    const d=DEFAUTS_TOP.find(x=>c.defaut1.includes(x.split('/')[0].split(' ')[0]));
+    if(d&&map[c.site]) map[c.site][d]=(map[c.site][d]||0)+1;
+  });
+  const maxVal=Math.max(1,...SITES.flatMap(s=>DEFAUTS_TOP.map(d=>map[s]?.[d]||0)));
+  const heat=(v)=>{
+    if(!v) return 'background:var(--bg3);color:var(--text3);';
+    const i=v/maxVal;
+    if(i>0.7) return 'background:#3d0010;color:#ff4d6a;';
+    if(i>0.4) return 'background:#2e1a00;color:#f5a623;';
+    return 'background:#1a2e18;color:#2ecc71;';
+  };
+  const html=`<table style="width:100%;border-collapse:collapse;">
+    <thead><tr><th style="background:var(--bg3);color:var(--text3);padding:8px;font-size:10px;text-align:left;">Site</th>${DEFAUTS_TOP.map(d=>`<th style="background:var(--bg3);color:var(--text3);padding:8px;font-size:10px;white-space:nowrap;">${d}</th>`).join('')}</tr></thead>
+    <tbody>${SITES.map(s=>`<tr><td style="padding:8px;font-size:11px;font-weight:600;color:var(--text);border-right:1px solid var(--border);">${s.replace('_',' ')}</td>${DEFAUTS_TOP.map(d=>`<td class="hm-cell" style="${heat(map[s]?.[d]||0)}">${map[s]?.[d]||0}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table>`;
+  document.getElementById('heatmap-container').innerHTML=html;
+}
+
+function siteFrom(code){
+  const m={'02153':'VW_Illkirch','02154':'VW_Bischheim','02155':'Audi_Hoenheim','02156':'Seat_Hoenheim','02157':'Skoda_Hoenheim','02158':'Audi_Obernai','02159':'VW_Obernai'};
+  return m[code]||'';
+}
+
+window.exportCSV=function(){
+  const data=Object.values(window._saga);
+  const cols=['fabricant','vin','nor','date_reception','date_reparation','date_soumission','valeur_demande','valeur_payee','code_dommage','code_avarie','type_demande','niveau_traitement','partenaire','_site','est_action','_annee','_mois'];
+  const heads=['FABRICANT','VIN','N°DEMANDE','DATE RECEP','DATE REPAR','DATE SOUM','CA DEMANDE','CA PAYE','CODE DOM','CODE AVARIE','TYPE','NIVEAU','PARTENAIRE','SITE','EST_ACTION','ANNEE','MOIS'];
+  const rows=[heads,...data.map(d=>cols.map(c=>d[c]??''))];
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download='dashboard-couts-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+};
+
+
+// ── Compression image avant envoi API ──
+function compressImage(file, maxW=1400) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+window.toast=function(msg,type='info'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='show '+type;
+  clearTimeout(t._t);t._t=setTimeout(()=>{t.className='';},3000);
+};
+</script>
+</body>
+</html>
