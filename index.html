@@ -651,13 +651,13 @@ window.handleOcr = async function(file) {
   const lbl=document.getElementById('ocr-label'), spn=document.getElementById('ocr-spinner');
   lbl.textContent='Extraction en cours...'; spn.style.display='block';
   try {
-    const b64 = await compressImage(file);
+    const {b64, mime} = await compressImage(file);
     try {
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:'image/png',data:b64}},
+          {type:'image',source:{type:'base64',media_type:mime||'image/jpeg',data:b64}},
           {type:'text',text:`Capture DCSnet Neo ou SAGA/2. Retourne UNIQUEMENT JSON:
 {"site":"concession ex GARANTIE ILLKIRCH","nor":"numéro OR","vin":"VIN 17 car","ccs":"nom conseiller sans numéro","tech1":"technicien","montant":"montant chiffres","intervention":"pièce ou intervention","date":"date JJ/MM/AAAA"}
 null si non visible.`}
@@ -712,7 +712,8 @@ function compressImage(file, maxW=1400) {
         canvas.width  = Math.round(img.width  * scale);
         canvas.height = Math.round(img.height * scale);
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
+        // Toujours JPEG pour l'API Anthropic
+        resolve({ b64: canvas.toDataURL('image/jpeg', 0.82).split(',')[1], mime: 'image/jpeg' });
       };
       img.src = e.target.result;
     };

@@ -718,13 +718,15 @@
   // ══════════════════════════════════════════════
   // FILE HANDLING
   // ══════════════════════════════════════════════
-  window.handleFile = function(file) {
+  window.handleFile = async function(file) {
     if (!file) return;
+    const {b64, mime} = await compressImage(file);
+    currentImageB64 = b64;
+    window._currentMime = mime;
+    // Aperçu
     const reader = new FileReader();
     reader.onload = (e) => {
-      const dataUrl = e.target.result;
-      currentImageB64 = dataUrl.split(',')[1];
-      document.getElementById('preview-img').src = dataUrl;
+      document.getElementById('preview-img').src = e.target.result;
       document.getElementById('preview-wrap').style.display = 'block';
       document.getElementById('btn-analyze').disabled = false;
     };
@@ -840,7 +842,7 @@ Si un champ n'est pas visible ou lisible dans la ligne, mets null. Ne devine pas
                 type: 'image',
                 source: {
                   type: 'base64',
-                  media_type: 'image/png',
+                  media_type: window._currentMime||'image/jpeg',
                   data: currentImageB64
                 }
               },
@@ -1001,7 +1003,8 @@ function compressImage(file, maxW=1400) {
         canvas.width  = Math.round(img.width  * scale);
         canvas.height = Math.round(img.height * scale);
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
+        // Toujours JPEG pour l'API Anthropic
+        resolve({ b64: canvas.toDataURL('image/jpeg', 0.82).split(',')[1], mime: 'image/jpeg' });
       };
       img.src = e.target.result;
     };
