@@ -451,7 +451,7 @@ window.importSaga = async function(file) {
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:8000,messages:[{role:'user',content:[
+        body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:8000,messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:mime||'image/jpeg',data:b64}},
           {type:'text',text:`Capture SAGA/2 liste des demandes de garanties VW Group.
 Colonnes du tableau dans l'ordre : Fabricant | VIN | N Demande | N TPI | Date reception | Date reparation | Date soumission | Justifie | Valeur demande | Valeur note credit | Type demande | Code dommage | Code avarie | Code reparation | Numero cas | Code-barres | Niveau traitement
