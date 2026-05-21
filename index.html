@@ -287,9 +287,13 @@ tbody td.mono { color:var(--text); font-weight:500; font-family:'IBM Plex Mono',
           <label>Site *</label>
           <select id="m-site">
             <option value="">— Sélectionner —</option>
-            <option>Skoda_Hoenheim</option><option>Seat_Hoenheim</option>
-            <option>VW_Illkirch</option><option>VW_Bischheim</option>
-            <option>VW_Obernai</option><option>Audi_Hoenheim</option><option>Audi_Obernai</option>
+            <option value="VW_Illkirch">VW Illkirch (02153)</option>
+            <option value="VW_Bischheim">VW Bischheim (02154)</option>
+            <option value="Audi_Hoenheim">Audi Hoenheim (02155)</option>
+            <option value="Seat_Hoenheim">SEAT Hoenheim (63930)</option>
+            <option value="Skoda_Hoenheim">Skoda Hoenheim (02376)</option>
+            <option value="Audi_Obernai">Audi Obernai (02486)</option>
+            <option value="VW_Obernai">VW Obernai (02485)</option>
           </select>
         </div>
         <div class="field">
@@ -658,9 +662,19 @@ window.handleOcr = async function(file) {
         headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:mime||'image/jpeg',data:b64}},
-          {type:'text',text:`Capture DCSnet Neo ou SAGA/2. Retourne UNIQUEMENT JSON:
-{"site":"concession ex GARANTIE ILLKIRCH","nor":"numéro OR","vin":"VIN 17 car","ccs":"nom conseiller sans numéro","tech1":"technicien","montant":"montant chiffres","intervention":"pièce ou intervention","date":"date JJ/MM/AAAA"}
-null si non visible.`}
+          {type:'text',text:`Tu analyses une capture DCSnet Neo (concessions Grand Est Automobiles).
+RÈGLES IMPORTANTES :
+- N°OR = CHIFFRES uniquement après le label "N°OR" dans le bandeau turquoise (ex: 714296). NE PAS mettre le nom du conseiller ici.
+- CCS = NOM du conseiller SANS le numéro de tête (ex: "19 Jeremy Le Brech" → "Jeremy Le Brech")
+- VIN = 17 caractères alphanumériques dans le bloc véhicule
+- site = texte dans la section IMPUTATIONS en bas de page (ex: "GARANTIE BISCHHEIM")
+- montant = chiffres uniquement depuis les lignes de pièces (ex: 382.20)
+- intervention = désignation de la pièce principale remplacée
+- date = date de l'OR ou date livraison format JJ/MM/AAAA
+
+Retourne UNIQUEMENT ce JSON sans markdown ni texte autour :
+{"site":null,"nor":null,"vin":null,"ccs":null,"tech1":null,"montant":null,"intervention":null,"date":null}
+Remplace null par les vraies valeurs trouvées dans l'image.`}
         ]}]})
       });
       const d=await res.json();
@@ -721,6 +735,11 @@ function compressImage(file, maxW=1400) {
   });
 }
 
+
+function siteFrom(code){
+  const m={'02153':'VW_Illkirch','02154':'VW_Bischheim','02155':'Audi_Hoenheim','63930':'Seat_Hoenheim','02376':'Skoda_Hoenheim','02486':'Audi_Obernai','02485':'VW_Obernai'};
+  return m[code]||'';
+}
 window.toast=function(msg,type='info'){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='show '+type;
