@@ -451,17 +451,32 @@ window.importSaga = async function(file) {
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4000,messages:[{role:'user',content:[
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:8000,messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:mime||'image/jpeg',data:b64}},
           {type:'text',text:`Capture SAGA/2 liste des demandes de garanties VW Group.
-Extrais TOUTES les lignes du tableau. Retourne UNIQUEMENT un tableau JSON:
-[{"fabricant":"V-0100","vin":"VIN","nor":"620239 01","date_reception":"JJ.MM.AAAA","date_reparation":"JJ.MM.AAAA","date_soumission":"JJ.MM.AAAA","valeur_demande":106.25,"valeur_payee":null,"code_dommage":"69DV","code_avarie":"0099","type_demande":"7-10","niveau_traitement":"Demande remboursée","partenaire":"02153","est_action":false}]
-est_action=true si type_demande contient "action" ou "rappel" ou code type commence par "M" ou "R".
-null si non visible. Toutes les lignes.`}
+Colonnes du tableau dans l'ordre : Fabricant | VIN | N Demande | N TPI | Date reception | Date reparation | Date soumission | Justifie | Valeur demande | Valeur note credit | Type demande | Code dommage | Code avarie | Code reparation | Numero cas | Code-barres | Niveau traitement
+
+Extrais TOUTES les lignes visibles. Retourne UNIQUEMENT un tableau JSON valide.
+IMPORTANT: utilise des guillemets doubles, pas d'apostrophes dans les valeurs.
+Format strict:
+[{"fabricant":"C-0360","vin":"TMBLC7NS3H8023616","nor":"714341 01","date_reception":"23.04.2026","date_reparation":"25.04.2026","date_soumission":"27.04.2026","valeur_demande":100.77,"valeur_payee":119.41,"code_dommage":"69EY","code_avarie":"0099","type_demande":"7-10","niveau_traitement":"Demande remboursee","partenaire":"02376","est_action":false}]
+- valeur_demande et valeur_payee = nombres decimaux (point comme separateur)
+- est_action = true si type commence par M ou R
+- niveau_traitement: remplacer apostrophes par "e" (remboursee pas remboursée)
+- null si non visible`}
         ]}]})
       });
       const data=await res.json();
-      const txt=data.content[0].text.replace(/```json|```/g,'').trim();
+      if(data.error) throw new Error(data.error.message);
+      let txt=data.content[0].text.trim();
+      // Nettoyer le JSON
+      txt=txt.replace(/```json|```/g,'').trim();
+      // Extraire le tableau JSON même si entouré de texte
+      const match=txt.match(/\[[\s\S]*\]/);
+      if(!match) throw new Error('Pas de tableau JSON dans la réponse');
+      txt=match[0];
+      // Remplacer les apostrophes problématiques dans les valeurs string
+      txt=txt.replace(/:\s*"([^"]*)'/g,(m,p1)=>`:"${p1.replace(/'/g,"")}`);
       const lignes=JSON.parse(txt);
       if(!Array.isArray(lignes)||!lignes.length) throw new Error('Aucune ligne');
       let saved=0;
