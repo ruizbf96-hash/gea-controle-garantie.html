@@ -118,6 +118,10 @@ tbody td.mono { color:var(--text); font-weight:500; font-family:'IBM Plex Mono',
   background:var(--bg3); color:var(--text); font-size:13px;
   font-family:'IBM Plex Sans',sans-serif; transition:border-color .15s;
 }
+.field input::placeholder, .field textarea::placeholder {
+  color:var(--text3);
+  opacity:.5;
+}
 .field input:focus, .field select:focus, .field textarea:focus { outline:none; border-color:var(--accent2); }
 .field textarea { resize:vertical; min-height:56px; }
 .field input.ocr-filled { border-color:#00c89650; background:#0d2a22; }
@@ -298,7 +302,7 @@ tbody td.mono { color:var(--text); font-weight:500; font-family:'IBM Plex Mono',
         </div>
         <div class="field">
           <label>N° OR *</label>
-          <input type="text" id="m-nor" placeholder="619861">
+          <input type="text" id="m-nor" placeholder="">
         </div>
         <div class="field">
           <label>Date OR</label>
@@ -306,23 +310,23 @@ tbody td.mono { color:var(--text); font-weight:500; font-family:'IBM Plex Mono',
         </div>
         <div class="field">
           <label>Châssis (VIN)</label>
-          <input type="text" id="m-vin" placeholder="VSSZZZK...">
+          <input type="text" id="m-vin" placeholder="">
         </div>
         <div class="field">
           <label>Modèle</label>
-          <input type="text" id="m-modele" placeholder="AUDI Q3 45 TFSI e 245ch">
+          <input type="text" id="m-modele" placeholder="">
         </div>
         <div class="field">
           <label>Nom du CCS</label>
-          <input type="text" id="m-ccs" placeholder="OURY Aurélien">
+          <input type="text" id="m-ccs" placeholder="">
         </div>
         <div class="field">
           <label>Montant du dossier (€)</label>
-          <input type="text" id="m-montant" placeholder="800">
+          <input type="text" id="m-montant" placeholder="">
         </div>
         <div class="field">
           <label>Technicien 1</label>
-          <input type="text" id="m-tech1" placeholder="GERRER Sébastien">
+          <input type="text" id="m-tech1" placeholder="">
         </div>
         <div class="field">
           <label>Technicien 2</label>
@@ -330,7 +334,7 @@ tbody td.mono { color:var(--text); font-weight:500; font-family:'IBM Plex Mono',
         </div>
         <div class="field">
           <label>Heures non facturées</label>
-          <input type="text" id="m-heures" placeholder="0">
+          <input type="text" id="m-heures" placeholder="">
         </div>
       </div>
     </div>
@@ -349,7 +353,7 @@ tbody td.mono { color:var(--text); font-weight:500; font-family:'IBM Plex Mono',
         </div>
         <div class="field">
           <label>Intervention réalisée / pièce remplacée</label>
-          <input type="text" id="m-intervention" placeholder="calculateur airbag">
+          <input type="text" id="m-intervention" placeholder="">
         </div>
       </div>
     </div>
@@ -670,37 +674,69 @@ window.handleOcr = async function(file) {
           {type:'image',source:{type:'base64',media_type:mime||'image/jpeg',data:b64}},
           {type:'text',text:`Tu analyses une capture DCSnet Neo (logiciel DMS CDK, concessions Grand Est Automobiles).
 
-STRUCTURE EXACTE de l'écran DCSnet Neo :
-BANDEAU TURQUOISE EN HAUT (ligne principale) :
-  - Label "N°OR" suivi du numéro : ex "N°OR 616042" → nor = "616042" (CHIFFRES UNIQUEMENT, jamais le code d'imputation type "90010 G")
-  - Label "CCS" suivi d'un numéro + nom : ex "10 FABIEN LAMBERT" → ccs = "FABIEN LAMBERT" (nom SANS le numéro)
-  - Label "ORV" : code type "1D - MECANIQUE AUDI" → ignorer
+STRUCTURE EXACTE — lis chaque zone attentivement :
 
-BLOC VÉHICULE (sous le bandeau) :
-  - VIN = 17 caractères alphanumériques (ex: WAUZZZF39N129114)
-  - IMMAT = immatriculation (ex: GH-938-RR)
-  - MODELE/VERSION = modèle du véhicule (ex: AUDI Q3 45 TFSI e 245ch) → mettre dans "modele"
-  - DATE LIV = date livraison JJ/MM/AAAA
-  - KILOM = kilométrage chiffres uniquement
-  - NOM/PRENOM = NOM DU CLIENT → IGNORER, ne pas mettre dans ccs
+ZONE 1 — BANDEAU TURQUOISE LIGNE 1 (tout en haut, fond bleu-vert) :
+  Format : [NOM_COMPTE] [N°OR CHIFFRES] [CCS NUMERO NOM] [EQUIPE...] [ORV CODE - LIBELLE]
+  Exemple réel : "GIDAAUDOBE  N°OR 616110  CCS 09 FLORENT BATT  EQUIPE ME  ORV AUDI 1D - MECANIQUE AUDI"
+  → nor = "616110" (chiffres après N°OR UNIQUEMENT)
+  → ccs = "FLORENT BATT" (texte après le numéro CCS, ex: après "09 " → "FLORENT BATT")
+  → ORV contient la marque : AUDI/VW/SEAT/SKODA → utile pour identifier le site
 
-SECTION IMPUTATIONS (bas de page, fond gris) :
-  - Code imputation (ex: 90010 G) → IGNORER pour le N°OR
-  - Texte site ex "GARANTIE OBERNAI", "GARANTIE BISCHHEIM" → mettre dans "site"
+ZONE 2 — LIGNE VÉHICULE (fond blanc sous bandeau) :
+  Colonnes : VIN | IMMAT | N°FABR | MODELE/VERSION | DATE LIV | KILOM
+  → vin = 17 caractères (ex: WAUZZZ8P48A185899)
+  → modele = contenu colonne MODELE/VERSION (ex: AUDI A3 Sportback 1.4 4)
+  → date = DATE LIV format JJ/MM/AAAA
 
-LIGNES PIÈCES (tableau interventions) :
-  - Désignation de la première pièce → "intervention"
-  - Somme des montants colonne "Montant" → "montant"
+ZONE 3 — BLOC CLIENT (fond blanc, NOM PRENOM ADRESSE) :
+  ⚠ IGNORER TOTALEMENT — c'est le client, PAS le conseiller
+
+ZONE 4 — TABLEAU INTERVENTIONS (milieu) :
+  → intervention = désignation 1ère pièce colonne Désignation
+  → montant = valeur colonne Montant (ex: 37.60)
+
+ZONE 5 — SECTION IMPUTATIONS (bas de page, fond gris foncé) :
+  Format : [CODE ex: 90010 G] [NOM DU SITE ex: GARANTIE OBERNAI] [STATUT]
+  → site = NOM DU SITE (ex: "GARANTIE OBERNAI")
+  → NE PAS confondre "90010 G" avec le N°OR
 
 Retourne UNIQUEMENT ce JSON valide sans markdown :
-{"site":null,"nor":null,"vin":null,"ccs":null,"modele":null,"montant":null,"intervention":null,"date":null}
-Remplace null par les vraies valeurs. nor = chiffres du N°OR uniquement.`}
+{"nor":null,"ccs":null,"vin":null,"modele":null,"montant":null,"intervention":null,"date":null,"site":null}
+Valeurs exactes trouvées dans l'image. null si vraiment absent.`}
         ]}]})
       });
       const d=await res.json();
       const obj=JSON.parse(d.content[0].text.replace(/```json|```/g,'').trim());
-      const map={site:'m-site',nor:'m-nor',vin:'m-vin',ccs:'m-ccs',modele:'m-modele',tech1:'m-tech1',montant:'m-montant',intervention:'m-intervention',date:'m-date'};
-      Object.entries(map).forEach(([k,id])=>{ if(obj[k]){ const el=document.getElementById(id); if(el){el.value=obj[k]; el.classList.add('ocr-filled');} }});
+      const map={
+  nor:'m-nor', vin:'m-vin', ccs:'m-ccs', modele:'m-modele',
+  tech1:'m-tech1', montant:'m-montant', intervention:'m-intervention', date:'m-date'
+};
+      const SITE_MAP={
+        'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim',
+        'GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim',
+        'VW_ILLKIRCH':'VW_Illkirch','VW_BISCHHEIM':'VW_Bischheim',
+        'AUDI_OBERNAI':'Audi_Obernai','VW_OBERNAI':'VW_Obernai',
+        'AUDI_HOENHEIM':'Audi_Hoenheim','SEAT_HOENHEIM':'Seat_Hoenheim',
+        'SKODA_HOENHEIM':'Skoda_Hoenheim'
+      };
+      // Remplir les champs texte
+      Object.entries(map).forEach(([k,id])=>{
+        if(obj[k]){
+          const el=document.getElementById(id);
+          if(el){el.value=obj[k];el.classList.add('ocr-filled');}
+        }
+      });
+      // Remplir le select site (correspondance textuelle)
+      if(obj.site){
+        const siteEl=document.getElementById('m-site');
+        if(siteEl){
+          const siteKey=(obj.site||'').toUpperCase().trim();
+          const siteVal=SITE_MAP[siteKey]||SITE_MAP[obj.site]||obj.site;
+          siteEl.value=siteVal;
+          if(siteEl.value) siteEl.classList.add('ocr-filled');
+        }
+      }
       lbl.textContent='✓ Extraction réussie — complétez les champs restants';
       toast('Champs pré-remplis','success');
     } catch(err){ lbl.textContent='Erreur — remplissez manuellement'; toast('Erreur OCR','error'); }
