@@ -4,763 +4,969 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contrôle Garantie — TeamGarantie GEA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
-
 :root {
   --bg:#0f1117; --bg2:#161b27; --bg3:#1e2535;
   --border:#2a3347; --border-hi:#3d4f6e;
   --accent:#00d4a8; --accent2:#0099ff;
-  --text:#e2e8f0; --text2:#8a9ab5; --text3:#5a6a82;
+  --text:#e8eef8; --text2:#b8c8e0; --text3:#8a9ab5;
   --warn:#f5a623; --danger:#ff4d6a; --success:#00c896;
   --r:6px;
 }
-* { box-sizing:border-box; margin:0; padding:0; }
-body { font-family:'IBM Plex Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:13px; }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;}
 
-/* ── Header ── */
-.header { background:var(--bg2); border-bottom:1px solid var(--border); padding:0 20px; height:52px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:200; }
-.logo { display:flex; align-items:center; gap:10px; font-weight:600; font-size:15px; color:var(--text); text-decoration:none; }
-.logo span { color:var(--accent); font-family:'IBM Plex Mono',monospace; font-size:13px; }
-.nav { display:flex; gap:4px; }
-.nav a { padding:6px 12px; border-radius:var(--r); font-size:12px; color:var(--text2); text-decoration:none; transition:all .15s; }
-.nav a:hover { background:var(--bg3); color:var(--text); }
-.nav a.active { background:var(--bg3); color:var(--accent); }
+/* ── LOGIN ── */
+.login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;width:380px;text-align:center;}
+.login-logo{font-size:28px;font-weight:600;margin-bottom:6px;}
+.login-logo span{color:var(--accent);font-family:'IBM Plex Mono',monospace;}
+.login-sub{color:var(--text3);font-size:13px;margin-bottom:32px;}
+.user-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px;}
+.user-btn{padding:14px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;font-family:'IBM Plex Sans',sans-serif;}
+.user-btn:hover{border-color:var(--accent);color:var(--accent);}
+.user-btn.selected{border-color:var(--accent);background:#0d2a22;color:var(--accent);}
+.pin-section{display:none;}
+.pin-label{font-size:12px;color:var(--text3);margin-bottom:8px;}
+.pin-input{width:100%;padding:12px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:20px;text-align:center;letter-spacing:8px;font-family:'IBM Plex Mono',monospace;}
+.pin-input:focus{outline:none;border-color:var(--accent);}
+.login-btn{width:100%;padding:12px;margin-top:14px;border-radius:var(--r);border:none;background:var(--accent);color:#000;font-size:14px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;}
+.login-btn:hover{background:#00efc0;}
+.login-error{color:var(--danger);font-size:12px;margin-top:8px;display:none;}
 
-/* ── KPI bar ── */
-.kpi-bar { background:var(--bg2); border-bottom:1px solid var(--border); padding:10px 20px; display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
-.kpi { display:flex; flex-direction:column; align-items:center; }
-.kpi-n { font-size:20px; font-weight:600; font-family:'IBM Plex Mono',monospace; line-height:1; }
-.kpi-l { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; margin-top:3px; }
-.kpi-sep { width:1px; height:32px; background:var(--border); }
+/* ── HEADER ── */
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+.logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;color:var(--text);text-decoration:none;}
+.logo span{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:13px;}
+.nav{display:flex;gap:4px;align-items:center;}
+.nav a{padding:6px 12px;border-radius:var(--r);font-size:12px;color:var(--text2);text-decoration:none;transition:all .15s;}
+.nav a:hover{background:var(--bg3);color:var(--text);}
+.nav a.active{background:var(--bg3);color:var(--accent);}
+.user-badge{padding:5px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;}
+.user-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);}
+.logout-btn{background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;padding:4px 8px;border-radius:var(--r);}
+.logout-btn:hover{color:var(--danger);}
 
-/* ── Toolbar ── */
-.toolbar { padding:10px 20px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border); background:var(--bg2); }
-.toolbar select, .toolbar input[type=text] { padding:6px 10px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text); font-size:12px; font-family:'IBM Plex Sans',sans-serif; }
-.toolbar select:focus, .toolbar input[type=text]:focus { outline:none; border-color:var(--accent2); }
-.btn { padding:6px 14px; border-radius:var(--r); border:1px solid var(--border); background:none; color:var(--text2); font-size:12px; font-family:'IBM Plex Sans',sans-serif; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:5px; white-space:nowrap; }
-.btn:hover { background:var(--bg3); color:var(--text); }
-.btn.primary { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
-.btn.primary:hover { background:#00efc0; }
-.btn.danger { color:var(--danger); border-color:var(--danger); }
-.btn.danger:hover { background:#2a0d14; }
+/* ── APP ── */
+.app-screen{display:none;}
+.main{max-width:1200px;margin:0 auto;padding:20px;}
 
-/* ── Table ── */
-.table-wrap { overflow-x:auto; padding:0 20px 40px; }
-table { width:100%; border-collapse:collapse; font-size:12px; min-width:1800px; }
+/* ── ÉTAPES ── */
+.steps{display:flex;gap:0;margin-bottom:24px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.step{flex:1;padding:14px 16px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text3);border-right:1px solid var(--border);transition:all .2s;}
+.step:last-child{border-right:none;}
+.step.active{background:var(--bg3);color:var(--text);}
+.step.done{color:var(--success);}
+.step-num{width:24px;height:24px;border-radius:50%;background:var(--border);color:var(--text3);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'IBM Plex Mono',monospace;}
+.step.active .step-num{background:var(--accent);color:#000;}
+.step.done .step-num{background:var(--success);color:#000;}
 
-thead th {
-  background:var(--bg2); color:var(--text3); font-size:10px; font-weight:600;
-  text-transform:uppercase; letter-spacing:.04em; padding:8px 8px;
-  border-bottom:2px solid var(--border-hi); border-right:1px solid var(--border);
-  position:sticky; top:52px; z-index:10; white-space:nowrap;
+/* ── PANELS ── */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;}
+.panel-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.panel-head h2{font-size:14px;font-weight:500;}
+.panel-body{padding:20px;}
+
+/* ── OCR ZONE ── */
+.ocr-zone{border:2px dashed var(--border-hi);border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg3);position:relative;}
+.ocr-zone:hover,.ocr-zone.drag{border-color:var(--accent);background:#0d2a2215;}
+.ocr-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.ocr-icon{font-size:36px;margin-bottom:10px;opacity:.6;}
+.ocr-zone p{color:var(--text2);font-size:13px;line-height:1.7;}
+.ocr-zone strong{color:var(--accent);}
+.preview-img{width:100%;max-height:220px;object-fit:contain;border-radius:6px;border:1px solid var(--border);background:var(--bg3);margin-top:14px;display:none;}
+.spinner{width:16px;height:16px;border:2px solid var(--border-hi);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ocr-status{margin-top:12px;padding:10px 14px;border-radius:var(--r);font-size:12px;display:none;}
+.ocr-status.loading{background:var(--bg3);color:var(--text2);display:flex;align-items:center;gap:8px;}
+.ocr-status.success{background:#0d2a22;color:var(--success);border:1px solid #00c89630;display:block;}
+.ocr-status.error{background:#2a0d14;color:var(--danger);border:1px solid #ff4d6a30;display:block;}
+
+.btn-create{width:100%;padding:14px;border-radius:var(--r);border:none;background:var(--accent);color:#000;font-size:14px;font-weight:600;cursor:pointer;margin-top:14px;font-family:'IBM Plex Sans',sans-serif;display:none;transition:background .15s;}
+.btn-create:hover{background:#00efc0;}
+
+/* ── FORMULAIRE ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-grid.g3{grid-template-columns:1fr 1fr 1fr;}
+.form-grid.g1{grid-template-columns:1fr;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field.span2{grid-column:1/-1;}
+.field label{font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;}
+.field input,.field select,.field textarea{
+  padding:9px 12px;border-radius:var(--r);border:1px solid var(--border);
+  background:var(--bg3);color:var(--text);font-size:13px;
+  font-family:'IBM Plex Sans',sans-serif;transition:border-color .15s;
 }
-thead th.grp-id   { background:#1a2a1a; color:#00c896; }
-thead th.grp-ctrl { background:#2a2000; color:#f5c842; }
-thead th.grp-stat { background:#1a1a2a; color:#a78bfa; }
-thead th.grp-suiv { background:#1a2535; color:var(--accent2); }
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent2);}
+.field input.filled{border-color:#00c89640;background:#0d2a22;}
+.field textarea{resize:vertical;min-height:60px;}
+.section-sep{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px;grid-column:1/-1;}
 
-tbody tr { border-bottom:1px solid var(--border); transition:background .1s; }
-tbody tr:hover { background:#161b2788; }
-tbody td { padding:6px 8px; vertical-align:middle; border-right:1px solid var(--border); color:var(--text2); }
-tbody td.mono { color:var(--text); font-weight:500; font-family:'IBM Plex Mono',monospace; font-size:11px; }
+/* ── STATUTS TOGGLE ── */
+.statuts-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.statut-toggle{padding:10px 14px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;transition:all .2s;text-align:left;font-family:'IBM Plex Sans',sans-serif;display:flex;align-items:center;gap:8px;}
+.statut-toggle:hover{border-color:var(--border-hi);color:var(--text);}
+.statut-toggle .tog-dot{width:10px;height:10px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .2s;}
+.statut-toggle.active .tog-dot{background:var(--kc);}
+.statut-toggle.active{border-color:var(--kc);color:var(--text);background:color-mix(in srgb, var(--kc) 10%, var(--bg3));}
 
-/* ── Inline select / input ── */
-.cell-select select, .cell-input input {
-  width:100%; background:transparent; border:none; color:var(--text);
-  font-size:12px; font-family:'IBM Plex Sans',sans-serif; padding:2px 2px;
-  border-radius:3px; cursor:pointer; min-width:60px;
-}
-.cell-select select:focus, .cell-input input:focus { outline:1px solid var(--accent2); background:var(--bg3); padding:2px 4px; }
-.cell-select select option { background:var(--bg3); }
+/* ── ACTIONS ── */
+.form-actions{display:flex;gap:10px;margin-top:16px;}
+.btn{padding:10px 20px;border-radius:var(--r);border:1px solid var(--border);background:none;color:var(--text2);font-size:13px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;}
+.btn:hover{background:var(--bg3);color:var(--text);}
+.btn.primary{background:var(--accent2);color:#fff;border-color:var(--accent2);}
+.btn.primary:hover{background:#1aabff;}
+.btn.success{background:var(--success);color:#000;border-color:var(--success);}
+.btn.success:hover{background:#00e8a8;}
+.btn.pdf{background:#2a1a4a;color:#a78bfa;border-color:#a78bfa40;}
+.btn.pdf:hover{background:#3a2a5a;}
 
-/* Statut couleurs */
-.opt-none   { color:var(--text3); }
-.s-yellow   { color:#f5c842; font-weight:600; }
-.s-red      { color:#ff4d6a; font-weight:600; }
-.s-green    { color:#00c896; font-weight:600; }
+/* ── TABLEAU DOSSIERS ── */
+.toolbar{padding:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.toolbar select,.toolbar input{padding:6px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;font-family:'IBM Plex Sans',sans-serif;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{padding:9px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border-hi);border-right:1px solid var(--border);white-space:nowrap;color:var(--text2);background:var(--bg3);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
+tbody tr:hover{background:var(--bg3);}
+tbody td{padding:8px 10px;color:var(--text);border-right:1px solid var(--border);vertical-align:middle;}
+tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
+.empty-row td{text-align:center;padding:40px;color:var(--text3);}
 
-/* ── Badges ── */
-.badge { display:inline-block; font-size:10px; padding:2px 7px; border-radius:3px; font-weight:500; white-space:nowrap; }
-.b-site { background:#001a40; color:var(--accent2); border:1px solid #0099ff30; }
-.b-defaut { background:#2a1505; color:var(--warn); border:1px solid #f5a62330; font-size:10px; max-width:160px; overflow:hidden; text-overflow:ellipsis; display:inline-block; }
-.b-stat-y { background:#3d2e00; color:#f5c842; border:1px solid #f5c84230; }
-.b-stat-r { background:#3d0010; color:#ff4d6a; border:1px solid #ff4d6a30; }
-.b-stat-g { background:#0d2a22; color:#00c896; border:1px solid #00c89630; }
+/* Statut badges dans tableau */
+.sbadge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:500;margin:1px;}
 
-/* ── Modal ── */
-.modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:500; align-items:flex-start; justify-content:center; padding-top:40px; overflow-y:auto; }
-.modal-bg.open { display:flex; }
-.modal { background:var(--bg2); border:1px solid var(--border-hi); border-radius:12px; width:700px; max-width:96vw; margin-bottom:40px; }
-.modal-head { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--bg2); z-index:10; border-radius:12px 12px 0 0; }
-.modal-head h2 { font-size:15px; font-weight:500; }
-.modal-close { background:none; border:none; color:var(--text2); font-size:22px; cursor:pointer; line-height:1; }
-.modal-body { padding:20px; }
+/* ── MODAL DÉTAIL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;align-items:flex-start;justify-content:center;padding:30px 20px;overflow-y:auto;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border-hi);border-radius:12px;width:700px;max-width:100%;}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:10;border-radius:12px 12px 0 0;}
+.modal-head h3{font-size:15px;font-weight:500;}
+.modal-close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;}
+.modal-body{padding:20px;}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;}
+.detail-row{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.detail-row:last-child{border-bottom:none;}
+.detail-label{font-size:11px;color:var(--text3);width:160px;flex-shrink:0;padding-top:1px;}
+.detail-val{font-size:13px;color:var(--text);flex:1;}
 
-/* OCR strip */
-.ocr-strip { background:var(--bg3); border:1.5px dashed var(--border-hi); border-radius:var(--r); padding:12px 16px; display:flex; align-items:center; gap:10px; margin-bottom:20px; font-size:12px; color:var(--text2); cursor:pointer; transition:border-color .15s; }
-.ocr-strip:hover { border-color:var(--accent); color:var(--text); }
-.ocr-strip input[type=file] { display:none; }
-.spinner { width:14px; height:14px; border:2px solid var(--border-hi); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
-@keyframes spin { to { transform:rotate(360deg); } }
-
-/* Form sections */
-.form-section { margin-bottom:20px; }
-.form-section-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); padding-bottom:8px; border-bottom:1px solid var(--border); margin-bottom:12px; }
-.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.form-grid.g3 { grid-template-columns:1fr 1fr 1fr; }
-.form-grid.g1 { grid-template-columns:1fr; }
-.field { display:flex; flex-direction:column; gap:4px; }
-.field.span2 { grid-column:1/-1; }
-.field label { font-size:11px; color:var(--text3); font-weight:500; }
-.field input, .field select, .field textarea {
-  padding:8px 10px; border-radius:var(--r); border:1px solid var(--border);
-  background:var(--bg3); color:var(--text); font-size:13px;
-  font-family:'IBM Plex Sans',sans-serif; transition:border-color .15s;
-}
-.field input::placeholder, .field textarea::placeholder {
-  color:var(--text3);
-  opacity:.5;
-}
-.field input:focus, .field select:focus, .field textarea:focus { outline:none; border-color:var(--accent2); }
-.field textarea { resize:vertical; min-height:56px; }
-.field input.ocr-filled { border-color:#00c89650; background:#0d2a22; }
-.field select option { background:var(--bg3); }
-
-/* Statut section spéciale */
-.statut-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.statut-item { display:flex; flex-direction:column; gap:4px; }
-.statut-item label { font-size:11px; font-weight:600; }
-.statut-item select {
-  padding:7px 8px; border-radius:var(--r); border:1.5px solid var(--border);
-  background:var(--bg3); color:var(--text2); font-size:12px;
-  font-family:'IBM Plex Sans',sans-serif; cursor:pointer; transition:all .15s;
-}
-.statut-item select:focus { outline:none; }
-/* Couleurs fixes par statut — actif = checked */
-.statut-item.s-rattrap  label { color:#f5c842; }
-.statut-item.s-rattrap  select.active { border-color:#f5c842; color:#f5c842; background:#2e2400; }
-.statut-item.s-risque   label { color:#f5a623; }
-.statut-item.s-risque   select.active { border-color:#f5a623; color:#f5a623; background:#2e1a00; }
-.statut-item.s-malgre   label { color:#f5c842; }
-.statut-item.s-malgre   select.active { border-color:#f5c842; color:#f5c842; background:#2e2400; }
-.statut-item.s-annul    label { color:#ff4d6a; }
-.statut-item.s-annul    select.active { border-color:#ff4d6a; color:#ff4d6a; background:#3d0010; }
-.statut-item.s-sauvee   label { color:#00c896; }
-.statut-item.s-sauvee   select.active { border-color:#00c896; color:#00c896; background:#0d2a22; }
-.statut-item.s-incomplet label { color:#ffe066; }
-.statut-item.s-incomplet select.active { border-color:#ffe066; color:#ffe066; background:#2a2600; }
-.statut-item.s-nonfact  label { color:#4a9eff; }
-.statut-item.s-nonfact  select.active { border-color:#4a9eff; color:#4a9eff; background:#001a3d; }
-.statut-item.s-temps    label { color:#2ecc71; }
-.statut-item.s-temps    select.active { border-color:#2ecc71; color:#2ecc71; background:#0a2e18; }
-
-.modal-foot { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+/* KPI bar */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--accent));}
+.kpi-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+.kpi-val{font-size:20px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:2px;}
 
 /* Toast */
-#toast { position:fixed; bottom:20px; right:20px; padding:10px 16px; border-radius:var(--r); font-size:12px; font-weight:500; z-index:999; transform:translateY(60px); opacity:0; transition:all .2s; pointer-events:none; }
-#toast.show { transform:translateY(0); opacity:1; }
-#toast.success { background:#0d2a22; border:1px solid var(--success); color:var(--success); }
-#toast.error   { background:#2a0d14; border:1px solid var(--danger); color:var(--danger); }
-#toast.info    { background:#2a1f0d; border:1px solid var(--warn); color:var(--warn); }
+#toast{position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:var(--r);font-size:12px;font-weight:500;z-index:999;transform:translateY(60px);opacity:0;transition:all .2s;pointer-events:none;}
+#toast.show{transform:translateY(0);opacity:1;}
+#toast.success{background:#0d2a22;border:1px solid var(--success);color:var(--success);}
+#toast.error{background:#2a0d14;border:1px solid var(--danger);color:var(--danger);}
+#toast.info{background:#2a1f0d;border:1px solid var(--warn);color:var(--warn);}
 
-.empty-row td { text-align:center; padding:40px; color:var(--text3); font-size:13px; }
+@media(max-width:700px){
+  .form-grid,.form-grid.g3{grid-template-columns:1fr;}
+  .statuts-grid{grid-template-columns:1fr;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+}
 </style>
 </head>
 <body>
 
-<!-- ── Header ── -->
-<header class="header">
-  <a class="logo" href="#">GEA <span>Contrôle Garantie</span></a>
-  <nav class="nav">
-    <a href="index.html" class="active">Contrôle</a>
-    <a href="dashboard-couts.html">Dashboard coûts</a>
-    <a href="extraction-ocr.html">Extraction OCR</a>
-  </nav>
-</header>
-
-<!-- ── KPIs ── -->
-<div class="kpi-bar">
-  <div class="kpi"><div class="kpi-n" id="k-total" style="color:var(--accent)">0</div><div class="kpi-l">Dossiers</div></div>
-  <div class="kpi-sep"></div>
-  <div class="kpi"><div class="kpi-n" id="k-montant" style="color:var(--accent2)">0</div><div class="kpi-l">Montant €</div></div>
-  <div class="kpi-sep"></div>
-  <div class="kpi"><div class="kpi-n" id="k-rattrap" style="color:#f5c842">0</div><div class="kpi-l">Rattrapages</div></div>
-  <div class="kpi-sep"></div>
-  <div class="kpi"><div class="kpi-n" id="k-risque" style="color:#f5a623">0</div><div class="kpi-l">Risque annul.</div></div>
-  <div class="kpi-sep"></div>
-  <div class="kpi"><div class="kpi-n" id="k-annul" style="color:var(--danger)">0</div><div class="kpi-l">Annulés</div></div>
-  <div class="kpi-sep"></div>
-  <div class="kpi"><div class="kpi-n" id="k-sauvee" style="color:var(--success)">0</div><div class="kpi-l">DG sauvées</div></div>
-  <div class="kpi-sep"></div>
-  <div class="kpi"><div class="kpi-n" id="k-incomplet" style="color:var(--warn)">0</div><div class="kpi-l">Incomplets</div></div>
-  <div class="kpi-sep"></div>
-  <div class="kpi"><div class="kpi-n" id="k-nonfact" style="color:var(--danger)">0</div><div class="kpi-l">Non facturables</div></div>
-</div>
-
-<!-- ── Toolbar ── -->
-<div class="toolbar">
-  <select id="f-site" onchange="renderTable()">
-    <option value="">Tous les sites</option>
-    <option>Skoda_Hoenheim</option><option>Seat_Hoenheim</option>
-    <option>VW_Illkirch</option><option>VW_Bischheim</option>
-    <option>VW_Obernai</option><option>Audi_Hoenheim</option><option>Audi_Obernai</option>
-  </select>
-  <select id="f-correspondant" onchange="renderTable()">
-    <option value="">Tous correspondants</option>
-    <option>Omar</option><option>Nico</option><option>Tahir</option><option>Marion</option><option>Céline</option>
-  </select>
-  <select id="f-statut" onchange="renderTable()">
-    <option value="">Tous statuts</option>
-    <option value="rattrapage">Rattrapage</option>
-    <option value="risque">Risque annulation</option>
-    <option value="annul">Annulation définitive</option>
-    <option value="sauvee">DG sauvée</option>
-    <option value="incomplet">Incomplets</option>
-    <option value="nonfact">Non facturable</option>
-    <option value="temps">Temps supp.</option>
-  </select>
-  <input type="text" id="f-search" placeholder="N°OR, CCS, chassis..." oninput="renderTable()" style="min-width:180px;">
-  <button class="btn primary" onclick="openModal(null)">+ Nouveau dossier</button>
-  <button class="btn" onclick="exportCSV()">↓ Export CSV</button>
-</div>
-
-<!-- ── Table ── -->
-<div class="table-wrap">
-<table>
-  <thead>
-    <tr>
-      <!-- Identification -->
-      <th class="grp-id">Site</th>
-      <th class="grp-id">N° OR</th>
-      <th class="grp-id">Châssis</th>
-      <th class="grp-id">Nom CCS</th>
-      <th class="grp-id">Technicien 1</th>
-      <th class="grp-id">Technicien 2</th>
-      <!-- Contrôle -->
-      <th class="grp-ctrl">Service / anomalie</th>
-      <th class="grp-ctrl">Intervention / pièce</th>
-      <th class="grp-ctrl">H non fact.</th>
-      <th class="grp-ctrl">Montant €</th>
-      <th class="grp-ctrl">Date OR</th>
-      <!-- Statuts -->
-      <th class="grp-stat" style="min-width:110px;">Rattrapage</th>
-      <th class="grp-stat" style="min-width:110px;">Risque annulation</th>
-      <th class="grp-stat" style="min-width:130px;">DG passée malgré risque</th>
-      <th class="grp-stat" style="min-width:110px;">Annulation déf.</th>
-      <th class="grp-stat" style="min-width:110px;">DG sauvée</th>
-      <th class="grp-stat" style="min-width:110px;">Incomplets</th>
-      <th class="grp-stat" style="min-width:110px;">Non facturable</th>
-      <th class="grp-stat" style="min-width:110px;">Temps supp.</th>
-      <!-- Suivi -->
-      <th class="grp-suiv">Relances</th>
-      <th class="grp-suiv">Correspondant</th>
-      <th class="grp-suiv" style="min-width:160px;">Défaut 1</th>
-      <th class="grp-suiv" style="min-width:160px;">Défaut 2</th>
-      <th class="grp-suiv">Actions</th>
-    </tr>
-  </thead>
-  <tbody id="tbody">
-    <tr class="empty-row"><td colspan="24">Chargement...</td></tr>
-  </tbody>
-</table>
-</div>
-
-<!-- ══════════════════ MODAL ══════════════════ -->
-<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
-<div class="modal">
-  <div class="modal-head">
-    <h2 id="modal-title">Nouveau dossier</h2>
-    <button class="modal-close" onclick="closeModal()">×</button>
-  </div>
-  <div class="modal-body">
-
-    <!-- OCR -->
-    <div class="ocr-strip" onclick="document.getElementById('ocr-file').click()">
-      <div id="ocr-spinner" style="display:none;"><div class="spinner"></div></div>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
-      <span id="ocr-label">Ctrl+V ou cliquer — upload capture DCSnet/SAGA → pré-remplissage auto</span>
-      <input type="file" id="ocr-file" accept="image/*" onchange="handleOcr(this.files[0])">
+<!-- ══════════════ LOGIN ══════════════ -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">GEA <span>Garantie</span></div>
+    <div class="login-sub">Contrôle qualité garantie — TeamGarantie</div>
+    <div class="user-grid">
+      <button class="user-btn" onclick="selectUser('Omar','1472')">Omar</button>
+      <button class="user-btn" onclick="selectUser('Nico','2583')">Nico</button>
+      <button class="user-btn" onclick="selectUser('Tahir','3694')">Tahir</button>
+      <button class="user-btn" onclick="selectUser('Marion','4715')">Marion</button>
+      <button class="user-btn" onclick="selectUser('Céline','5826')" style="grid-column:1/-1;">Céline</button>
     </div>
-
-    <!-- Section 1 : Identification -->
-    <div class="form-section">
-      <div class="form-section-title">Identification du dossier</div>
-      <div class="form-grid g3">
-        <div class="field">
-          <label>Site *</label>
-          <select id="m-site">
-            <option value="">— Sélectionner —</option>
-            <option value="VW_Illkirch">VW Illkirch (02153)</option>
-            <option value="VW_Bischheim">VW Bischheim (02154)</option>
-            <option value="Audi_Hoenheim">Audi Hoenheim (02155)</option>
-            <option value="Seat_Hoenheim">SEAT Hoenheim (63930)</option>
-            <option value="Skoda_Hoenheim">Skoda Hoenheim (02376)</option>
-            <option value="Audi_Obernai">Audi Obernai (02486)</option>
-            <option value="VW_Obernai">VW Obernai (02485)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>N° OR *</label>
-          <input type="text" id="m-nor" placeholder="">
-        </div>
-        <div class="field">
-          <label>Date OR</label>
-          <input type="date" id="m-date">
-        </div>
-        <div class="field">
-          <label>Châssis (VIN)</label>
-          <input type="text" id="m-vin" placeholder="">
-        </div>
-        <div class="field">
-          <label>Modèle</label>
-          <input type="text" id="m-modele" placeholder="">
-        </div>
-        <div class="field">
-          <label>Nom du CCS</label>
-          <input type="text" id="m-ccs" placeholder="">
-        </div>
-        <div class="field">
-          <label>Montant du dossier (€)</label>
-          <input type="text" id="m-montant" placeholder="">
-        </div>
-        <div class="field">
-          <label>Technicien 1</label>
-          <input type="text" id="m-tech1" placeholder="">
-        </div>
-        <div class="field">
-          <label>Technicien 2</label>
-          <input type="text" id="m-tech2" placeholder="">
-        </div>
-        <div class="field">
-          <label>Heures non facturées</label>
-          <input type="text" id="m-heures" placeholder="">
-        </div>
-      </div>
+    <div class="pin-section" id="pin-section">
+      <div class="pin-label" id="pin-label">Code PIN pour <strong id="pin-user-name"></strong></div>
+      <input type="password" class="pin-input" id="pin-input" maxlength="4" placeholder="••••" oninput="checkPin()" autocomplete="off">
+      <div class="login-error" id="login-error">Code PIN incorrect</div>
     </div>
-
-    <!-- Section 2 : Intervention -->
-    <div class="form-section">
-      <div class="form-section-title">Intervention</div>
-      <div class="form-grid">
-        <div class="field">
-          <label>Service concerné par l'anomalie</label>
-          <select id="m-service">
-            <option value="">— Sélectionner —</option>
-            <option>Atelier méca</option><option>CCS</option><option>Carrosserie</option>
-            <option>Magasin</option><option>TeamGarantie</option><option>VGF</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Intervention réalisée / pièce remplacée</label>
-          <input type="text" id="m-intervention" placeholder="">
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 3 : Statuts -->
-    <div class="form-section">
-      <div class="form-section-title">Statuts de contrôle</div>
-      <div class="statut-grid">
-        <div class="statut-item s-rattrap">
-          <label>Rattrapage</label>
-          <select id="m-rattrapage" onchange="applyStatutColor(this)">
-            <option value="">— Non concerné —</option>
-            <option value="oui">Oui</option>
-          </select>
-        </div>
-        <div class="statut-item s-risque">
-          <label>Risque d'annulation</label>
-          <select id="m-risque" onchange="applyStatutColor(this)">
-            <option value="">— Non concerné —</option>
-            <option value="oui">Oui</option>
-          </select>
-        </div>
-        <div class="statut-item s-malgre">
-          <label>DG passée malgré risque d'annulation sur ordre de...</label>
-          <select id="m-malgre" onchange="applyStatutColor(this)">
-            <option value="">— Non concerné —</option>
-            <option value="oui">Oui</option>
-          </select>
-        </div>
-        <div class="statut-item s-annul">
-          <label>Annulation définitive</label>
-          <select id="m-annul" onchange="applyStatutColor(this)">
-            <option value="">— Non concerné —</option>
-            <option value="oui">Oui</option>
-          </select>
-        </div>
-        <div class="statut-item s-sauvee">
-          <label>DG sauvée suite annulation</label>
-          <select id="m-sauvee" onchange="applyStatutColor(this)">
-            <option value="">— Non concerné —</option>
-            <option value="oui">Oui</option>
-          </select>
-        </div>
-        <div class="statut-item s-incomplet">
-          <label>Dossiers incomplets / inutilement en garantie</label>
-          <select id="m-incomplet" onchange="applyStatutColor(this)">
-            <option value="">— Non concerné —</option>
-            <option value="oui">Oui</option>
-          </select>
-        </div>
-        <div class="statut-item s-nonfact">
-          <label>Retour non facturable / facturé en cession</label>
-          <select id="m-nonfact" onchange="applyStatutColor(this)">
-            <option value="">— Non concerné —</option>
-            <option value="oui">Oui</option>
-          </select>
-        </div>
-        <div class="statut-item s-temps">
-          <label>DG avec temps de traitement supplémentaire</label>
-          <select id="m-temps" onchange="applyStatutColor(this)">
-            <option value="">— Non concerné —</option>
-            <option value="oui">Oui</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 4 : Suivi -->
-    <div class="form-section">
-      <div class="form-section-title">Suivi TeamGarantie</div>
-      <div class="form-grid g3">
-        <div class="field">
-          <label>Correspondant garantie</label>
-          <select id="m-correspondant">
-            <option value="">— Sélectionner —</option>
-            <option>Omar</option><option>Nico</option><option>Tahir</option><option>Marion</option><option>Céline</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Nombre de relances</label>
-          <input type="number" id="m-relances" min="0" value="0">
-        </div>
-        <div class="field span2">
-          <label>Défaut 1</label>
-          <select id="m-defaut1"><option value="">— Sélectionner —</option></select>
-        </div>
-        <div class="field">
-          <label>Défaut 2</label>
-          <select id="m-defaut2"><option value="">— Sélectionner —</option></select>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /modal-body -->
-  <div class="modal-foot">
-    <button class="btn" onclick="closeModal()">Annuler</button>
-    <button class="btn primary" onclick="saveDossier()">Enregistrer</button>
   </div>
 </div>
+
+<!-- ══════════════ APP ══════════════ -->
+<div class="app-screen" id="app-screen">
+
+  <header class="header">
+    <a class="logo" href="#">GEA <span>Garantie</span></a>
+    <nav class="nav">
+      <a href="#" onclick="showTab('tab-new')" id="nav-new" class="active">+ Nouveau</a>
+      <a href="#" onclick="showTab('tab-list')" id="nav-list">Dossiers</a>
+      <a href="dashboard-couts.html">Dashboard</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="user-badge"><div class="user-dot"></div><span id="current-user-name">—</span></div>
+      <button class="logout-btn" onclick="logout()">Déconnexion</button>
+    </div>
+  </header>
+
+  <!-- ── TAB NOUVEAU DOSSIER ── -->
+  <div id="tab-new" class="main">
+
+    <!-- Étapes -->
+    <div class="steps">
+      <div class="step active" id="step1-ind"><div class="step-num">1</div>Extraction OCR</div>
+      <div class="step" id="step2-ind"><div class="step-num">2</div>Formulaire</div>
+      <div class="step" id="step3-ind"><div class="step-num">3</div>Enregistrer & PDF</div>
+    </div>
+
+    <!-- ÉTAPE 1 : OCR -->
+    <div id="step1" class="panel">
+      <div class="panel-head"><h2>Étape 1 — Extraction OCR</h2><span id="source-badge" style="font-size:11px;color:var(--text3);">DCSnet Neo</span></div>
+      <div class="panel-body">
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <button onclick="setSource('dcsnet')" id="src-dcs" class="btn" style="border-color:var(--accent);color:var(--accent);">DCSnet Neo</button>
+          <button onclick="setSource('saga')" id="src-saga" class="btn">SAGA/2</button>
+        </div>
+        <div class="ocr-zone" id="ocr-zone">
+          <input type="file" id="ocr-file" accept="image/*" onchange="handleOcrFile(this.files[0])">
+          <div class="ocr-icon">📸</div>
+          <p><strong>Cliquer</strong>, glisser-déposer ou <strong>Ctrl+V</strong><br>Upload la capture DCSnet ou SAGA</p>
+        </div>
+        <img id="ocr-preview" class="preview-img" src="" alt="">
+        <div class="ocr-status" id="ocr-status"></div>
+        <button class="btn-create" id="btn-create" onclick="goToStep2()">
+          ✓ Créer le formulaire →
+        </button>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 : FORMULAIRE -->
+    <div id="step2" class="panel" style="display:none;">
+      <div class="panel-head"><h2>Étape 2 — Compléter le dossier</h2><button class="btn" onclick="goToStep1()" style="font-size:11px;padding:4px 10px;">← Retour OCR</button></div>
+      <div class="panel-body">
+
+        <div class="form-grid g3">
+          <div class="section-sep">Identification</div>
+          <div class="field">
+            <label>Site *</label>
+            <select id="f-site">
+              <option value="">— Sélectionner —</option>
+              <option value="VW_Illkirch">VW Illkirch (02153)</option>
+              <option value="VW_Bischheim">VW Bischheim (02154)</option>
+              <option value="Audi_Hoenheim">Audi Hoenheim (02155)</option>
+              <option value="Seat_Hoenheim">SEAT Hoenheim (63930)</option>
+              <option value="Skoda_Hoenheim">Skoda Hoenheim (02376)</option>
+              <option value="Audi_Obernai">Audi Obernai (02486)</option>
+              <option value="VW_Obernai">VW Obernai (02485)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>N° OR *</label>
+            <input type="text" id="f-nor">
+          </div>
+          <div class="field">
+            <label>Date OR</label>
+            <input type="date" id="f-date">
+          </div>
+          <div class="field">
+            <label>Châssis (VIN)</label>
+            <input type="text" id="f-vin">
+          </div>
+          <div class="field">
+            <label>Modèle</label>
+            <input type="text" id="f-modele">
+          </div>
+          <div class="field">
+            <label>Kilométrage</label>
+            <input type="text" id="f-km">
+          </div>
+          <div class="field">
+            <label>Nom du CCS</label>
+            <input type="text" id="f-ccs">
+          </div>
+          <div class="field">
+            <label>Technicien 1</label>
+            <input type="text" id="f-tech1">
+          </div>
+          <div class="field">
+            <label>Montant (€)</label>
+            <input type="text" id="f-montant">
+          </div>
+
+          <div class="section-sep">Intervention</div>
+          <div class="field">
+            <label>Service concerné</label>
+            <select id="f-service">
+              <option value="">— Sélectionner —</option>
+              <option>Atelier méca</option><option>CCS</option>
+              <option>Carrosserie</option><option>Magasin</option>
+              <option>TeamGarantie</option><option>VGF</option>
+            </select>
+          </div>
+          <div class="field span2">
+            <label>Intervention / pièce remplacée</label>
+            <input type="text" id="f-intervention">
+          </div>
+          <div class="field span2">
+            <label>Plainte client</label>
+            <textarea id="f-plainte" rows="2"></textarea>
+          </div>
+        </div>
+
+        <!-- STATUTS TOGGLE -->
+        <div style="margin-top:20px;">
+          <div class="section-sep" style="border:none;margin-bottom:12px;">Statuts de contrôle — cliquer pour activer</div>
+          <div class="statuts-grid">
+            <button class="statut-toggle" style="--kc:#f5c842" id="tog-rattrapage" onclick="toggleStatut('rattrapage')">
+              <span class="tog-dot"></span>Rattrapage
+            </button>
+            <button class="statut-toggle" style="--kc:#f5a623" id="tog-risque" onclick="toggleStatut('risque')">
+              <span class="tog-dot"></span>Risque d'annulation
+            </button>
+            <button class="statut-toggle" style="--kc:#f5c842" id="tog-malgre" onclick="toggleStatut('malgre')">
+              <span class="tog-dot"></span>DG passée malgré risque
+            </button>
+            <button class="statut-toggle" style="--kc:#ff4d6a" id="tog-annul" onclick="toggleStatut('annul')">
+              <span class="tog-dot"></span>Annulation définitive
+            </button>
+            <button class="statut-toggle" style="--kc:#00c896" id="tog-sauvee" onclick="toggleStatut('sauvee')">
+              <span class="tog-dot"></span>DG sauvée suite annulation
+            </button>
+            <button class="statut-toggle" style="--kc:#ffe066" id="tog-incomplet" onclick="toggleStatut('incomplet')">
+              <span class="tog-dot"></span>Dossier incomplet / inutile
+            </button>
+            <button class="statut-toggle" style="--kc:#4a9eff" id="tog-nonfact" onclick="toggleStatut('nonfact')">
+              <span class="tog-dot"></span>Retour non facturable
+            </button>
+            <button class="statut-toggle" style="--kc:#2ecc71" id="tog-temps" onclick="toggleStatut('temps')">
+              <span class="tog-dot"></span>Temps traitement supp.
+            </button>
+          </div>
+        </div>
+
+        <!-- SUIVI -->
+        <div style="margin-top:20px;">
+          <div class="section-sep" style="border:none;margin-bottom:12px;">Suivi TeamGarantie</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Correspondant</label>
+              <select id="f-correspondant">
+                <option value="">— Sélectionner —</option>
+                <option>Omar</option><option>Nico</option>
+                <option>Tahir</option><option>Marion</option><option>Céline</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Nombre de relances</label>
+              <input type="number" id="f-relances" min="0" value="0">
+            </div>
+            <div class="field">
+              <label>Défaut 1</label>
+              <select id="f-defaut1"><option value="">— Sélectionner —</option></select>
+            </div>
+            <div class="field">
+              <label>Défaut 2</label>
+              <select id="f-defaut2"><option value="">— Sélectionner —</option></select>
+            </div>
+            <div class="field span2">
+              <label>Heures non facturées</label>
+              <input type="text" id="f-heures" value="0">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn primary" onclick="saveDossier()">💾 Enregistrer</button>
+          <button class="btn pdf" onclick="generatePDF()">📄 Générer PDF</button>
+          <button class="btn" onclick="resetForm()">Réinitialiser</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-new -->
+
+  <!-- ── TAB LISTE DOSSIERS ── -->
+  <div id="tab-list" class="main" style="display:none;">
+
+    <div class="kpi-row">
+      <div class="kpi" style="--kc:var(--accent)"><div class="kpi-label">Total dossiers</div><div class="kpi-val" id="kl-total">—</div></div>
+      <div class="kpi" style="--kc:#f5a623"><div class="kpi-label">En risque</div><div class="kpi-val" id="kl-risque" style="color:#f5a623;">—</div></div>
+      <div class="kpi" style="--kc:#ff4d6a"><div class="kpi-label">Annulés</div><div class="kpi-val" id="kl-annul" style="color:#ff4d6a;">—</div></div>
+      <div class="kpi" style="--kc:#00c896"><div class="kpi-label">DG sauvées</div><div class="kpi-val" id="kl-sauv" style="color:#00c896;">—</div></div>
+      <div class="kpi" style="--kc:#f5c842"><div class="kpi-label">Rattrapages</div><div class="kpi-val" id="kl-rattrap" style="color:#f5c842;">—</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Dossiers de contrôle</h2><span id="list-count" style="font-size:11px;color:var(--text3);"></span></div>
+      <div class="panel-body">
+        <div class="toolbar">
+          <select id="lf-site" onchange="renderList()">
+            <option value="">Tous les sites</option>
+            <option value="VW_Illkirch">VW Illkirch</option>
+            <option value="VW_Bischheim">VW Bischheim</option>
+            <option value="Audi_Hoenheim">Audi Hoenheim</option>
+            <option value="Seat_Hoenheim">SEAT Hoenheim</option>
+            <option value="Skoda_Hoenheim">Skoda Hoenheim</option>
+            <option value="Audi_Obernai">Audi Obernai</option>
+            <option value="VW_Obernai">VW Obernai</option>
+          </select>
+          <select id="lf-statut" onchange="renderList()">
+            <option value="">Tous statuts</option>
+            <option value="risque">Risque annulation</option>
+            <option value="annul">Annulés</option>
+            <option value="sauvee">DG sauvées</option>
+            <option value="rattrapage">Rattrapage</option>
+            <option value="incomplet">Incomplets</option>
+            <option value="nonfact">Non facturable</option>
+          </select>
+          <input type="text" id="lf-search" placeholder="N°OR, chassis, CCS..." oninput="renderList()" style="min-width:180px;">
+          <button class="btn" onclick="exportCSV()" style="margin-left:auto;">↓ CSV</button>
+        </div>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Site</th><th>N°OR</th><th>Châssis</th><th>CCS</th>
+              <th>Modèle</th><th>Montant</th><th>Statuts actifs</th>
+              <th>Défaut</th><th>Correspondant</th><th>Date</th><th>Créé par</th>
+            </tr>
+          </thead>
+          <tbody id="list-tbody"></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-list -->
+
+</div><!-- /app-screen -->
+
+<!-- ── MODAL DÉTAIL ── -->
+<div class="modal-bg" id="detail-modal" onclick="if(event.target===this)closeDetail()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="detail-title">Dossier —</h3>
+      <button class="modal-close" onclick="closeDetail()">×</button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+    <div class="modal-foot" id="detail-foot"></div>
+  </div>
 </div>
 
 <div id="toast"></div>
 
-<!-- ══════════════════ FIREBASE ══════════════════ -->
+<!-- ══ FIREBASE ══ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, push, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
 const firebaseConfig = {
-    apiKey:"AIzaSyApg898LLWpWlLy8o0JEU9mTMqkbORKLQ0",
-    authDomain:"controle-garantie.firebaseapp.com",
-    databaseURL:"https://controle-garantie-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId:"controle-garantie",
-    storageBucket:"controle-garantie.firebasestorage.app",
-    messagingSenderId:"988294526180",
-    appId:"1:988294526180:web:119987fabec448679228f1"
-  };
+  apiKey:"AIzaSyApg898LLWpWlLy8o0JEU9mTMqkbORKLQ0",
+  authDomain:"controle-garantie.firebaseapp.com",
+  databaseURL:"https://controle-garantie-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"controle-garantie",
+  storageBucket:"controle-garantie.firebasestorage.app",
+  messagingSenderId:"988294526180",
+  appId:"1:988294526180:web:119987fabec448679228f1"
+};
 const app = initializeApp(firebaseConfig);
-const db  = getDatabase(app);
+const db = getDatabase(app);
 window._db=db; window._ref=ref; window._push=push; window._set=set; window._remove=remove;
-
 onValue(ref(db,'controle_garantie'), snap => {
-  window._data = {};
-  const v = snap.val();
-  if (v) Object.entries(v).forEach(([k,d]) => { window._data[k]={_id:k,...d}; });
-  // Attendre que les fonctions du script suivant soient définies
-  setTimeout(() => { if (typeof window.renderTable === 'function') window.renderTable(); }, 50);
-}, { onlyOnce:false });
+  window._dossiers={};
+  const v=snap.val();
+  if(v) Object.entries(v).forEach(([k,d])=>{window._dossiers[k]={_id:k,...d};});
+  setTimeout(()=>{
+    if(typeof window.renderList==='function') window.renderList();
+  },50);
+},{onlyOnce:false});
 </script>
 
-<!-- ══════════════════ SCRIPT ══════════════════ -->
+<!-- ══ SCRIPT ══ -->
 <script>
-window._data = {};
-let editingId = null;
+window._dossiers={};
+let _currentUser=null;
+let _selectedUser=null;
+let _selectedPin=null;
+let _ocrData={};
+let _currentSource='dcsnet';
+let _statuts={rattrapage:false,risque:false,malgre:false,annul:false,sauvee:false,incomplet:false,nonfact:false,temps:false};
+let _detailId=null;
 
-const DEFAUTS = [
-  'ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué',
-  'Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant',
-  'CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné',
-  'Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé',
-  'Descriptif des travaux manquant ou incomplet ou ilisible','Directive action non respecté',
-  'Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme',
-  'Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non éxécutée',
-  'Garantie échue','Immat sur vidéo','IQ cloturé avant facturation DG','IQ manquant',
-  'IQ ne correspond pas à la réparation','IQ non cloturé après facturation DG','IQ non conforme',
-  'IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants',
-  'Kilométrage erroné DCS ou IQ','Kilometrage sur OR manuscrit pas de contre signature client',
-  'Liste PPSO non utilisé','Manque dernier entretien participation AUDI',
-  'Photo ou vidéo manquante ou non conforme','Protocole non conforme, manquant ou non abouti',
-  'Mise hors tension manquante','TPI non appliquée','Ticket clim absent ou non conforme'
-];
+const USERS={'Omar':'1472','Nico':'2583','Tahir':'3694','Marion':'4715','Céline':'5826'};
+const SITE_SHORT={'VW_Illkirch':'VW Illkirch','VW_Bischheim':'VW Bischheim','Audi_Hoenheim':'Audi Hoen.','Seat_Hoenheim':'SEAT Hoen.','Skoda_Hoenheim':'Skoda Hoen.','Audi_Obernai':'Audi Obern.','VW_Obernai':'VW Obern.'};
+const SITE_MAP={'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim','GARANTIE OBERNAI VW':'VW_Obernai','GARANTIE OBERNAI AUDI':'Audi_Obernai'};
+const STATUT_LABELS={rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG malgré risque',annul:'Annulation déf.',sauvee:'DG sauvée',incomplet:'Incomplet',nonfact:'Non facturable',temps:'Temps supp.'};
+const STATUT_COLORS={rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',annul:'#ff4d6a',sauvee:'#00c896',incomplet:'#ffe066',nonfact:'#4a9eff',temps:'#2ecc71'};
+const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet','Directive action non respectée','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non éxécutée','Garantie échue','Immat sur vidéo','IQ cloturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non cloturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur OR manuscrit sans contre-signature','Liste PPSO non utilisée','Manque dernier entretien participation AUDI','Photo ou vidéo manquante ou non conforme','Protocole non conforme ou manquant','Mise hors tension manquante','TPI non appliquée','Ticket clim absent ou non conforme'];
 
-const STATUTS = ['rattrapage','risque','malgre','annul','sauvee','incomplet','nonfact','temps'];
-const STATUT_LABELS = {
-  rattrapage:'Rattrapage', risque:'Risque annul.', malgre:'DG malgré risque',
-  annul:'Annulation déf.', sauvee:'DG sauvée', incomplet:'Incomplets',
-  nonfact:'Non facturable', temps:'Temps supp.'
+// Init défauts
+['f-defaut1','f-defaut2'].forEach(id=>{
+  const s=document.getElementById(id);
+  s.innerHTML='<option value="">— Sélectionner —</option>'+DEFAUTS.map(d=>`<option>${d}</option>`).join('');
+});
+
+// ── LOGIN ──
+window.selectUser=function(name,pin){
+  _selectedUser=name; _selectedPin=pin;
+  document.querySelectorAll('.user-btn').forEach(b=>b.classList.remove('selected'));
+  event.target.classList.add('selected');
+  document.getElementById('pin-section').style.display='block';
+  document.getElementById('pin-user-name').textContent=name;
+  document.getElementById('pin-input').value='';
+  document.getElementById('login-error').style.display='none';
+  document.getElementById('pin-input').focus();
 };
 
-// ── Init listes défauts ──
-function initDefauts() {
-  ['m-defaut1','m-defaut2'].forEach(id => {
-    const s = document.getElementById(id);
-    s.innerHTML = '<option value="">— Sélectionner —</option>' +
-      DEFAUTS.map(d=>`<option>${d}</option>`).join('');
-  });
-}
-initDefauts();
-
-// ── Render table ──
-window.renderTable = function() {
-  const fSite = document.getElementById('f-site').value;
-  const fCorr = document.getElementById('f-correspondant').value;
-  const fStat = document.getElementById('f-statut').value;
-  const fSearch = document.getElementById('f-search').value.toLowerCase();
-
-  let data = Object.values(window._data);
-  if (fSite)   data = data.filter(d=>d.site===fSite);
-  if (fCorr)   data = data.filter(d=>d.correspondant===fCorr);
-  if (fStat)   data = data.filter(d=>d[fStat]&&d[fStat]!=='');
-  if (fSearch) data = data.filter(d=>
-    (d.nor||'').toLowerCase().includes(fSearch)||
-    (d.ccs||'').toLowerCase().includes(fSearch)||
-    (d.vin||'').toLowerCase().includes(fSearch)
-  );
-
-  // KPIs
-  const mon = data.reduce((s,d)=>s+(parseFloat((d.montant||'0').replace(',','.'))||0),0);
-  document.getElementById('k-total').textContent    = data.length;
-  document.getElementById('k-montant').textContent  = mon.toLocaleString('fr-FR',{maximumFractionDigits:0});
-  document.getElementById('k-rattrap').textContent  = data.filter(d=>d.rattrapage).length;
-  document.getElementById('k-risque').textContent   = data.filter(d=>d.risque).length;
-  document.getElementById('k-annul').textContent    = data.filter(d=>d.annul).length;
-  document.getElementById('k-sauvee').textContent   = data.filter(d=>d.sauvee).length;
-  document.getElementById('k-incomplet').textContent= data.filter(d=>d.incomplet).length;
-  document.getElementById('k-nonfact').textContent  = data.filter(d=>d.nonfact).length;
-
-  const tbody = document.getElementById('tbody');
-  if (!data.length) {
-    tbody.innerHTML='<tr class="empty-row"><td colspan="24">Aucun dossier — cliquez "+ Nouveau dossier" ou utilisez l\'extraction OCR</td></tr>';
-    return;
+window.checkPin=function(){
+  const val=document.getElementById('pin-input').value;
+  if(val.length===4){
+    if(val===_selectedPin){
+      _currentUser=_selectedUser;
+      document.getElementById('login-screen').style.display='none';
+      document.getElementById('app-screen').style.display='block';
+      document.getElementById('current-user-name').textContent=_currentUser;
+      document.getElementById('f-correspondant').value=_currentUser;
+    } else {
+      document.getElementById('login-error').style.display='block';
+      document.getElementById('pin-input').value='';
+    }
   }
-
-  const statBadge = v => {
-    if (!v) return '<span style="color:var(--text3);font-size:11px;">—</span>';
-    if (v==='yellow') return '<span class="badge b-stat-y">⚠</span>';
-    if (v==='red')    return '<span class="badge b-stat-r">✕</span>';
-    if (v==='green')  return '<span class="badge b-stat-g">✓</span>';
-    return '—';
-  };
-
-  tbody.innerHTML = data.map(d=>`
-    <tr>
-      <td><span class="badge b-site">${(d.site||'—').replace('_',' ')}</span></td>
-      <td class="mono">${d.nor||'—'}</td>
-      <td class="mono" style="font-size:10px;">${d.vin||'—'}</td>
-      <td>${d.ccs||'—'}</td>
-      <td>${d.tech1||'—'}</td>
-      <td>${d.tech2||'—'}</td>
-      <td style="color:#f5c842;">${d.service||'—'}</td>
-      <td>${d.intervention||'—'}</td>
-      <td class="mono" style="text-align:center;">${d.heures||'0'}</td>
-      <td class="mono">${d.montant||'—'} €</td>
-      <td style="font-size:11px;">${d.date||'—'}</td>
-      ${STATUTS.map(s=>`<td style="text-align:center;">${statBadge(d[s])}</td>`).join('')}
-      <td class="mono" style="text-align:center;">${d.relances||'0'}</td>
-      <td>${d.correspondant||'—'}</td>
-      <td>${d.defaut1?`<span class="badge b-defaut" title="${d.defaut1}">${d.defaut1}</span>`:'—'}</td>
-      <td>${d.defaut2?`<span class="badge b-defaut" title="${d.defaut2}">${d.defaut2}</span>`:'—'}</td>
-      <td style="display:flex;gap:4px;padding:4px;">
-        <button class="btn" style="padding:3px 8px;font-size:11px;" onclick="openModal('${d._id}')">✏</button>
-        <button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="del('${d._id}')">✕</button>
-      </td>
-    </tr>`).join('');
 };
 
-// ── Colorer les selects statut (couleur fixe par classe parent) ──
-window.applyStatutColor = function(el) {
-  el.classList.toggle('active', el.value === 'oui');
+window.logout=function(){
+  _currentUser=null; _selectedUser=null;
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.querySelectorAll('.user-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('pin-section').style.display='none';
 };
 
-// ── Modal ──
-window.openModal = function(id) {
-  editingId = id;
-  const d = id ? window._data[id] : null;
-  document.getElementById('modal-title').textContent = d ? 'Modifier le dossier' : 'Nouveau dossier';
-
-  const setV = (elId, val) => { const el=document.getElementById(elId); if(el) el.value=val||''; };
-  setV('m-site', d?.site); setV('m-nor', d?.nor); setV('m-vin', d?.vin);
-  setV('m-modele', d?.modele);
-  setV('m-date', d?.date); setV('m-ccs', d?.ccs); setV('m-montant', d?.montant);
-  setV('m-tech1', d?.tech1); setV('m-tech2', d?.tech2); setV('m-heures', d?.heures);
-  setV('m-service', d?.service); setV('m-intervention', d?.intervention);
-  setV('m-correspondant', d?.correspondant); setV('m-relances', d?.relances||'0');
-  setV('m-defaut1', d?.defaut1); setV('m-defaut2', d?.defaut2);
-  STATUTS.forEach(s => {
-    const el = document.getElementById('m-'+s);
-    if (el) { el.value=d?.[s]||''; applyStatutColor(el); }
-  });
-  document.getElementById('modal-bg').classList.add('open');
+// ── TABS ──
+window.showTab=function(tab){
+  document.getElementById('tab-new').style.display='none';
+  document.getElementById('tab-list').style.display='none';
+  document.getElementById('nav-new').classList.remove('active');
+  document.getElementById('nav-list').classList.remove('active');
+  if(tab==='tab-new'){
+    document.getElementById('tab-new').style.display='block';
+    document.getElementById('nav-new').classList.add('active');
+  } else {
+    document.getElementById('tab-list').style.display='block';
+    document.getElementById('nav-list').classList.add('active');
+    renderList();
+  }
 };
 
-window.closeModal = function() { document.getElementById('modal-bg').classList.remove('open'); };
-
-// ── Save ──
-window.saveDossier = function() {
-  if (!window._db) { toast('Firebase non configuré','error'); return; }
-  const nor = document.getElementById('m-nor').value.trim();
-  if (!nor) { toast('N° OR obligatoire','error'); return; }
-
-  const obj = {
-    site:document.getElementById('m-site').value,
-    nor, vin:document.getElementById('m-vin').value,
-    modele:document.getElementById('m-modele').value,
-    date:document.getElementById('m-date').value,
-    ccs:document.getElementById('m-ccs').value,
-    montant:document.getElementById('m-montant').value,
-    tech1:document.getElementById('m-tech1').value,
-    tech2:document.getElementById('m-tech2').value,
-    heures:document.getElementById('m-heures').value,
-    service:document.getElementById('m-service').value,
-    intervention:document.getElementById('m-intervention').value,
-    correspondant:document.getElementById('m-correspondant').value,
-    relances:document.getElementById('m-relances').value,
-    defaut1:document.getElementById('m-defaut1').value,
-    defaut2:document.getElementById('m-defaut2').value,
-    _ts: Date.now()
-  };
-  STATUTS.forEach(s => { obj[s]=document.getElementById('m-'+s).value; });
-
-  const p = editingId
-    ? window._set(window._ref(window._db,`controle_garantie/${editingId}`), obj)
-    : window._push(window._ref(window._db,'controle_garantie'), obj);
-  p.then(()=>{ toast(editingId?'Dossier mis à jour':'Dossier enregistré','success'); closeModal(); });
-};
-
-// ── Delete ──
-window.del = function(id) {
-  if (!confirm('Supprimer ce dossier ?')) return;
-  window._remove(window._ref(window._db,`controle_garantie/${id}`));
-  toast('Supprimé','info');
+// ── SOURCE ──
+window.setSource=function(src){
+  _currentSource=src;
+  document.getElementById('src-dcs').style.borderColor=src==='dcsnet'?'var(--accent)':'var(--border)';
+  document.getElementById('src-dcs').style.color=src==='dcsnet'?'var(--accent)':'var(--text2)';
+  document.getElementById('src-saga').style.borderColor=src==='saga'?'var(--accent)':'var(--border)';
+  document.getElementById('src-saga').style.color=src==='saga'?'var(--accent)':'var(--text2)';
+  document.getElementById('source-badge').textContent=src==='dcsnet'?'DCSnet Neo':'SAGA/2';
 };
 
 // ── OCR ──
-window.handleOcr = async function(file) {
-  if (!file) return;
-  const key = localStorage.getItem('gea_anthropic_key');
-  if (!key) { toast('Clé API non configurée — ouvre extraction-ocr.html d\'abord','error'); return; }
-  const lbl=document.getElementById('ocr-label'), spn=document.getElementById('ocr-spinner');
-  lbl.textContent='Extraction en cours...'; spn.style.display='block';
-  try {
-    const {b64, mime} = await compressImage(file);
-    try {
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:mime||'image/jpeg',data:b64}},
-          {type:'text',text:`Tu analyses une capture DCSnet Neo (logiciel DMS CDK, concessions Grand Est Automobiles).
-
-STRUCTURE EXACTE — lis chaque zone attentivement :
-
-ZONE 1 — BANDEAU TURQUOISE LIGNE 1 (tout en haut, fond bleu-vert) :
-  Format : [NOM_COMPTE] [N°OR CHIFFRES] [CCS NUMERO NOM] [EQUIPE...] [ORV CODE - LIBELLE]
-  Exemple réel : "GIDAAUDOBE  N°OR 616110  CCS 09 FLORENT BATT  EQUIPE ME  ORV AUDI 1D - MECANIQUE AUDI"
-  → nor = "616110" (chiffres après N°OR UNIQUEMENT)
-  → ccs = "FLORENT BATT" (texte après le numéro CCS, ex: après "09 " → "FLORENT BATT")
-  → ORV contient la marque : AUDI/VW/SEAT/SKODA → utile pour identifier le site
-
-ZONE 2 — LIGNE VÉHICULE (fond blanc sous bandeau) :
-  Colonnes : VIN | IMMAT | N°FABR | MODELE/VERSION | DATE LIV | KILOM
-  → vin = 17 caractères (ex: WAUZZZ8P48A185899)
-  → modele = contenu colonne MODELE/VERSION (ex: AUDI A3 Sportback 1.4 4)
-  → date = DATE LIV format JJ/MM/AAAA
-
-ZONE 3 — BLOC CLIENT (fond blanc, NOM PRENOM ADRESSE) :
-  ⚠ IGNORER TOTALEMENT — c'est le client, PAS le conseiller
-
-ZONE 4 — TABLEAU INTERVENTIONS (milieu) :
-  → intervention = désignation 1ère pièce colonne Désignation
-  → montant = valeur colonne Montant (ex: 37.60)
-
-ZONE 5 — SECTION IMPUTATIONS (bas de page, fond gris foncé) :
-  Format : [CODE ex: 90010 G] [NOM DU SITE ex: GARANTIE OBERNAI] [STATUT]
-  → site = NOM DU SITE (ex: "GARANTIE OBERNAI")
-  → NE PAS confondre "90010 G" avec le N°OR
-
-Retourne UNIQUEMENT ce JSON valide sans markdown :
-{"nor":null,"ccs":null,"vin":null,"modele":null,"montant":null,"intervention":null,"date":null,"site":null}
-Valeurs exactes trouvées dans l'image. null si vraiment absent.`}
-        ]}]})
-      });
-      const d=await res.json();
-      const obj=JSON.parse(d.content[0].text.replace(/```json|```/g,'').trim());
-      const map={
-  nor:'m-nor', vin:'m-vin', ccs:'m-ccs', modele:'m-modele',
-  tech1:'m-tech1', montant:'m-montant', intervention:'m-intervention', date:'m-date'
-};
-      const SITE_MAP={
-        'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim',
-        'GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim',
-        'VW_ILLKIRCH':'VW_Illkirch','VW_BISCHHEIM':'VW_Bischheim',
-        'AUDI_OBERNAI':'Audi_Obernai','VW_OBERNAI':'VW_Obernai',
-        'AUDI_HOENHEIM':'Audi_Hoenheim','SEAT_HOENHEIM':'Seat_Hoenheim',
-        'SKODA_HOENHEIM':'Skoda_Hoenheim'
-      };
-      // Remplir les champs texte
-      Object.entries(map).forEach(([k,id])=>{
-        if(obj[k]){
-          const el=document.getElementById(id);
-          if(el){el.value=obj[k];el.classList.add('ocr-filled');}
-        }
-      });
-      // Remplir le select site (correspondance textuelle)
-      if(obj.site){
-        const siteEl=document.getElementById('m-site');
-        if(siteEl){
-          const siteKey=(obj.site||'').toUpperCase().trim();
-          const siteVal=SITE_MAP[siteKey]||SITE_MAP[obj.site]||obj.site;
-          siteEl.value=siteVal;
-          if(siteEl.value) siteEl.classList.add('ocr-filled');
-        }
-      }
-      lbl.textContent='✓ Extraction réussie — complétez les champs restants';
-      toast('Champs pré-remplis','success');
-    } catch(err){ lbl.textContent='Erreur — remplissez manuellement'; toast('Erreur OCR','error'); }
-    finally { spn.style.display='none'; }
-  } catch(outerErr){ toast('Erreur lecture image','error'); spn.style.display='none'; }
-};
-
-// Ctrl+V dans modal
+const dz=document.getElementById('ocr-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)handleOcrFile(f);});
 document.addEventListener('paste',e=>{
-  if(!document.getElementById('modal-bg').classList.contains('open')) return;
+  if(document.getElementById('detail-modal').classList.contains('open'))return;
   const items=e.clipboardData?.items;
-  if(!items) return;
-  for(const item of items){ if(item.type.startsWith('image/')){ handleOcr(item.getAsFile()); break; } }
+  if(!items)return;
+  for(const item of items){if(item.type.startsWith('image/')){handleOcrFile(item.getAsFile());break;}}
 });
 
-// ── Export CSV ──
+function compressImage(file,maxW=1400){
+  return new Promise(resolve=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const scale=Math.min(1,maxW/img.width);
+        const cv=document.createElement('canvas');
+        cv.width=Math.round(img.width*scale);cv.height=Math.round(img.height*scale);
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        resolve({b64:cv.toDataURL('image/jpeg',0.82).split(',')[1],mime:'image/jpeg'});
+      };
+      img.src=e.target.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+window.handleOcrFile=async function(file){
+  if(!file)return;
+  const key=localStorage.getItem('gea_anthropic_key');
+  if(!key){
+    // Afficher champ clé API
+    const k=prompt('Clé API Anthropic (sk-ant-...)');
+    if(k&&k.startsWith('sk-ant')){localStorage.setItem('gea_anthropic_key',k);}
+    else{toast('Clé API invalide','error');return;}
+  }
+  // Aperçu
+  const prev=document.getElementById('ocr-preview');
+  prev.src=URL.createObjectURL(file);prev.style.display='block';
+  const status=document.getElementById('ocr-status');
+  status.className='ocr-status loading';
+  status.innerHTML='<div class="spinner"></div> Analyse en cours...';
+
+  try{
+    const {b64,mime}=await compressImage(file);
+    const apiKey=localStorage.getItem('gea_anthropic_key');
+    const prompt=_currentSource==='dcsnet'?PROMPT_DCS:PROMPT_SAGA;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1500,messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mime,data:b64}},
+        {type:'text',text:prompt}
+      ]}]})
+    });
+    const data=await res.json();
+    if(data.error)throw new Error(data.error.message);
+    let txt=data.content[0].text.trim().replace(/```json|```/g,'').trim();
+    const match=txt.match(/\{[\s\S]*\}/);
+    if(!match)throw new Error('Pas de JSON');
+    _ocrData=JSON.parse(match[0]);
+    status.className='ocr-status success';
+    status.textContent='✓ Extraction réussie — '+Object.keys(_ocrData).filter(k=>_ocrData[k]).length+' champs extraits';
+    document.getElementById('btn-create').style.display='block';
+    toast('Extraction réussie','success');
+  }catch(err){
+    status.className='ocr-status error';
+    status.textContent='Erreur : '+err.message;
+    toast('Erreur OCR','error');
+    console.error(err);
+  }
+};
+
+const PROMPT_DCS=`Analyse cette capture DCSnet Neo (logiciel DMS CDK, concessions Grand Est Automobiles).
+
+ZONES DE L'ÉCRAN :
+1. BANDEAU TURQUOISE (ligne du haut) : "[NOM_COMPTE] N°OR [CHIFFRES] CCS [NUM] [NOM_CONSEILLER] ... ORV [MARQUE] [CODE]-[LIBELLE]"
+   - nor = CHIFFRES après "N°OR" (ex: 616110). JAMAIS le code imputation "90010 G"
+   - ccs = NOM après le numéro CCS (ex: "CCS 09 FLORENT BATT" → "FLORENT BATT"). JAMAIS le nom client.
+
+2. LIGNE VÉHICULE : "VIN | IMMAT | N°FABR | MODELE/VERSION | DATE LIV | KILOM"
+   - vin = 17 caractères (ex: WAUZZZ8P48A185899)
+   - modele = contenu MODELE/VERSION
+   - date_livraison = DATE LIV format JJ/MM/AAAA
+   - kilometrage = KILOM chiffres
+
+3. BLOC NOM/PRENOM/ADRESSE = CLIENT → IGNORER TOTALEMENT
+
+4. TABLEAU PIÈCES : colonne Désignation → intervention, colonne Montant → montant
+
+5. SECTION IMPUTATIONS (bas, fond gris) : "[CODE] [NOM_SITE] [STATUT]"
+   - site = NOM_SITE (ex: "GARANTIE OBERNAI", "GARANTIE BISCHHEIM")
+
+Retourne UNIQUEMENT ce JSON sans markdown :
+{"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"date_livraison":null,"montant":null,"intervention":null,"plainte":null,"site":null}`;
+
+const PROMPT_SAGA=`Analyse cette capture SAGA/2 (demandes de garantie VW Group).
+Colonnes: Fabricant|VIN|N Demande|N TPI|Date reception|Date reparation|Date soumission|Justifie|Valeur demande|Valeur note credit|Type demande|Code dommage|Code avarie|Code reparation|Numero cas|Code-barres|Niveau traitement
+Partenaire en haut = KVPs.
+Extrais la ligne sélectionnée (ou 1ère ligne). JSON sans markdown :
+{"nor":null,"vin":null,"date_reception":null,"date_reparation":null,"date_soumission":null,"valeur_demande":null,"code_dommage":null,"code_avarie":null,"type_demande":null,"niveau_traitement":null,"partenaire":null}`;
+
+// ── ÉTAPES ──
+window.goToStep2=function(){
+  fillFormFromOcr(_ocrData);
+  document.getElementById('step1').style.display='none';
+  document.getElementById('step2').style.display='block';
+  document.getElementById('step1-ind').className='step done';
+  document.getElementById('step2-ind').className='step active';
+  document.getElementById('step3-ind').className='step';
+};
+
+window.goToStep1=function(){
+  document.getElementById('step1').style.display='block';
+  document.getElementById('step2').style.display='none';
+  document.getElementById('step1-ind').className='step active';
+  document.getElementById('step2-ind').className='step';
+};
+
+function fillFormFromOcr(d){
+  const setV=(id,val)=>{if(!val)return;const el=document.getElementById(id);if(!el)return;el.value=val;el.classList.add('filled');};
+  setV('f-nor',d.nor);
+  setV('f-vin',d.vin);
+  setV('f-modele',d.modele);
+  setV('f-km',d.kilometrage);
+  setV('f-ccs',d.ccs);
+  setV('f-montant',d.montant||d.valeur_demande);
+  setV('f-intervention',d.intervention);
+  setV('f-plainte',d.plainte);
+  if(d.date_livraison) setV('f-date',d.date_livraison);
+  // Site
+  if(d.site){
+    const siteEl=document.getElementById('f-site');
+    const key=(d.site||'').toUpperCase().trim();
+    const val=SITE_MAP[key]||d.site;
+    siteEl.value=val;
+    if(siteEl.value) siteEl.classList.add('filled');
+  }
+}
+
+// ── STATUTS TOGGLE ──
+window.toggleStatut=function(key){
+  _statuts[key]=!_statuts[key];
+  const btn=document.getElementById('tog-'+key);
+  btn.classList.toggle('active',_statuts[key]);
+};
+
+function resetStatuts(){
+  Object.keys(_statuts).forEach(k=>{
+    _statuts[k]=false;
+    const btn=document.getElementById('tog-'+k);
+    if(btn) btn.classList.remove('active');
+  });
+}
+
+// ── SAVE ──
+window.saveDossier=function(){
+  if(!window._db){toast('Firebase non connecté','error');return;}
+  const nor=document.getElementById('f-nor').value.trim();
+  if(!nor){toast('N°OR obligatoire','error');return;}
+  const obj={
+    nor,
+    site:document.getElementById('f-site').value,
+    vin:document.getElementById('f-vin').value,
+    modele:document.getElementById('f-modele').value,
+    kilometrage:document.getElementById('f-km').value,
+    ccs:document.getElementById('f-ccs').value,
+    tech1:document.getElementById('f-tech1').value,
+    montant:document.getElementById('f-montant').value,
+    date:document.getElementById('f-date').value,
+    service:document.getElementById('f-service').value,
+    intervention:document.getElementById('f-intervention').value,
+    plainte:document.getElementById('f-plainte').value,
+    correspondant:document.getElementById('f-correspondant').value,
+    relances:document.getElementById('f-relances').value,
+    defaut1:document.getElementById('f-defaut1').value,
+    defaut2:document.getElementById('f-defaut2').value,
+    heures:document.getElementById('f-heures').value,
+    ..._statuts,
+    _createdBy:_currentUser||'',
+    _ts:Date.now()
+  };
+  window._push(window._ref(window._db,'controle_garantie'),obj)
+    .then(()=>{
+      toast('Dossier enregistré ✓','success');
+      document.getElementById('step2-ind').className='step done';
+      document.getElementById('step3-ind').className='step active';
+    });
+};
+
+// ── PDF ──
+window.generatePDF=function(){
+  const nor=document.getElementById('f-nor').value||'—';
+  const vin=document.getElementById('f-vin').value||'—';
+  const site=document.getElementById('f-site').value||'—';
+  const date=document.getElementById('f-date').value||'—';
+  const ccs=document.getElementById('f-ccs').value||'—';
+  const modele=document.getElementById('f-modele').value||'—';
+  const montant=document.getElementById('f-montant').value||'—';
+  const intervention=document.getElementById('f-intervention').value||'—';
+  const plainte=document.getElementById('f-plainte').value||'—';
+  const def1=document.getElementById('f-defaut1').value||'';
+  const def2=document.getElementById('f-defaut2').value||'';
+  const statutsActifs=Object.entries(_statuts).filter(([,v])=>v).map(([k])=>STATUT_LABELS[k]);
+
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  let y=20;
+  const line=(label,val,bold=false)=>{
+    doc.setFontSize(10);doc.setFont('helvetica',bold?'bold':'normal');
+    doc.setTextColor(100);doc.text(label,15,y);
+    doc.setTextColor(20);doc.text(String(val),70,y);
+    y+=7;
+  };
+  const title=(txt)=>{y+=4;doc.setFontSize(12);doc.setFont('helvetica','bold');doc.setTextColor(20);doc.text(txt,15,y);y+=8;doc.setDrawColor(200);doc.line(15,y-2,195,y-2);};
+
+  // En-tête
+  doc.setFontSize(16);doc.setFont('helvetica','bold');doc.setTextColor(20);
+  doc.text('CONTRÔLE GARANTIE — GEA',105,y,{align:'center'});y+=10;
+  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(100);
+  doc.text('TeamGarantie — Grand Est Automobiles',105,y,{align:'center'});y+=12;
+  doc.setDrawColor(0,212,168);doc.setLineWidth(1);doc.line(15,y,195,y);y+=10;
+
+  title('Identification du dossier');
+  line('N° OR :',nor,true);
+  line('Site :',SITE_SHORT[site]||site);
+  line('Date OR :',date);
+  line('Châssis (VIN) :',vin);
+  line('Modèle :',modele);
+  line('CCS :',ccs);
+  line('Montant (€) :',montant+' €');
+
+  title('Intervention');
+  line('Pièce / Intervention :',intervention);
+  if(plainte&&plainte!=='—'){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(100);doc.text('Plainte client :',15,y);y+=5;
+    doc.setFont('helvetica','normal');doc.setTextColor(20);
+    const lines=doc.splitTextToSize(plainte,170);
+    doc.text(lines,15,y);y+=lines.length*5+5;
+  }
+
+  title('Statuts de contrôle');
+  if(statutsActifs.length){
+    statutsActifs.forEach(s=>{
+      doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(20);
+      doc.text('• '+s,20,y);y+=6;
+    });
+  } else {
+    doc.setFontSize(10);doc.setTextColor(150);doc.text('Aucun statut sélectionné',20,y);y+=6;
+  }
+
+  title('Défauts identifiés');
+  if(def1){doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(20);doc.text('1. '+def1,20,y);y+=6;}
+  if(def2){doc.setFontSize(10);doc.text('2. '+def2,20,y);y+=6;}
+  if(!def1&&!def2){doc.setFontSize(10);doc.setTextColor(150);doc.text('Aucun défaut sélectionné',20,y);y+=6;}
+
+  y+=8;doc.setFontSize(9);doc.setTextColor(150);
+  doc.text('Créé par : '+(_currentUser||'—')+' | '+new Date().toLocaleString('fr-FR'),15,y);
+
+  doc.save(`GEA_${site}_${nor}_${vin}_GARANTIE.pdf`);
+
+  // Mailto
+  const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_GARANTIE NON CONFORME`;
+  const corps=`Dossier de contrôle garantie\n\nN°OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModèle : ${modele}\nMontant : ${montant} €\n\nStatuts :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDéfauts :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n\nCréé par ${_currentUser||'—'}`;
+  window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+  toast('PDF généré + email préparé','success');
+};
+
+// ── RESET ──
+window.resetForm=function(){
+  ['f-nor','f-vin','f-modele','f-km','f-ccs','f-tech1','f-montant','f-date','f-intervention','f-plainte','f-heures'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.value='';el.classList.remove('filled');}
+  });
+  document.getElementById('f-site').value='';
+  document.getElementById('f-service').value='';
+  document.getElementById('f-relances').value='0';
+  document.getElementById('f-defaut1').value='';
+  document.getElementById('f-defaut2').value='';
+  document.getElementById('f-correspondant').value=_currentUser||'';
+  resetStatuts();
+  _ocrData={};
+  goToStep1();
+  document.getElementById('ocr-preview').style.display='none';
+  document.getElementById('ocr-status').className='ocr-status';
+  document.getElementById('btn-create').style.display='none';
+  document.getElementById('step1-ind').className='step active';
+  document.getElementById('step2-ind').className='step';
+  document.getElementById('step3-ind').className='step';
+};
+
+// ── LISTE ──
+window.renderList=function(){
+  const fSite=document.getElementById('lf-site')?.value||'';
+  const fStat=document.getElementById('lf-statut')?.value||'';
+  const fSearch=(document.getElementById('lf-search')?.value||'').toLowerCase();
+
+  let data=Object.values(window._dossiers);
+  if(fSite) data=data.filter(d=>d.site===fSite);
+  if(fStat) data=data.filter(d=>d[fStat]);
+  if(fSearch) data=data.filter(d=>(d.nor||'').toLowerCase().includes(fSearch)||(d.vin||'').toLowerCase().includes(fSearch)||(d.ccs||'').toLowerCase().includes(fSearch));
+  data=data.sort((a,b)=>(b._ts||0)-(a._ts||0));
+
+  document.getElementById('kl-total').textContent=data.length;
+  document.getElementById('kl-risque').textContent=data.filter(d=>d.risque).length;
+  document.getElementById('kl-annul').textContent=data.filter(d=>d.annul).length;
+  document.getElementById('kl-sauv').textContent=data.filter(d=>d.sauvee).length;
+  document.getElementById('kl-rattrap').textContent=data.filter(d=>d.rattrapage).length;
+  document.getElementById('list-count').textContent=data.length+' dossiers';
+
+  const tbody=document.getElementById('list-tbody');
+  if(!data.length){
+    tbody.innerHTML='<tr class="empty-row"><td colspan="11">Aucun dossier</td></tr>';
+    return;
+  }
+  tbody.innerHTML=data.map(d=>{
+    const statActifs=Object.entries(STATUT_LABELS).filter(([k])=>d[k]).map(([k,l])=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;">${l}</span>`).join('');
+    return `<tr onclick="showDetail('${d._id}')">
+      <td>${SITE_SHORT[d.site]||d.site||'—'}</td>
+      <td class="mono">${d.nor||'—'}</td>
+      <td class="mono" style="font-size:10px;">${d.vin||'—'}</td>
+      <td>${d.ccs||'—'}</td>
+      <td style="font-size:11px;">${d.modele||'—'}</td>
+      <td class="mono">${d.montant||'—'} €</td>
+      <td>${statActifs||'<span style="color:var(--text3);">—</span>'}</td>
+      <td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.defaut1||''}">${d.defaut1||'—'}</td>
+      <td>${d.correspondant||'—'}</td>
+      <td style="font-size:11px;">${d.date||'—'}</td>
+      <td style="color:var(--text3);">${d._createdBy||'—'}</td>
+    </tr>`;
+  }).join('');
+};
+
+// ── DÉTAIL ──
+window.showDetail=function(id){
+  const d=window._dossiers[id];
+  if(!d)return;
+  _detailId=id;
+  document.getElementById('detail-title').textContent='Dossier N°'+d.nor+' — '+(SITE_SHORT[d.site]||d.site||'');
+  const statActifs=Object.entries(STATUT_LABELS).filter(([k])=>d[k]);
+  document.getElementById('detail-body').innerHTML=`
+    <div class="detail-row"><div class="detail-label">N° OR</div><div class="detail-val" style="font-family:'IBM Plex Mono',monospace;font-weight:600;">${d.nor||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Site</div><div class="detail-val">${SITE_SHORT[d.site]||d.site||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Châssis</div><div class="detail-val" style="font-family:'IBM Plex Mono',monospace;">${d.vin||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Modèle</div><div class="detail-val">${d.modele||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Date OR</div><div class="detail-val">${d.date||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">CCS</div><div class="detail-val">${d.ccs||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Montant</div><div class="detail-val">${d.montant||'—'} €</div></div>
+    <div class="detail-row"><div class="detail-label">Intervention</div><div class="detail-val">${d.intervention||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Statuts actifs</div><div class="detail-val">${statActifs.length?statActifs.map(([k,l])=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;margin:2px;">${l}</span>`).join(''):'Aucun'}</div></div>
+    <div class="detail-row"><div class="detail-label">Défaut 1</div><div class="detail-val">${d.defaut1||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Défaut 2</div><div class="detail-val">${d.defaut2||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Correspondant</div><div class="detail-val">${d.correspondant||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Créé par</div><div class="detail-val">${d._createdBy||'—'}</div></div>
+  `;
+  document.getElementById('detail-foot').innerHTML=`
+    <button class="btn pdf" onclick="generatePDFFromDetail('${id}')">📄 PDF</button>
+    <button class="btn" onclick="deleteDetail('${id}')" style="color:var(--danger);border-color:var(--danger)40;">Supprimer</button>
+    <button class="btn" onclick="closeDetail()">Fermer</button>
+  `;
+  document.getElementById('detail-modal').classList.add('open');
+};
+
+window.closeDetail=function(){document.getElementById('detail-modal').classList.remove('open');};
+
+window.deleteDetail=function(id){
+  if(!confirm('Supprimer ce dossier ?'))return;
+  window._remove(window._ref(window._db,'controle_garantie/'+id));
+  closeDetail();toast('Supprimé','info');
+};
+
+window.generatePDFFromDetail=function(id){
+  const d=window._dossiers[id];
+  if(!d)return;
+  // Remplir les champs temporairement pour réutiliser generatePDF
+  document.getElementById('f-nor').value=d.nor||'';
+  document.getElementById('f-vin').value=d.vin||'';
+  document.getElementById('f-site').value=d.site||'';
+  document.getElementById('f-date').value=d.date||'';
+  document.getElementById('f-ccs').value=d.ccs||'';
+  document.getElementById('f-modele').value=d.modele||'';
+  document.getElementById('f-montant').value=d.montant||'';
+  document.getElementById('f-intervention').value=d.intervention||'';
+  document.getElementById('f-plainte').value=d.plainte||'';
+  document.getElementById('f-defaut1').value=d.defaut1||'';
+  document.getElementById('f-defaut2').value=d.defaut2||'';
+  Object.keys(_statuts).forEach(k=>{_statuts[k]=!!d[k];});
+  generatePDF();
+};
+
+// ── EXPORT CSV ──
 window.exportCSV=function(){
-  const data=Object.values(window._data);
-  const cols=['site','nor','vin','ccs','tech1','tech2','service','intervention','heures','montant','date',
-    ...STATUTS,'relances','correspondant','defaut1','defaut2'];
-  const heads=['SITE','N°OR','VIN','CCS','TECH1','TECH2','SERVICE','INTERVENTION','H NON FACT','MONTANT','DATE',
-    'RATTRAPAGE','RISQUE ANNUL','DG MALGRÉ RISQUE','ANNULATION DÉF','DG SAUVÉE','INCOMPLETS','NON FACTURABLE','TEMPS SUPP',
-    'RELANCES','CORRESPONDANT','DEFAUT1','DEFAUT2'];
-  const rows=[heads,...data.map(d=>cols.map(c=>d[c]||''))];
+  const data=Object.values(window._dossiers);
+  const cols=['site','nor','vin','modele','ccs','montant','date','intervention','plainte','rattrapage','risque','malgre','annul','sauvee','incomplet','nonfact','temps','defaut1','defaut2','correspondant','_createdBy'];
+  const heads=['SITE','N°OR','VIN','MODELE','CCS','MONTANT','DATE','INTERVENTION','PLAINTE','RATTRAPAGE','RISQUE','MALGRE','ANNUL','SAUVEE','INCOMPLET','NONFACT','TEMPS','DEFAUT1','DEFAUT2','CORRESPONDANT','CREE_PAR'];
+  const rows=[heads,...data.map(d=>cols.map(c=>d[c]??''))];
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
@@ -768,38 +974,10 @@ window.exportCSV=function(){
   a.click();
 };
 
-// ── Toast ──
-
-// ── Compression image avant envoi API ──
-function compressImage(file, maxW=1400) {
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxW / img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width  = Math.round(img.width  * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        // Toujours JPEG pour l'API Anthropic
-        resolve({ b64: canvas.toDataURL('image/jpeg', 0.82).split(',')[1], mime: 'image/jpeg' });
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-
-function siteFrom(code){
-  const m={'02153':'VW_Illkirch','02154':'VW_Bischheim','02155':'Audi_Hoenheim','63930':'Seat_Hoenheim','02376':'Skoda_Hoenheim','02486':'Audi_Obernai','02485':'VW_Obernai'};
-  return m[code]||'';
-}
 window.toast=function(msg,type='info'){
   const t=document.getElementById('toast');
-  t.textContent=msg; t.className='show '+type;
-  clearTimeout(t._t); t._t=setTimeout(()=>{t.className='';},3000);
+  t.textContent=msg;t.className='show '+type;
+  clearTimeout(t._t);t._t=setTimeout(()=>{t.className='';},3000);
 };
 </script>
 </body>
