@@ -766,9 +766,9 @@ window.goToStep1=function(){
 // ── INTERVENTIONS DYNAMIQUES ──
 let _intervCount=0;
 
-window.addIntervention=function(plainte='',piece='',montant=''){
+window.addIntervention=function(plainte='',piece='',montant='',factu=''){
   // Si appelé via onclick, le 1er argument est un Event → ignorer
-  if(plainte&&typeof plainte==='object'){plainte='';piece='';montant='';}
+  if(plainte&&typeof plainte==='object'){plainte='';piece='';montant='';factu='';}
   _intervCount++;
   const letter=String.fromCharCode(64+_intervCount); // A, B, C...
   const id=_intervCount;
@@ -788,14 +788,35 @@ window.addIntervention=function(plainte='',piece='',montant=''){
       <label>Pièce remplacée / Intervention</label>
       <input type="text" id="iv-piece-${id}" value="${(piece||'').replace(/"/g,'&quot;')}">
     </div>
-    <div class="field">
-      <label>Montant (€)</label>
-      <input type="text" id="iv-montant-${id}" value="${montant||''}" oninput="updateMontantTotal()">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="field">
+        <label>Montant (€)</label>
+        <input type="text" id="iv-montant-${id}" value="${montant||''}" oninput="updateMontantTotal()">
+      </div>
+      <div class="field">
+        <label>Facturation</label>
+        <select id="iv-factu-${id}" onchange="colorFactu(this)">
+          <option value="">— Sélectionner —</option>
+          <option value="possible"${factu==='possible'?' selected':''}>Facturation possible</option>
+          <option value="nonfacturable"${factu==='nonfacturable'?' selected':''}>Non facturable</option>
+          <option value="cession"${factu==='cession'?' selected':''}>Cession</option>
+        </select>
+      </div>
     </div>
   `;
   document.getElementById('interventions-container').appendChild(div);
+  const sel=div.querySelector('select');
+  if(sel) colorFactu(sel);
   updateMontantTotal();
   return id;
+};
+
+// Colorer le select facturation
+window.colorFactu=function(el){
+  el.style.borderColor=''; el.style.color=''; el.style.background='';
+  if(el.value==='possible'){el.style.borderColor='#00c896';el.style.color='#00c896';el.style.background='#0d2a22';}
+  else if(el.value==='nonfacturable'){el.style.borderColor='#ff4d6a';el.style.color='#ff4d6a';el.style.background='#2a0d14';}
+  else if(el.value==='cession'){el.style.borderColor='#f5a623';el.style.color='#f5a623';el.style.background='#2a1f0d';}
 };
 
 // Recalculer le montant total depuis les interventions
@@ -833,8 +854,9 @@ function getInterventions(){
     const inputs=b.querySelectorAll('input');
     const piece=inputs[0]?.value||'';
     const montant=inputs[1]?.value||'';
+    const factu=b.querySelector('select')?.value||'';
     if(plainte||piece||montant){
-      result.push({letter:String.fromCharCode(65+i),plainte,piece,montant});
+      result.push({letter:String.fromCharCode(65+i),plainte,piece,montant,factu});
     }
   });
   return result;
@@ -853,7 +875,7 @@ function fillFormFromOcr(d){
   // Interventions multiples
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
-    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||iv.intervention||'',iv.montant||''));
+    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||iv.intervention||'',iv.montant||'',iv.factu||''));
   } else if(d.plainte||d.intervention){
     // Fallback : une seule intervention
     addIntervention(d.plainte||'',d.intervention||'',d.montant||'');
@@ -1059,17 +1081,23 @@ window.generatePDF=function(){
   line('Montant (€) :',montant+' €');
 
   title('Interventions');
+  const FACTU_LABEL={possible:'Facturation possible',nonfacturable:'Non facturable',cession:'Cession'};
   if(interventions.length){
     interventions.forEach(iv=>{
       doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,153,255);
       doc.text(iv.letter+'.',15,y);
       doc.setTextColor(20);
       const pieceTxt=iv.piece?(' — '+iv.piece):'';
-      doc.text((iv.montant?iv.montant+' €':''),180,y,{align:'right'});
+      doc.text((iv.montant?iv.montant+' €':''),195,y,{align:'right'});
       doc.setFont('helvetica','normal');
       const plLines=doc.splitTextToSize((iv.plainte||'')+pieceTxt,150);
       doc.text(plLines,22,y);
-      y+=Math.max(6,plLines.length*5)+3;
+      y+=Math.max(6,plLines.length*5);
+      if(iv.factu){
+        doc.setFontSize(9);doc.setFont('helvetica','italic');doc.setTextColor(120);
+        doc.text('Facturation : '+(FACTU_LABEL[iv.factu]||iv.factu),22,y);y+=5;
+      }
+      y+=3;
       if(y>270){doc.addPage();y=20;}
     });
   } else {
@@ -1185,7 +1213,7 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Date OR</div><div class="detail-val">${d.date||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">CCS</div><div class="detail-val">${d.ccs||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Montant</div><div class="detail-val">${d.montant||'—'} €</div></div>
-    <div class="detail-row"><div class="detail-label">Interventions</div><div class="detail-val">${(Array.isArray(d.interventions)&&d.interventions.length)?d.interventions.map(iv=>`<div style="margin-bottom:6px;"><strong style="color:var(--accent2);">${iv.letter||'•'}.</strong> ${iv.plainte||''}${iv.piece?' — '+iv.piece:''}${iv.montant?' ('+iv.montant+' €)':''}</div>`).join(''):(d.intervention||d.plainte||'—')}</div></div>
+    <div class="detail-row"><div class="detail-label">Interventions</div><div class="detail-val">${(Array.isArray(d.interventions)&&d.interventions.length)?d.interventions.map(iv=>{const fl={possible:'Facturation possible',nonfacturable:'Non facturable',cession:'Cession'};const fc={possible:'#00c896',nonfacturable:'#ff4d6a',cession:'#f5a623'};return `<div style="margin-bottom:8px;"><strong style="color:var(--accent2);">${iv.letter||'•'}.</strong> ${iv.plainte||''}${iv.piece?' — '+iv.piece:''}${iv.montant?' ('+iv.montant+' €)':''}${iv.factu?` <span class="sbadge" style="background:${fc[iv.factu]}20;color:${fc[iv.factu]};border:1px solid ${fc[iv.factu]}40;">${fl[iv.factu]}</span>`:''}</div>`;}).join(''):(d.intervention||d.plainte||'—')}</div></div>
     <div class="detail-row"><div class="detail-label">Statuts actifs</div><div class="detail-val">${statActifs.length?statActifs.map(([k,l])=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;margin:2px;">${l}</span>`).join(''):'Aucun'}</div></div>
     <div class="detail-row"><div class="detail-label">Défaut 1</div><div class="detail-val">${d.defaut1||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Défaut 2</div><div class="detail-val">${d.defaut2||'—'}</div></div>
@@ -1224,7 +1252,7 @@ window.editFromDetail=function(id){
   // Interventions
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
-    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||''));
+    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||'',iv.factu||''));
   } else if(d.plainte||d.intervention){
     addIntervention(d.plainte||'',d.intervention||'',d.montant||'');
   } else {
@@ -1264,7 +1292,7 @@ window.generatePDFFromDetail=function(id){
   // Interventions
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
-    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||''));
+    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||'',iv.factu||''));
   } else if(d.plainte||d.intervention){
     addIntervention(d.plainte||'',d.intervention||'',d.montant||'');
   }
