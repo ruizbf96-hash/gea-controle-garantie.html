@@ -767,17 +767,62 @@ function resetStatuts(){
 }
 
 // ── SAVE ──
+let _saving=false;
+let _editingDossierId=null; // id Firebase si on édite un dossier existant
+
 window.saveDossier=function(){
   if(!window._db){toast('Firebase non connecté','error');return;}
+  if(_saving){return;} // anti double-clic
+
+  // ── Validation champs obligatoires ──
   const nor=document.getElementById('f-nor').value.trim();
-  if(!nor){toast('N°OR obligatoire','error');return;}
+  const site=document.getElementById('f-site').value;
+  const vin=document.getElementById('f-vin').value.trim();
+  const ccs=document.getElementById('f-ccs').value.trim();
+  const defaut1=document.getElementById('f-defaut1').value;
+  const auStatut=Object.values(_statuts).some(v=>v);
+
+  const manquants=[];
+  const flag=(id,ok)=>{const el=document.getElementById(id);if(el)el.style.borderColor=ok?'':'var(--danger)';};
+  flag('f-site',!!site); if(!site)manquants.push('Site');
+  flag('f-nor',!!nor); if(!nor)manquants.push('N°OR');
+  flag('f-vin',!!vin); if(!vin)manquants.push('Châssis');
+  flag('f-ccs',!!ccs); if(!ccs)manquants.push('CCS');
+  flag('f-defaut1',!!defaut1); if(!defaut1)manquants.push('Défaut');
+
+  if(!auStatut){
+    manquants.push('au moins 1 statut');
+    document.querySelector('.statuts-grid').style.outline='1px solid var(--danger)';
+    document.querySelector('.statuts-grid').style.borderRadius='6px';
+  } else {
+    document.querySelector('.statuts-grid').style.outline='';
+  }
+
+  if(manquants.length){
+    toast('Champs obligatoires manquants : '+manquants.join(', '),'error');
+    return;
+  }
+
+  // Clé unique basée sur le N°OR
+  const norKey=nor.replace(/[.#$\[\]\/\s]/g,'_');
+  const existant=Object.values(window._dossiers).find(d=>(d.nor||'').trim()===nor);
+  if(existant && !_editingDossierId){
+    if(!confirm('Un dossier avec le N°OR '+nor+' existe déjà. Le mettre à jour ?')){
+      return;
+    }
+  }
+
+  _saving=true;
+  const btn=document.querySelector('.btn.primary');
+  if(btn){btn.disabled=true;btn.style.opacity='.5';btn.textContent='Enregistrement...';}
+
+  // Préserver les infos de création si édition
+  const ancien=window._dossiers['OR_'+norKey]||existant||{};
+
   const obj={
-    nor,
-    site:document.getElementById('f-site').value,
-    vin:document.getElementById('f-vin').value,
+    nor, site, vin, ccs,
     modele:document.getElementById('f-modele').value,
     kilometrage:document.getElementById('f-km').value,
-    ccs:document.getElementById('f-ccs').value,
     tech1:document.getElementById('f-tech1').value,
     montant:document.getElementById('f-montant').value,
     date:document.getElementById('f-date').value,
@@ -786,18 +831,31 @@ window.saveDossier=function(){
     plainte:document.getElementById('f-plainte').value,
     correspondant:document.getElementById('f-correspondant').value,
     relances:document.getElementById('f-relances').value,
-    defaut1:document.getElementById('f-defaut1').value,
+    defaut1,
     defaut2:document.getElementById('f-defaut2').value,
     heures:document.getElementById('f-heures').value,
     ..._statuts,
-    _createdBy:_currentUser||'',
-    _ts:Date.now()
+    _createdBy:ancien._createdBy||_currentUser||'',
+    _ts:ancien._ts||Date.now()
   };
-  window._push(window._ref(window._db,'controle_garantie'),obj)
+  // Si c'est une modification, ajouter date + auteur de modif
+  if(ancien._ts){
+    obj._modifiedBy=_currentUser||'';
+    obj._modifiedTs=Date.now();
+  }
+
+  window._set(window._ref(window._db,'controle_garantie/OR_'+norKey),obj)
     .then(()=>{
-      toast('Dossier enregistré ✓','success');
+      toast(existant?'Dossier mis à jour ✓':'Dossier enregistré ✓','success');
       document.getElementById('step2-ind').className='step done';
       document.getElementById('step3-ind').className='step active';
+      _saving=false;
+      if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='💾 Enregistrer';}
+    })
+    .catch(err=>{
+      toast('Erreur : '+err.message,'error');
+      _saving=false;
+      if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='💾 Enregistrer';}
     });
 };
 
@@ -893,6 +951,7 @@ window.resetForm=function(){
   document.getElementById('f-correspondant').value=_currentUser||'';
   resetStatuts();
   _ocrData={};
+  _editingDossierId=null;
   goToStep1();
   document.getElementById('ocr-preview').style.display='none';
   document.getElementById('ocr-status').className='ocr-status';
@@ -964,14 +1023,48 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Défaut 1</div><div class="detail-val">${d.defaut1||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Défaut 2</div><div class="detail-val">${d.defaut2||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Correspondant</div><div class="detail-val">${d.correspondant||'—'}</div></div>
-    <div class="detail-row"><div class="detail-label">Créé par</div><div class="detail-val">${d._createdBy||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Créé par</div><div class="detail-val">${d._createdBy||'—'}${d._ts?' · '+new Date(d._ts).toLocaleDateString('fr-FR'):''}</div></div>
+    ${d._modifiedBy?`<div class="detail-row"><div class="detail-label">Modifié par</div><div class="detail-val" style="color:var(--warn);">${d._modifiedBy} · ${new Date(d._modifiedTs).toLocaleString('fr-FR')}</div></div>`:''}
   `;
   document.getElementById('detail-foot').innerHTML=`
+    <button class="btn primary" onclick="editFromDetail('${id}')">✏ Modifier</button>
     <button class="btn pdf" onclick="generatePDFFromDetail('${id}')">📄 PDF</button>
     <button class="btn" onclick="deleteDetail('${id}')" style="color:var(--danger);border-color:var(--danger)40;">Supprimer</button>
     <button class="btn" onclick="closeDetail()">Fermer</button>
   `;
   document.getElementById('detail-modal').classList.add('open');
+};
+
+// ── ÉDITER depuis le détail ──
+window.editFromDetail=function(id){
+  const d=window._dossiers[id];
+  if(!d)return;
+  _editingDossierId=id;
+  closeDetail();
+  // Aller à l'onglet Nouveau, étape 2 directement
+  showTab('tab-new');
+  document.getElementById('step1').style.display='none';
+  document.getElementById('step2').style.display='block';
+  document.getElementById('step1-ind').className='step done';
+  document.getElementById('step2-ind').className='step active';
+  document.getElementById('step3-ind').className='step';
+  // Remplir le formulaire
+  const setV=(fid,val)=>{const el=document.getElementById(fid);if(el)el.value=val||'';};
+  setV('f-nor',d.nor); setV('f-vin',d.vin); setV('f-modele',d.modele);
+  setV('f-km',d.kilometrage); setV('f-ccs',d.ccs); setV('f-tech1',d.tech1);
+  setV('f-montant',d.montant); setV('f-date',d.date); setV('f-site',d.site);
+  setV('f-service',d.service); setV('f-intervention',d.intervention);
+  setV('f-plainte',d.plainte); setV('f-correspondant',d.correspondant);
+  setV('f-relances',d.relances||'0'); setV('f-defaut1',d.defaut1);
+  setV('f-defaut2',d.defaut2); setV('f-heures',d.heures||'0');
+  // Statuts
+  Object.keys(_statuts).forEach(k=>{
+    _statuts[k]=!!d[k];
+    const btn=document.getElementById('tog-'+k);
+    if(btn){btn.classList.toggle('active',_statuts[k]);btn.classList.remove('disabled');}
+  });
+  applyExclusion();
+  toast('Mode modification — N°OR '+d.nor,'info');
 };
 
 window.closeDetail=function(){document.getElementById('detail-modal').classList.remove('open');};
