@@ -394,6 +394,10 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
               <label>Heures non facturées</label>
               <input type="text" id="f-heures" value="0">
             </div>
+            <div class="field span2" id="delai-wrap" style="display:none;">
+              <label style="color:var(--warn);">📅 Délai de facturation (dossier incomplet / non facturable)</label>
+              <input type="date" id="f-delai">
+            </div>
           </div>
         </div>
 
@@ -722,23 +726,32 @@ ZONES DE L'ÉCRAN :
 
 4. BLOC NOM/PRENOM/ADRESSE = CLIENT → IGNORER
 
-5. TABLEAU INTERVENTIONS (milieu de page) :
-   Chaque intervention est repérée par une lettre (A, B, C...) à gauche.
-   Sous chaque intervention il y a des LIGNES DE PIÈCES avec les colonnes :
-   Référence | Désignation | Quantité | Prix Unitaire | % Remise | Code TVA | Montant
-   Pour CHAQUE intervention (A, B, C...), extraire :
-   - plainte = le texte de diagnostic/plainte de l'intervention (ex: "Diagnostic : Véhicule se met en sécurité")
-   - piece = désignation(s) des pièces de cette intervention (colonne Désignation)
-   - montant = SOMME des valeurs de la colonne "Montant" des lignes de CETTE intervention (ex: 37.60)
-   ⚠ Le montant vient UNIQUEMENT de la colonne Montant des lignes de pièces.
-   ⚠ NE JAMAIS prendre le montant depuis la section IMPUTATIONS (qui ne contient que N° compte "90010 G", type "GARANTIE BISCHHEIM" et statut — PAS de montant).
-   Liste TOUTES les interventions dans le tableau "interventions".
+5. ZONE INTERVENTIONS (milieu de page) :
+   Chaque intervention a une lettre (A, B, C...) et un LIBELLÉ (ex: "Diagnostic", "Remplacement airbag").
+   À droite du libellé de l'intervention il y a une colonne "IMPUT." avec un CODE COMPTE (ex: "90000G", "90010G", "93OE") → CE N'EST PAS UN MONTANT, c'est un numéro de compte d'imputation. NE JAMAIS l'utiliser comme montant.
 
-6. SECTION IMPUTATIONS (bas, fond gris) : contient SEULEMENT le N° compte (ex: 90010 G), le type/site (ex: GARANTIE BISCHHEIM) et un statut. AUCUN montant ici.
+   Sous chaque intervention, un TABLEAU DE PIÈCES avec ces colonnes de gauche à droite :
+   Référence | Désignation | Quantité | Prix Unitaire | % Remise | Code TVA | Montant
+   La colonne "Montant" est la TOUTE DERNIÈRE colonne à DROITE (ex: 37,60 ; 269,90 ; 4,68).
+
+   Pour CHAQUE intervention (A, B, C...), extraire :
+   - plainte = le libellé/diagnostic de l'intervention
+   - piece = désignation(s) des pièces (colonne Désignation, ex: "POMPE EAU", "CABL.CHARG")
+   - montant = SOMME des valeurs de la DERNIÈRE colonne "Montant" à droite, pour les lignes de CETTE intervention
+
+   ⚠ RÈGLE CRITIQUE sur le montant :
+   - Le montant vient UNIQUEMENT de la colonne "Montant" la plus à DROITE du tableau de pièces (ex: 269,90 ; 37,60)
+   - Le code "90000G", "90010G", "93OE" de la colonne IMPUT. n'est JAMAIS un montant. Si tu vois "90000G", ce n'est PAS 90000 euros, c'est un compte.
+   - Si l'intervention est un simple DIAGNOSTIC CLÔTURÉ sans pièce facturée (pas de ligne pièce avec colonne Montant remplie), alors montant = null
+   - N'invente JAMAIS un montant à partir du code IMPUT. En cas de doute, mets null.
+   - Si plusieurs pièces, additionner les vrais montants de la colonne Montant
+   Liste TOUTES les interventions dans "interventions".
+
+6. SECTION IMPUTATIONS (bas, fond gris) : contient SEULEMENT le N° compte (ex: 90010 G), le site (ex: GARANTIE BISCHHEIM) et un statut. AUCUN montant ici.
 
 Retourne UNIQUEMENT ce JSON sans markdown :
 {"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"date_livraison":null,"interventions":[{"plainte":null,"piece":null,"montant":null}]}
-Un objet par ligne A, B, C... du tableau. Le montant de chaque intervention = somme colonne Montant de ses pièces.`;
+montant = nombre décimal de la VRAIE colonne Montant (ex: 269.90), ou null si pas de pièce facturée. JAMAIS un code compte type 90000G.`;
 
 const PROMPT_SAGA=`Analyse cette capture SAGA/2 (demandes de garantie VW Group).
 Colonnes: Fabricant|VIN|N Demande|N TPI|Date reception|Date reparation|Date soumission|Justifie|Valeur demande|Valeur note credit|Type demande|Code dommage|Code avarie|Code reparation|Numero cas|Code-barres|Niveau traitement
@@ -791,10 +804,10 @@ window.addIntervention=function(plainte='',piece='',montant='',factu=''){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div class="field">
         <label>Montant (€)</label>
-        <input type="text" id="iv-montant-${id}" value="${montant||''}" oninput="updateMontantTotal()">
+        <input type="text" id="iv-montant-${id}" value="${montant||''}" placeholder="0,00" oninput="updateMontantTotal()">
       </div>
       <div class="field">
-        <label>Facturation</label>
+        <label>Statut facturation</label>
         <select id="iv-factu-${id}" onchange="colorFactu(this)">
           <option value="">— Sélectionner —</option>
           <option value="possible"${factu==='possible'?' selected':''}>Facturation possible</option>
@@ -868,17 +881,27 @@ function fillFormFromOcr(d){
   setV('f-vin',d.vin);
   setV('f-modele',d.modele);
   setV('f-km',d.kilometrage);
-  setV('f-ccs',d.ccs);
-  setV('f-montant',d.montant||d.valeur_demande);
+  // CCS : retirer le numéro de tête (ex: "60 MYLENE SCHEMER" → "MYLENE SCHEMER")
+  let ccs=(d.ccs||'').trim();
+  ccs=ccs.replace(/^\d+\s+/,'');
+  setV('f-ccs',ccs);
   if(d.date_livraison) setV('f-date',d.date_livraison);
+
+  // Nettoyer un montant qui serait en fait un code compte (90000G, 90010G...)
+  const cleanMontant=(m)=>{
+    if(!m)return'';
+    const s=m.toString().trim();
+    // Si ça ressemble à un code compte (9xxxx + lettre, ou contient une lettre)
+    if(/^9\d{3,4}\s*[A-Za-z]?$/.test(s)||/[A-Za-z]/.test(s)) return '';
+    return s;
+  };
 
   // Interventions multiples
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
-    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||iv.intervention||'',iv.montant||'',iv.factu||''));
+    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||iv.intervention||'',cleanMontant(iv.montant),iv.factu||''));
   } else if(d.plainte||d.intervention){
-    // Fallback : une seule intervention
-    addIntervention(d.plainte||'',d.intervention||'',d.montant||'');
+    addIntervention(d.plainte||'',d.intervention||'',cleanMontant(d.montant));
   } else {
     addIntervention(); // bloc vide
   }
@@ -934,9 +957,13 @@ function applyExclusion(){
       btn.classList.remove('disabled');
     }
   });
-}
 
-function resetStatuts(){
+  // Afficher le délai de facturation si incomplet OU non facturable
+  const delaiWrap=document.getElementById('delai-wrap');
+  if(delaiWrap){
+    delaiWrap.style.display=(_statuts.incomplet||_statuts.nonfact)?'flex':'none';
+  }
+}
   Object.keys(_statuts).forEach(k=>{
     _statuts[k]=false;
     const btn=document.getElementById('tog-'+k);
@@ -1005,7 +1032,8 @@ window.saveDossier=function(){
     modele:document.getElementById('f-modele').value,
     kilometrage:document.getElementById('f-km').value,
     tech1:document.getElementById('f-tech1').value,
-    montant:montantTotal>0?montantTotal.toFixed(2):document.getElementById('f-montant').value,
+    montant:montantTotal>0?montantTotal.toFixed(2):'',
+    delai:document.getElementById('f-delai').value,
     date:document.getElementById('f-date').value,
     service:document.getElementById('f-service').value,
     interventions:interventionsList,
@@ -1045,10 +1073,13 @@ window.generatePDF=function(){
   const vin=document.getElementById('f-vin').value||'—';
   const site=document.getElementById('f-site').value||'—';
   const date=document.getElementById('f-date').value||'—';
-  const ccs=document.getElementById('f-ccs').value||'—';
+  let ccs=(document.getElementById('f-ccs').value||'—').replace(/^\d+\s+/,'');
   const modele=document.getElementById('f-modele').value||'—';
-  const montant=document.getElementById('f-montant').value||'—';
   const interventions=getInterventions();
+  // Montant total = somme des montants valides des interventions
+  const montantTot=interventions.reduce((s,iv)=>s+(parseFloat((iv.montant||'0').toString().replace(',','.'))||0),0);
+  const montant=montantTot>0?montantTot.toFixed(2).replace('.',','):'—';
+  const delai=document.getElementById('f-delai').value||'';
   const def1=document.getElementById('f-defaut1').value||'';
   const def2=document.getElementById('f-defaut2').value||'';
   const statutsActifs=Object.entries(_statuts).filter(([,v])=>v).map(([k])=>STATUT_LABELS[k]);
@@ -1078,7 +1109,8 @@ window.generatePDF=function(){
   line('Châssis (VIN) :',vin);
   line('Modèle :',modele);
   line('CCS :',ccs);
-  line('Montant (€) :',montant+' €');
+  line('Montant total :',montant!=='—'?montant+' €':'—');
+  if(delai)line('Délai facturation :',delai);
 
   title('Interventions');
   const FACTU_LABEL={possible:'Facturation possible',nonfacturable:'Non facturable',cession:'Cession'};
@@ -1088,14 +1120,14 @@ window.generatePDF=function(){
       doc.text(iv.letter+'.',15,y);
       doc.setTextColor(20);
       const pieceTxt=iv.piece?(' — '+iv.piece):'';
-      doc.text((iv.montant?iv.montant+' €':''),195,y,{align:'right'});
+      if(iv.montant)doc.text(iv.montant+' €',195,y,{align:'right'});
       doc.setFont('helvetica','normal');
       const plLines=doc.splitTextToSize((iv.plainte||'')+pieceTxt,150);
       doc.text(plLines,22,y);
       y+=Math.max(6,plLines.length*5);
       if(iv.factu){
         doc.setFontSize(9);doc.setFont('helvetica','italic');doc.setTextColor(120);
-        doc.text('Facturation : '+(FACTU_LABEL[iv.factu]||iv.factu),22,y);y+=5;
+        doc.text('Statut : '+(FACTU_LABEL[iv.factu]||iv.factu),22,y);y+=5;
       }
       y+=3;
       if(y>270){doc.addPage();y=20;}
@@ -1122,11 +1154,13 @@ window.generatePDF=function(){
   y+=8;doc.setFontSize(9);doc.setTextColor(150);
   doc.text('Créé par : '+(_currentUser||'—')+' | '+new Date().toLocaleString('fr-FR'),15,y);
 
-  doc.save(`GEA_${site}_${nor}_${vin}_GARANTIE.pdf`);
+  // Nom fichier : ControleGarantie_site_OR_chassis_statut
+  const statutPdf=statutsActifs.length?statutsActifs[0].replace(/[^a-zA-Z0-9]/g,''):'Controle';
+  doc.save(`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`);
 
   // Mailto
   const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_GARANTIE NON CONFORME`;
-  const corps=`Dossier de contrôle garantie\n\nN°OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModèle : ${modele}\nMontant : ${montant} €\n\nStatuts :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDéfauts :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n\nCréé par ${_currentUser||'—'}`;
+  const corps=`Dossier de controle garantie\n\nN OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModele : ${modele}\nMontant : ${montant} ${montant!=='—'?'€':''}\n${delai?'Delai facturation : '+delai+'\n':''}\nStatuts :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDefauts :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n\nCree par ${_currentUser||'—'}`;
   window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
   toast('PDF généré + email préparé','success');
 };
@@ -1143,6 +1177,8 @@ window.resetForm=function(){
   document.getElementById('f-defaut1').value='';
   document.getElementById('f-defaut2').value='';
   document.getElementById('f-correspondant').value=_currentUser||'';
+  document.getElementById('f-delai').value='';
+  document.getElementById('delai-wrap').style.display='none';
   resetStatuts();
   clearInterventions();
   _ocrData={};
@@ -1219,6 +1255,7 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Défaut 2</div><div class="detail-val">${d.defaut2||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Correspondant</div><div class="detail-val">${d.correspondant||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Créé par</div><div class="detail-val">${d._createdBy||'—'}${d._ts?' · '+new Date(d._ts).toLocaleDateString('fr-FR'):''}</div></div>
+    ${d.delai?`<div class="detail-row"><div class="detail-label">Délai facturation</div><div class="detail-val" style="color:var(--warn);">${d.delai}</div></div>`:''}
     ${d._modifiedBy?`<div class="detail-row"><div class="detail-label">Modifié par</div><div class="detail-val" style="color:var(--warn);">${d._modifiedBy} · ${new Date(d._modifiedTs).toLocaleString('fr-FR')}</div></div>`:''}
   `;
   document.getElementById('detail-foot').innerHTML=`
@@ -1247,8 +1284,9 @@ window.editFromDetail=function(id){
   const setV=(fid,val)=>{const el=document.getElementById(fid);if(el)el.value=val||'';};
   setV('f-nor',d.nor); setV('f-vin',d.vin); setV('f-modele',d.modele);
   setV('f-km',d.kilometrage); setV('f-ccs',d.ccs); setV('f-tech1',d.tech1);
-  setV('f-montant',d.montant); setV('f-date',d.date); setV('f-site',d.site);
+  setV('f-date',d.date); setV('f-site',d.site);
   setV('f-service',d.service); setV('f-correspondant',d.correspondant);
+  setV('f-delai',d.delai);
   // Interventions
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
@@ -1267,6 +1305,7 @@ window.editFromDetail=function(id){
     if(btn){btn.classList.toggle('active',_statuts[k]);btn.classList.remove('disabled');}
   });
   applyExclusion();
+  updateMontantTotal();
   toast('Mode modification — N°OR '+d.nor,'info');
 };
 
@@ -1288,7 +1327,7 @@ window.generatePDFFromDetail=function(id){
   document.getElementById('f-date').value=d.date||'';
   document.getElementById('f-ccs').value=d.ccs||'';
   document.getElementById('f-modele').value=d.modele||'';
-  document.getElementById('f-montant').value=d.montant||'';
+  document.getElementById('f-delai').value=d.delai||'';
   // Interventions
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
