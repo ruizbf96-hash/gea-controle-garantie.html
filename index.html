@@ -964,12 +964,15 @@ function applyExclusion(){
     delaiWrap.style.display=(_statuts.incomplet||_statuts.nonfact)?'flex':'none';
   }
 }
+
+function resetStatuts(){
   Object.keys(_statuts).forEach(k=>{
     _statuts[k]=false;
     const btn=document.getElementById('tog-'+k);
     if(btn){btn.classList.remove('active');btn.classList.remove('disabled');}
   });
-  
+}
+
 // ── SAVE ──
 let _saving=false;
 let _editingDossierId=null; // id Firebase si on édite un dossier existant
@@ -1081,79 +1084,152 @@ window.generatePDF=function(){
   const delai=document.getElementById('f-delai').value||'';
   const def1=document.getElementById('f-defaut1').value||'';
   const def2=document.getElementById('f-defaut2').value||'';
-  const statutsActifs=Object.entries(_statuts).filter(([,v])=>v).map(([k])=>STATUT_LABELS[k]);
+  const statutsActifsKeys=Object.entries(_statuts).filter(([,v])=>v).map(([k])=>k);
+  const statutsActifs=statutsActifsKeys.map(k=>STATUT_LABELS[k]);
 
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF();
-  let y=20;
-  const line=(label,val,bold=false)=>{
-    doc.setFontSize(10);doc.setFont('helvetica',bold?'bold':'normal');
-    doc.setTextColor(100);doc.text(label,15,y);
-    doc.setTextColor(20);doc.text(String(val),70,y);
+  const W=210; // largeur A4
+  let y=0;
+
+  // Helper hex → rgb
+  const rgb=(hex)=>{const h=hex.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];};
+
+  // ── BANDEAU EN-TÊTE COLORÉ ──
+  doc.setFillColor(15,17,23); // fond sombre
+  doc.rect(0,0,W,34,'F');
+  doc.setFillColor(0,212,168); // bande accent turquoise
+  doc.rect(0,34,W,2,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(18);doc.setFont('helvetica','bold');
+  doc.text('CONTRÔLE GARANTIE',105,16,{align:'center'});
+  doc.setTextColor(0,212,168);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');
+  doc.text('GEA · TeamGarantie — Grand Est Automobiles',105,25,{align:'center'});
+  y=46;
+
+  // ── CARTOUCHE IDENTIFICATION ──
+  const cardId=(label,val,bold=false)=>{
+    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);
+    doc.text(label,18,y);
+    doc.setFontSize(10);doc.setFont('helvetica',bold?'bold':'normal');doc.setTextColor(30,35,50);
+    doc.text(String(val||'—'),70,y);
     y+=7;
   };
-  const title=(txt)=>{y+=4;doc.setFontSize(12);doc.setFont('helvetica','bold');doc.setTextColor(20);doc.text(txt,15,y);y+=8;doc.setDrawColor(200);doc.line(15,y-2,195,y-2);};
+  // titre section
+  const section=(txt,color=[0,153,255])=>{
+    y+=3;
+    doc.setFillColor(color[0],color[1],color[2]);
+    doc.rect(15,y-4,3,6,'F');
+    doc.setFontSize(12);doc.setFont('helvetica','bold');doc.setTextColor(30,35,50);
+    doc.text(txt,21,y);
+    y+=8;
+  };
 
-  // En-tête
-  doc.setFontSize(16);doc.setFont('helvetica','bold');doc.setTextColor(20);
-  doc.text('CONTRÔLE GARANTIE — GEA',105,y,{align:'center'});y+=10;
-  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(100);
-  doc.text('TeamGarantie — Grand Est Automobiles',105,y,{align:'center'});y+=12;
-  doc.setDrawColor(0,212,168);doc.setLineWidth(1);doc.line(15,y,195,y);y+=10;
+  // Fond gris clair derrière l'identification
+  doc.setFillColor(245,247,250);
+  doc.roundedRect(13,y-3,184,62,2,2,'F');
+  y+=4;
+  section('Identification du dossier');
+  cardId('N° OR :',nor,true);
+  cardId('Site :',SITE_SHORT[site]||site);
+  cardId('Date OR :',date);
+  cardId('Châssis (VIN) :',vin);
+  cardId('Modèle :',modele);
+  cardId('CCS :',ccs);
+  // Montant en vert accent
+  doc.setFontSize(9);doc.setTextColor(130,140,160);doc.text('Montant total :',18,y);
+  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(0,180,140);
+  doc.text(montant!=='—'?montant+' €':'—',70,y);y+=7;
+  if(delai){
+    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);doc.text('Délai facturation :',18,y);
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(245,166,35);
+    doc.text(delai,70,y);y+=7;
+  }
+  y+=6;
 
-  title('Identification du dossier');
-  line('N° OR :',nor,true);
-  line('Site :',SITE_SHORT[site]||site);
-  line('Date OR :',date);
-  line('Châssis (VIN) :',vin);
-  line('Modèle :',modele);
-  line('CCS :',ccs);
-  line('Montant total :',montant!=='—'?montant+' €':'—');
-  if(delai)line('Délai facturation :',delai);
-
-  title('Interventions');
-  const FACTU_LABEL={possible:'Facturation possible',nonfacturable:'Non facturable',cession:'Cession'};
+  // ── INTERVENTIONS ──
+  const FACTU=  {possible:{l:'Facturation possible',c:'#00c896'},nonfacturable:{l:'Non facturable',c:'#ff4d6a'},cession:{l:'Cession',c:'#f5a623'}};
+  section('Interventions',[0,153,255]);
   if(interventions.length){
     interventions.forEach(iv=>{
-      doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,153,255);
-      doc.text(iv.letter+'.',15,y);
-      doc.setTextColor(20);
+      if(y>262){doc.addPage();y=20;}
+      // pastille lettre
+      doc.setFillColor(0,153,255);
+      doc.circle(19,y-1,3,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+      doc.text(iv.letter,19,y+0.8,{align:'center'});
+      // montant à droite (rouge si négatif)
+      if(iv.montant){
+        const mv=parseFloat((iv.montant||'0').toString().replace(',','.'))||0;
+        if(mv<0)doc.setTextColor(255,77,106);else doc.setTextColor(30,35,50);
+        doc.setFontSize(10);doc.setFont('helvetica','bold');
+        doc.text(iv.montant+' €',193,y,{align:'right'});
+      }
+      // texte plainte + pièce
+      doc.setTextColor(40,45,60);doc.setFontSize(10);doc.setFont('helvetica','normal');
       const pieceTxt=iv.piece?(' — '+iv.piece):'';
-      if(iv.montant)doc.text(iv.montant+' €',195,y,{align:'right'});
-      doc.setFont('helvetica','normal');
       const plLines=doc.splitTextToSize((iv.plainte||'')+pieceTxt,150);
-      doc.text(plLines,22,y);
-      y+=Math.max(6,plLines.length*5);
-      if(iv.factu){
-        doc.setFontSize(9);doc.setFont('helvetica','italic');doc.setTextColor(120);
-        doc.text('Statut : '+(FACTU_LABEL[iv.factu]||iv.factu),22,y);y+=5;
+      doc.text(plLines,25,y);
+      y+=Math.max(5,plLines.length*5);
+      // badge statut facturation coloré
+      if(iv.factu&&FACTU[iv.factu]){
+        const fc=rgb(FACTU[iv.factu].c);
+        const txt=FACTU[iv.factu].l;
+        doc.setFontSize(8);doc.setFont('helvetica','bold');
+        const tw=doc.getTextWidth(txt)+6;
+        doc.setFillColor(fc[0],fc[1],fc[2]);
+        doc.roundedRect(25,y-3.5,tw,5,1,1,'F');
+        doc.setTextColor(255,255,255);
+        doc.text(txt,28,y);
+        y+=6;
       }
       y+=3;
-      if(y>270){doc.addPage();y=20;}
+      // séparateur léger
+      doc.setDrawColor(230,234,240);doc.setLineWidth(0.2);doc.line(15,y-2,195,y-2);
     });
   } else {
-    doc.setFontSize(10);doc.setTextColor(150);doc.text('Aucune intervention',20,y);y+=6;
+    doc.setFontSize(10);doc.setTextColor(150,155,170);doc.text('Aucune intervention',22,y);y+=6;
   }
+  y+=4;
 
-  title('Statuts de contrôle');
-  if(statutsActifs.length){
-    statutsActifs.forEach(s=>{
-      doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(20);
-      doc.text('• '+s,20,y);y+=6;
+  // ── STATUTS DE CONTRÔLE (badges colorés) ──
+  if(y>250){doc.addPage();y=20;}
+  section('Statuts de contrôle',[245,166,35]);
+  if(statutsActifsKeys.length){
+    let x=18;
+    statutsActifsKeys.forEach(k=>{
+      const c=rgb(STATUT_COLORS[k]||'#8a9ab5');
+      const txt=STATUT_LABELS[k];
+      doc.setFontSize(9);doc.setFont('helvetica','bold');
+      const tw=doc.getTextWidth(txt)+8;
+      if(x+tw>195){x=18;y+=9;}
+      doc.setFillColor(c[0],c[1],c[2]);
+      doc.roundedRect(x,y-4,tw,6.5,2,2,'F');
+      doc.setTextColor(255,255,255);
+      doc.text(txt,x+4,y);
+      x+=tw+4;
     });
+    y+=10;
   } else {
-    doc.setFontSize(10);doc.setTextColor(150);doc.text('Aucun statut sélectionné',20,y);y+=6;
+    doc.setFontSize(10);doc.setTextColor(150,155,170);doc.text('Aucun statut sélectionné',22,y);y+=8;
   }
 
-  title('Défauts identifiés');
-  if(def1){doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(20);doc.text('1. '+def1,20,y);y+=6;}
-  if(def2){doc.setFontSize(10);doc.text('2. '+def2,20,y);y+=6;}
-  if(!def1&&!def2){doc.setFontSize(10);doc.setTextColor(150);doc.text('Aucun défaut sélectionné',20,y);y+=6;}
+  // ── DÉFAUTS ──
+  if(y>255){doc.addPage();y=20;}
+  section('Défauts identifiés',[255,77,106]);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');
+  if(def1){doc.setTextColor(40,45,60);doc.text('1.  '+def1,22,y);y+=6;}
+  if(def2){doc.setTextColor(40,45,60);doc.text('2.  '+def2,22,y);y+=6;}
+  if(!def1&&!def2){doc.setTextColor(150,155,170);doc.text('Aucun défaut sélectionné',22,y);y+=6;}
 
-  y+=8;doc.setFontSize(9);doc.setTextColor(150);
-  doc.text('Créé par : '+(_currentUser||'—')+' | '+new Date().toLocaleString('fr-FR'),15,y);
+  // ── PIED DE PAGE ──
+  y+=10;
+  doc.setDrawColor(0,212,168);doc.setLineWidth(0.5);doc.line(15,y,195,y);y+=6;
+  doc.setFontSize(8);doc.setTextColor(150,155,170);doc.setFont('helvetica','italic');
+  doc.text('Créé par '+(_currentUser||'—')+' · '+new Date().toLocaleString('fr-FR'),15,y);
 
-  // Nom fichier : ControleGarantie_site_OR_chassis_statut
+  // Nom fichier
   const statutPdf=statutsActifs.length?statutsActifs[0].replace(/[^a-zA-Z0-9]/g,''):'Controle';
   doc.save(`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`);
 
