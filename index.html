@@ -103,6 +103,13 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .field input.filled{border-color:#00c89640;background:#0d2a22;}
 .field textarea{resize:vertical;min-height:60px;}
 .section-sep{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px;grid-column:1/-1;}
+.interv-block{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px;position:relative;}
+.interv-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.interv-letter{width:22px;height:22px;border-radius:50%;background:var(--accent2);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;}
+.interv-del{background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:2px 6px;border-radius:4px;}
+.interv-del:hover{color:var(--danger);background:var(--bg2);}
+.interv-block .field{margin-bottom:8px;}
+.interv-block .field:last-child{margin-bottom:0;}
 
 /* ── STATUTS TOGGLE ── */
 .statuts-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -226,20 +233,36 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
     <div id="step1" class="panel">
       <div class="panel-head"><h2>Étape 1 — Extraction OCR</h2><span id="source-badge" style="font-size:11px;color:var(--text3);">DCSnet Neo</span></div>
       <div class="panel-body">
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;">
+          <span style="font-size:11px;color:var(--text3);">Source :</span>
           <button onclick="setSource('dcsnet')" id="src-dcs" class="btn" style="border-color:var(--accent);color:var(--accent);">DCSnet Neo</button>
           <button onclick="setSource('saga')" id="src-saga" class="btn">SAGA/2</button>
+          <button onclick="startCapture()" class="btn" style="margin-left:auto;background:#1e1535;color:#a78bfa;border-color:#a78bfa50;">📸 Capturer la fenêtre</button>
         </div>
         <div class="ocr-zone" id="ocr-zone">
           <input type="file" id="ocr-file" accept="image/*" onchange="handleOcrFile(this.files[0])">
           <div class="ocr-icon">📸</div>
-          <p><strong>Cliquer</strong>, glisser-déposer ou <strong>Ctrl+V</strong><br>Upload la capture DCSnet ou SAGA</p>
+          <p><strong>📸 Capturer la fenêtre</strong> (sélecteur), <strong>Cliquer</strong>, glisser ou <strong>Ctrl+V</strong><br>Sélectionne la fenêtre DCSnet ou SAGA</p>
         </div>
         <img id="ocr-preview" class="preview-img" src="" alt="">
         <div class="ocr-status" id="ocr-status"></div>
         <button class="btn-create" id="btn-create" onclick="goToStep2()">
           ✓ Créer le formulaire →
         </button>
+      </div>
+    </div>
+
+    <!-- Capture modal -->
+    <div class="modal-bg" id="cap-modal" style="z-index:600;">
+      <div class="modal" style="width:auto;max-width:90vw;text-align:center;padding:0;">
+        <div class="modal-head"><h3 id="cap-status">Sélectionnez la fenêtre DCSnet ou SAGA...</h3><button class="modal-close" onclick="document.getElementById('cap-modal').classList.remove('open')">×</button></div>
+        <div class="modal-body">
+          <img id="cap-preview" src="" alt="" style="max-width:80vw;max-height:55vh;border-radius:8px;border:2px solid var(--accent);object-fit:contain;display:none;">
+        </div>
+        <div class="modal-foot" style="justify-content:center;">
+          <button class="btn primary" id="cap-confirm" onclick="confirmCapture()" style="display:none;">✓ Utiliser cette capture</button>
+          <button class="btn" onclick="document.getElementById('cap-modal').classList.remove('open')">Annuler</button>
+        </div>
       </div>
     </div>
 
@@ -296,8 +319,8 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <input type="text" id="f-montant">
           </div>
 
-          <div class="section-sep">Intervention</div>
-          <div class="field">
+          <div class="section-sep">Interventions</div>
+          <div class="field span2">
             <label>Service concerné</label>
             <select id="f-service">
               <option value="">— Sélectionner —</option>
@@ -307,12 +330,8 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             </select>
           </div>
           <div class="field span2">
-            <label>Intervention / pièce remplacée</label>
-            <input type="text" id="f-intervention">
-          </div>
-          <div class="field span2">
-            <label>Plainte client</label>
-            <textarea id="f-plainte" rows="2"></textarea>
+            <div id="interventions-container"></div>
+            <button type="button" class="btn" onclick="addIntervention()" style="margin-top:8px;font-size:12px;padding:6px 12px;">+ Ajouter une intervention</button>
           </div>
         </div>
 
@@ -585,6 +604,41 @@ document.addEventListener('paste',e=>{
   for(const item of items){if(item.type.startsWith('image/')){handleOcrFile(item.getAsFile());break;}}
 });
 
+// ── Capture écran native ──
+let _capBlob=null;
+window.startCapture=async function(){
+  try{
+    document.getElementById('cap-modal').classList.add('open');
+    document.getElementById('cap-status').textContent='Sélectionnez la fenêtre DCSnet ou SAGA...';
+    document.getElementById('cap-preview').style.display='none';
+    document.getElementById('cap-confirm').style.display='none';
+    const stream=await navigator.mediaDevices.getDisplayMedia({video:{cursor:'never'},audio:false});
+    const track=stream.getVideoTracks()[0];
+    const ic=new ImageCapture(track);
+    const bm=await ic.grabFrame();
+    stream.getTracks().forEach(t=>t.stop());
+    const cv=document.createElement('canvas');
+    cv.width=bm.width;cv.height=bm.height;
+    cv.getContext('2d').drawImage(bm,0,0);
+    cv.toBlob(blob=>{
+      _capBlob=blob;
+      const img=document.getElementById('cap-preview');
+      img.src=URL.createObjectURL(blob);img.style.display='block';
+      document.getElementById('cap-status').textContent='Aperçu — confirmez pour analyser';
+      document.getElementById('cap-confirm').style.display='inline-flex';
+    },'image/png');
+  }catch(e){
+    document.getElementById('cap-status').textContent='Capture annulée ou non supportée (Chrome/Edge requis)';
+    console.error(e);
+  }
+};
+window.confirmCapture=function(){
+  if(_capBlob){
+    document.getElementById('cap-modal').classList.remove('open');
+    handleOcrFile(_capBlob);
+  }
+};
+
 function compressImage(file,maxW=1400){
   return new Promise(resolve=>{
     const r=new FileReader();
@@ -668,13 +722,17 @@ ZONES DE L'ÉCRAN :
 
 4. BLOC NOM/PRENOM/ADRESSE = CLIENT → IGNORER
 
-5. TABLEAU INTERVENTIONS (milieu) : 
-   - La PLAINTE CLIENT est le TEXTE LIBRE en haut de la zone désignation, souvent en majuscules (ex: "LE CLIENT SIGNALE QUE LA CHARGE NE SE FAIT PAS...") → plainte
-   - intervention = désignation de la pièce remplacée (ex: "CABL.CHARG", "POMPE EAU")
-   - montant = total colonne Montant
+5. TABLEAU INTERVENTIONS (milieu) :
+   Il peut y avoir PLUSIEURS interventions repérées par une lettre (A, B, C...) à gauche.
+   Pour CHAQUE intervention, extraire :
+   - plainte = le texte de diagnostic/plainte (ex: "Diagnostic : Véhicule se met en sécurité", "93OE Mise à jour logicielle du chargeur...")
+   - piece = désignation de la pièce remplacée si visible (ex: "CABL.CHARG", "POMPE EAU")
+   - montant = montant de cette intervention si visible
+   Liste TOUTES les interventions trouvées dans le tableau "interventions".
 
 Retourne UNIQUEMENT ce JSON sans markdown :
-{"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"date_livraison":null,"montant":null,"intervention":null,"plainte":null}`;
+{"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"date_livraison":null,"montant":null,"interventions":[{"plainte":null,"piece":null,"montant":null}]}
+Le tableau "interventions" contient un objet par ligne A, B, C... du tableau.`;
 
 const PROMPT_SAGA=`Analyse cette capture SAGA/2 (demandes de garantie VW Group).
 Colonnes: Fabricant|VIN|N Demande|N TPI|Date reception|Date reparation|Date soumission|Justifie|Valeur demande|Valeur note credit|Type demande|Code dommage|Code avarie|Code reparation|Numero cas|Code-barres|Niveau traitement
@@ -699,6 +757,74 @@ window.goToStep1=function(){
   document.getElementById('step2-ind').className='step';
 };
 
+// ── INTERVENTIONS DYNAMIQUES ──
+let _intervCount=0;
+
+window.addIntervention=function(plainte='',piece='',montant=''){
+  // Si appelé via onclick, le 1er argument est un Event → ignorer
+  if(plainte&&typeof plainte==='object'){plainte='';piece='';montant='';}
+  _intervCount++;
+  const letter=String.fromCharCode(64+_intervCount); // A, B, C...
+  const id=_intervCount;
+  const div=document.createElement('div');
+  div.className='interv-block';
+  div.id='interv-'+id;
+  div.innerHTML=`
+    <div class="interv-head">
+      <div class="interv-letter">${letter}</div>
+      <button type="button" class="interv-del" onclick="delIntervention(${id})" title="Supprimer">×</button>
+    </div>
+    <div class="field">
+      <label>Plainte client / Diagnostic</label>
+      <textarea id="iv-plainte-${id}" rows="2">${plainte||''}</textarea>
+    </div>
+    <div class="field">
+      <label>Pièce remplacée / Intervention</label>
+      <input type="text" id="iv-piece-${id}" value="${(piece||'').replace(/"/g,'&quot;')}">
+    </div>
+    <div class="field">
+      <label>Montant (€)</label>
+      <input type="text" id="iv-montant-${id}" value="${montant||''}">
+    </div>
+  `;
+  document.getElementById('interventions-container').appendChild(div);
+  return id;
+};
+
+window.delIntervention=function(id){
+  const el=document.getElementById('interv-'+id);
+  if(el)el.remove();
+  relabelInterventions();
+};
+
+function relabelInterventions(){
+  const blocks=document.querySelectorAll('#interventions-container .interv-block');
+  blocks.forEach((b,i)=>{
+    const letterEl=b.querySelector('.interv-letter');
+    if(letterEl)letterEl.textContent=String.fromCharCode(65+i);
+  });
+}
+
+function clearInterventions(){
+  document.getElementById('interventions-container').innerHTML='';
+  _intervCount=0;
+}
+
+function getInterventions(){
+  const blocks=document.querySelectorAll('#interventions-container .interv-block');
+  const result=[];
+  blocks.forEach((b,i)=>{
+    const plainte=b.querySelector('textarea')?.value||'';
+    const inputs=b.querySelectorAll('input');
+    const piece=inputs[0]?.value||'';
+    const montant=inputs[1]?.value||'';
+    if(plainte||piece||montant){
+      result.push({letter:String.fromCharCode(65+i),plainte,piece,montant});
+    }
+  });
+  return result;
+}
+
 function fillFormFromOcr(d){
   const setV=(id,val)=>{if(!val)return;const el=document.getElementById(id);if(!el)return;el.value=val;el.classList.add('filled');};
   setV('f-nor',d.nor);
@@ -707,9 +833,19 @@ function fillFormFromOcr(d){
   setV('f-km',d.kilometrage);
   setV('f-ccs',d.ccs);
   setV('f-montant',d.montant||d.valeur_demande);
-  setV('f-intervention',d.intervention);
-  setV('f-plainte',d.plainte);
   if(d.date_livraison) setV('f-date',d.date_livraison);
+
+  // Interventions multiples
+  clearInterventions();
+  if(Array.isArray(d.interventions)&&d.interventions.length){
+    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||iv.intervention||'',iv.montant||''));
+  } else if(d.plainte||d.intervention){
+    // Fallback : une seule intervention
+    addIntervention(d.plainte||'',d.intervention||'',d.montant||'');
+  } else {
+    addIntervention(); // bloc vide
+  }
+
   // Site — priorité au code GIDA, sinon nom GARANTIE
   let siteVal='';
   if(d.code_site){
@@ -727,9 +863,9 @@ function fillFormFromOcr(d){
 }
 
 // ── STATUTS TOGGLE ──
-// Statuts "terminaux" qui grisent le reste (sauf exceptions autorisées)
+// Statuts "terminaux" — un seul des deux possible, et grisent tout le reste
 const TERMINAL_STATUTS=['annul','nonfact'];
-// Statuts toujours autorisés même quand un terminal est actif
+// Statut toujours autorisé même quand un terminal est actif
 const ALWAYS_ALLOWED=['temps'];
 
 window.toggleStatut=function(key){
@@ -741,17 +877,22 @@ window.toggleStatut=function(key){
 };
 
 function applyExclusion(){
-  // Un statut terminal est-il actif ?
-  const terminalActif=TERMINAL_STATUTS.some(k=>_statuts[k]);
+  // Quel statut terminal est actif (annul OU nonfact) ?
+  const terminalActifKey=TERMINAL_STATUTS.find(k=>_statuts[k]);
 
   Object.keys(_statuts).forEach(k=>{
     const btn=document.getElementById('tog-'+k);
     if(!btn)return;
-    if(terminalActif&&!ALWAYS_ALLOWED.includes(k)){
-      // Griser et désélectionner les non-autorisés
-      _statuts[k]=false;
-      btn.classList.remove('active');
-      btn.classList.add('disabled');
+    if(terminalActifKey){
+      // Un terminal est actif : autoriser uniquement lui-même + "temps"
+      if(k===terminalActifKey||ALWAYS_ALLOWED.includes(k)){
+        btn.classList.remove('disabled');
+      } else {
+        // Tout le reste (y compris l'autre terminal) est grisé + désélectionné
+        _statuts[k]=false;
+        btn.classList.remove('active');
+        btn.classList.add('disabled');
+      }
     } else {
       btn.classList.remove('disabled');
     }
@@ -827,8 +968,7 @@ window.saveDossier=function(){
     montant:document.getElementById('f-montant').value,
     date:document.getElementById('f-date').value,
     service:document.getElementById('f-service').value,
-    intervention:document.getElementById('f-intervention').value,
-    plainte:document.getElementById('f-plainte').value,
+    interventions:getInterventions(),
     correspondant:document.getElementById('f-correspondant').value,
     relances:document.getElementById('f-relances').value,
     defaut1,
@@ -868,8 +1008,7 @@ window.generatePDF=function(){
   const ccs=document.getElementById('f-ccs').value||'—';
   const modele=document.getElementById('f-modele').value||'—';
   const montant=document.getElementById('f-montant').value||'—';
-  const intervention=document.getElementById('f-intervention').value||'—';
-  const plainte=document.getElementById('f-plainte').value||'—';
+  const interventions=getInterventions();
   const def1=document.getElementById('f-defaut1').value||'';
   const def2=document.getElementById('f-defaut2').value||'';
   const statutsActifs=Object.entries(_statuts).filter(([,v])=>v).map(([k])=>STATUT_LABELS[k]);
@@ -901,13 +1040,22 @@ window.generatePDF=function(){
   line('CCS :',ccs);
   line('Montant (€) :',montant+' €');
 
-  title('Intervention');
-  line('Pièce / Intervention :',intervention);
-  if(plainte&&plainte!=='—'){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(100);doc.text('Plainte client :',15,y);y+=5;
-    doc.setFont('helvetica','normal');doc.setTextColor(20);
-    const lines=doc.splitTextToSize(plainte,170);
-    doc.text(lines,15,y);y+=lines.length*5+5;
+  title('Interventions');
+  if(interventions.length){
+    interventions.forEach(iv=>{
+      doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,153,255);
+      doc.text(iv.letter+'.',15,y);
+      doc.setTextColor(20);
+      const pieceTxt=iv.piece?(' — '+iv.piece):'';
+      doc.text((iv.montant?iv.montant+' €':''),180,y,{align:'right'});
+      doc.setFont('helvetica','normal');
+      const plLines=doc.splitTextToSize((iv.plainte||'')+pieceTxt,150);
+      doc.text(plLines,22,y);
+      y+=Math.max(6,plLines.length*5)+3;
+      if(y>270){doc.addPage();y=20;}
+    });
+  } else {
+    doc.setFontSize(10);doc.setTextColor(150);doc.text('Aucune intervention',20,y);y+=6;
   }
 
   title('Statuts de contrôle');
@@ -939,7 +1087,7 @@ window.generatePDF=function(){
 
 // ── RESET ──
 window.resetForm=function(){
-  ['f-nor','f-vin','f-modele','f-km','f-ccs','f-tech1','f-montant','f-date','f-intervention','f-plainte','f-heures'].forEach(id=>{
+  ['f-nor','f-vin','f-modele','f-km','f-ccs','f-tech1','f-montant','f-date','f-heures'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){el.value='';el.classList.remove('filled');}
   });
@@ -950,6 +1098,7 @@ window.resetForm=function(){
   document.getElementById('f-defaut2').value='';
   document.getElementById('f-correspondant').value=_currentUser||'';
   resetStatuts();
+  clearInterventions();
   _ocrData={};
   _editingDossierId=null;
   goToStep1();
@@ -1018,7 +1167,7 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Date OR</div><div class="detail-val">${d.date||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">CCS</div><div class="detail-val">${d.ccs||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Montant</div><div class="detail-val">${d.montant||'—'} €</div></div>
-    <div class="detail-row"><div class="detail-label">Intervention</div><div class="detail-val">${d.intervention||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Interventions</div><div class="detail-val">${(Array.isArray(d.interventions)&&d.interventions.length)?d.interventions.map(iv=>`<div style="margin-bottom:6px;"><strong style="color:var(--accent2);">${iv.letter||'•'}.</strong> ${iv.plainte||''}${iv.piece?' — '+iv.piece:''}${iv.montant?' ('+iv.montant+' €)':''}</div>`).join(''):(d.intervention||d.plainte||'—')}</div></div>
     <div class="detail-row"><div class="detail-label">Statuts actifs</div><div class="detail-val">${statActifs.length?statActifs.map(([k,l])=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;margin:2px;">${l}</span>`).join(''):'Aucun'}</div></div>
     <div class="detail-row"><div class="detail-label">Défaut 1</div><div class="detail-val">${d.defaut1||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Défaut 2</div><div class="detail-val">${d.defaut2||'—'}</div></div>
@@ -1053,8 +1202,16 @@ window.editFromDetail=function(id){
   setV('f-nor',d.nor); setV('f-vin',d.vin); setV('f-modele',d.modele);
   setV('f-km',d.kilometrage); setV('f-ccs',d.ccs); setV('f-tech1',d.tech1);
   setV('f-montant',d.montant); setV('f-date',d.date); setV('f-site',d.site);
-  setV('f-service',d.service); setV('f-intervention',d.intervention);
-  setV('f-plainte',d.plainte); setV('f-correspondant',d.correspondant);
+  setV('f-service',d.service); setV('f-correspondant',d.correspondant);
+  // Interventions
+  clearInterventions();
+  if(Array.isArray(d.interventions)&&d.interventions.length){
+    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||''));
+  } else if(d.plainte||d.intervention){
+    addIntervention(d.plainte||'',d.intervention||'',d.montant||'');
+  } else {
+    addIntervention();
+  }
   setV('f-relances',d.relances||'0'); setV('f-defaut1',d.defaut1);
   setV('f-defaut2',d.defaut2); setV('f-heures',d.heures||'0');
   // Statuts
@@ -1086,8 +1243,13 @@ window.generatePDFFromDetail=function(id){
   document.getElementById('f-ccs').value=d.ccs||'';
   document.getElementById('f-modele').value=d.modele||'';
   document.getElementById('f-montant').value=d.montant||'';
-  document.getElementById('f-intervention').value=d.intervention||'';
-  document.getElementById('f-plainte').value=d.plainte||'';
+  // Interventions
+  clearInterventions();
+  if(Array.isArray(d.interventions)&&d.interventions.length){
+    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||''));
+  } else if(d.plainte||d.intervention){
+    addIntervention(d.plainte||'',d.intervention||'',d.montant||'');
+  }
   document.getElementById('f-defaut1').value=d.defaut1||'';
   document.getElementById('f-defaut2').value=d.defaut2||'';
   Object.keys(_statuts).forEach(k=>{_statuts[k]=!!d[k];});
@@ -1097,8 +1259,8 @@ window.generatePDFFromDetail=function(id){
 // ── EXPORT CSV ──
 window.exportCSV=function(){
   const data=Object.values(window._dossiers);
-  const cols=['site','nor','vin','modele','ccs','montant','date','intervention','plainte','rattrapage','risque','malgre','annul','sauvee','incomplet','nonfact','temps','defaut1','defaut2','correspondant','_createdBy'];
-  const heads=['SITE','N°OR','VIN','MODELE','CCS','MONTANT','DATE','INTERVENTION','PLAINTE','RATTRAPAGE','RISQUE','MALGRE','ANNUL','SAUVEE','INCOMPLET','NONFACT','TEMPS','DEFAUT1','DEFAUT2','CORRESPONDANT','CREE_PAR'];
+  const cols=['site','nor','vin','modele','ccs','montant','date','rattrapage','risque','malgre','annul','sauvee','incomplet','nonfact','temps','defaut1','defaut2','correspondant','_createdBy'];
+  const heads=['SITE','N°OR','VIN','MODELE','CCS','MONTANT','DATE','RATTRAPAGE','RISQUE','MALGRE','ANNUL','SAUVEE','INCOMPLET','NONFACT','TEMPS','DEFAUT1','DEFAUT2','CORRESPONDANT','CREE_PAR'];
   const rows=[heads,...data.map(d=>cols.map(c=>d[c]??''))];
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
   const a=document.createElement('a');
