@@ -315,8 +315,8 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <input type="text" id="f-tech1">
           </div>
           <div class="field">
-            <label>Montant (€)</label>
-            <input type="text" id="f-montant">
+            <label>Montant total (€) — auto</label>
+            <input type="text" id="f-montant" readonly style="background:var(--bg2);color:var(--accent);font-weight:600;">
           </div>
 
           <div class="section-sep">Interventions</div>
@@ -722,17 +722,23 @@ ZONES DE L'ÉCRAN :
 
 4. BLOC NOM/PRENOM/ADRESSE = CLIENT → IGNORER
 
-5. TABLEAU INTERVENTIONS (milieu) :
-   Il peut y avoir PLUSIEURS interventions repérées par une lettre (A, B, C...) à gauche.
-   Pour CHAQUE intervention, extraire :
-   - plainte = le texte de diagnostic/plainte (ex: "Diagnostic : Véhicule se met en sécurité", "93OE Mise à jour logicielle du chargeur...")
-   - piece = désignation de la pièce remplacée si visible (ex: "CABL.CHARG", "POMPE EAU")
-   - montant = montant de cette intervention si visible
-   Liste TOUTES les interventions trouvées dans le tableau "interventions".
+5. TABLEAU INTERVENTIONS (milieu de page) :
+   Chaque intervention est repérée par une lettre (A, B, C...) à gauche.
+   Sous chaque intervention il y a des LIGNES DE PIÈCES avec les colonnes :
+   Référence | Désignation | Quantité | Prix Unitaire | % Remise | Code TVA | Montant
+   Pour CHAQUE intervention (A, B, C...), extraire :
+   - plainte = le texte de diagnostic/plainte de l'intervention (ex: "Diagnostic : Véhicule se met en sécurité")
+   - piece = désignation(s) des pièces de cette intervention (colonne Désignation)
+   - montant = SOMME des valeurs de la colonne "Montant" des lignes de CETTE intervention (ex: 37.60)
+   ⚠ Le montant vient UNIQUEMENT de la colonne Montant des lignes de pièces.
+   ⚠ NE JAMAIS prendre le montant depuis la section IMPUTATIONS (qui ne contient que N° compte "90010 G", type "GARANTIE BISCHHEIM" et statut — PAS de montant).
+   Liste TOUTES les interventions dans le tableau "interventions".
+
+6. SECTION IMPUTATIONS (bas, fond gris) : contient SEULEMENT le N° compte (ex: 90010 G), le type/site (ex: GARANTIE BISCHHEIM) et un statut. AUCUN montant ici.
 
 Retourne UNIQUEMENT ce JSON sans markdown :
-{"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"date_livraison":null,"montant":null,"interventions":[{"plainte":null,"piece":null,"montant":null}]}
-Le tableau "interventions" contient un objet par ligne A, B, C... du tableau.`;
+{"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"date_livraison":null,"interventions":[{"plainte":null,"piece":null,"montant":null}]}
+Un objet par ligne A, B, C... du tableau. Le montant de chaque intervention = somme colonne Montant de ses pièces.`;
 
 const PROMPT_SAGA=`Analyse cette capture SAGA/2 (demandes de garantie VW Group).
 Colonnes: Fabricant|VIN|N Demande|N TPI|Date reception|Date reparation|Date soumission|Justifie|Valeur demande|Valeur note credit|Type demande|Code dommage|Code avarie|Code reparation|Numero cas|Code-barres|Niveau traitement
@@ -784,17 +790,26 @@ window.addIntervention=function(plainte='',piece='',montant=''){
     </div>
     <div class="field">
       <label>Montant (€)</label>
-      <input type="text" id="iv-montant-${id}" value="${montant||''}">
+      <input type="text" id="iv-montant-${id}" value="${montant||''}" oninput="updateMontantTotal()">
     </div>
   `;
   document.getElementById('interventions-container').appendChild(div);
+  updateMontantTotal();
   return id;
+};
+
+// Recalculer le montant total depuis les interventions
+window.updateMontantTotal=function(){
+  const total=getInterventions().reduce((s,iv)=>s+(parseFloat((iv.montant||'0').toString().replace(',','.'))||0),0);
+  const el=document.getElementById('f-montant');
+  if(el) el.value=total>0?total.toFixed(2).replace('.',',')+' €':'';
 };
 
 window.delIntervention=function(id){
   const el=document.getElementById('interv-'+id);
   if(el)el.remove();
   relabelInterventions();
+  updateMontantTotal();
 };
 
 function relabelInterventions(){
@@ -960,15 +975,18 @@ window.saveDossier=function(){
   // Préserver les infos de création si édition
   const ancien=window._dossiers['OR_'+norKey]||existant||{};
 
+  const interventionsList=getInterventions();
+  const montantTotal=interventionsList.reduce((s,iv)=>s+(parseFloat((iv.montant||'0').toString().replace(',','.'))||0),0);
+
   const obj={
     nor, site, vin, ccs,
     modele:document.getElementById('f-modele').value,
     kilometrage:document.getElementById('f-km').value,
     tech1:document.getElementById('f-tech1').value,
-    montant:document.getElementById('f-montant').value,
+    montant:montantTotal>0?montantTotal.toFixed(2):document.getElementById('f-montant').value,
     date:document.getElementById('f-date').value,
     service:document.getElementById('f-service').value,
-    interventions:getInterventions(),
+    interventions:interventionsList,
     correspondant:document.getElementById('f-correspondant').value,
     relances:document.getElementById('f-relances').value,
     defaut1,
