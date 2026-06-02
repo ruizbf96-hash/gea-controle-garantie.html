@@ -111,6 +111,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .statut-toggle .tog-dot{width:10px;height:10px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .2s;}
 .statut-toggle.active .tog-dot{background:var(--kc);}
 .statut-toggle.active{border-color:var(--kc);color:var(--text);background:color-mix(in srgb, var(--kc) 10%, var(--bg3));}
+.statut-toggle.disabled{opacity:.3;pointer-events:none;filter:grayscale(.8);}
 
 /* ── ACTIONS ── */
 .form-actions{display:flex;gap:10px;margin-top:16px;}
@@ -337,7 +338,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <button class="statut-toggle" style="--kc:#ffe066" id="tog-incomplet" onclick="toggleStatut('incomplet')">
               <span class="tog-dot"></span>Dossier incomplet / inutile
             </button>
-            <button class="statut-toggle" style="--kc:#4a9eff" id="tog-nonfact" onclick="toggleStatut('nonfact')">
+            <button class="statut-toggle" style="--kc:#ff4d6a" id="tog-nonfact" onclick="toggleStatut('nonfact')">
               <span class="tog-dot"></span>Retour non facturable
             </button>
             <button class="statut-toggle" style="--kc:#2ecc71" id="tog-temps" onclick="toggleStatut('temps')">
@@ -495,9 +496,13 @@ let _detailId=null;
 
 const USERS={'Omar':'1472','Nico':'2583','Tahir':'3694','Marion':'4715','Céline':'5826'};
 const SITE_SHORT={'VW_Illkirch':'VW Illkirch','VW_Bischheim':'VW Bischheim','Audi_Hoenheim':'Audi Hoen.','Seat_Hoenheim':'SEAT Hoen.','Skoda_Hoenheim':'Skoda Hoen.','Audi_Obernai':'Audi Obern.','VW_Obernai':'VW Obern.'};
-const SITE_MAP={'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim','GARANTIE OBERNAI VW':'VW_Obernai','GARANTIE OBERNAI AUDI':'Audi_Obernai'};
+const SITE_MAP={
+  'GIDAAUDHOE':'Audi_Hoenheim','GIDAVWBIS':'VW_Bischheim','GIDAAUDOBE':'Audi_Obernai',
+  'GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai',
+  'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim'
+};
 const STATUT_LABELS={rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG malgré risque',annul:'Annulation déf.',sauvee:'DG sauvée',incomplet:'Incomplet',nonfact:'Non facturable',temps:'Temps supp.'};
-const STATUT_COLORS={rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',annul:'#ff4d6a',sauvee:'#00c896',incomplet:'#ffe066',nonfact:'#4a9eff',temps:'#2ecc71'};
+const STATUT_COLORS={rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',annul:'#ff4d6a',sauvee:'#00c896',incomplet:'#ffe066',nonfact:'#ff4d6a',temps:'#2ecc71'};
 const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet','Directive action non respectée','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non éxécutée','Garantie échue','Immat sur vidéo','IQ cloturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non cloturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur OR manuscrit sans contre-signature','Liste PPSO non utilisée','Manque dernier entretien participation AUDI','Photo ou vidéo manquante ou non conforme','Protocole non conforme ou manquant','Mise hors tension manquante','TPI non appliquée','Ticket clim absent ou non conforme'];
 
 // Init défauts
@@ -647,25 +652,29 @@ window.handleOcrFile=async function(file){
 const PROMPT_DCS=`Analyse cette capture DCSnet Neo (logiciel DMS CDK, concessions Grand Est Automobiles).
 
 ZONES DE L'ÉCRAN :
-1. BANDEAU TURQUOISE (ligne du haut) : "[NOM_COMPTE] N°OR [CHIFFRES] CCS [NUM] [NOM_CONSEILLER] ... ORV [MARQUE] [CODE]-[LIBELLE]"
+
+1. COIN HAUT-GAUCHE du bandeau turquoise : un CODE COMPTE en majuscules collées (ex: "GIDAAUDHOE", "GIDAVWBIS", "GIDAAUDOBE", "GIDASEAHOE", "GIDASKOHOE", "GIDAVWILL", "GIDAVWOBE")
+   - code_site = ce code exact (ex: "GIDAAUDOBE")
+
+2. BANDEAU TURQUOISE : "N°OR [CHIFFRES] CCS [NUM] [NOM_CONSEILLER]"
    - nor = CHIFFRES après "N°OR" (ex: 616110). JAMAIS le code imputation "90010 G"
    - ccs = NOM après le numéro CCS (ex: "CCS 09 FLORENT BATT" → "FLORENT BATT"). JAMAIS le nom client.
 
-2. LIGNE VÉHICULE : "VIN | IMMAT | N°FABR | MODELE/VERSION | DATE LIV | KILOM"
-   - vin = 17 caractères (ex: WAUZZZ8P48A185899)
+3. LIGNE VÉHICULE : "VIN | IMMAT | N°FABR | MODELE/VERSION | DATE LIV | KILOM"
+   - vin = 17 caractères
    - modele = contenu MODELE/VERSION
    - date_livraison = DATE LIV format JJ/MM/AAAA
    - kilometrage = KILOM chiffres
 
-3. BLOC NOM/PRENOM/ADRESSE = CLIENT → IGNORER TOTALEMENT
+4. BLOC NOM/PRENOM/ADRESSE = CLIENT → IGNORER
 
-4. TABLEAU PIÈCES : colonne Désignation → intervention, colonne Montant → montant
-
-5. SECTION IMPUTATIONS (bas, fond gris) : "[CODE] [NOM_SITE] [STATUT]"
-   - site = NOM_SITE (ex: "GARANTIE OBERNAI", "GARANTIE BISCHHEIM")
+5. TABLEAU INTERVENTIONS (milieu) : 
+   - La PLAINTE CLIENT est le TEXTE LIBRE en haut de la zone désignation, souvent en majuscules (ex: "LE CLIENT SIGNALE QUE LA CHARGE NE SE FAIT PAS...") → plainte
+   - intervention = désignation de la pièce remplacée (ex: "CABL.CHARG", "POMPE EAU")
+   - montant = total colonne Montant
 
 Retourne UNIQUEMENT ce JSON sans markdown :
-{"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"date_livraison":null,"montant":null,"intervention":null,"plainte":null,"site":null}`;
+{"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"date_livraison":null,"montant":null,"intervention":null,"plainte":null}`;
 
 const PROMPT_SAGA=`Analyse cette capture SAGA/2 (demandes de garantie VW Group).
 Colonnes: Fabricant|VIN|N Demande|N TPI|Date reception|Date reparation|Date soumission|Justifie|Valeur demande|Valeur note credit|Type demande|Code dommage|Code avarie|Code reparation|Numero cas|Code-barres|Niveau traitement
@@ -701,28 +710,59 @@ function fillFormFromOcr(d){
   setV('f-intervention',d.intervention);
   setV('f-plainte',d.plainte);
   if(d.date_livraison) setV('f-date',d.date_livraison);
-  // Site
-  if(d.site){
+  // Site — priorité au code GIDA, sinon nom GARANTIE
+  let siteVal='';
+  if(d.code_site){
+    const code=(d.code_site||'').toUpperCase().replace(/[^A-Z]/g,'');
+    siteVal=SITE_MAP[code]||'';
+  }
+  if(!siteVal&&d.site){
+    siteVal=SITE_MAP[(d.site||'').toUpperCase().trim()]||'';
+  }
+  if(siteVal){
     const siteEl=document.getElementById('f-site');
-    const key=(d.site||'').toUpperCase().trim();
-    const val=SITE_MAP[key]||d.site;
-    siteEl.value=val;
+    siteEl.value=siteVal;
     if(siteEl.value) siteEl.classList.add('filled');
   }
 }
 
 // ── STATUTS TOGGLE ──
+// Statuts "terminaux" qui grisent le reste (sauf exceptions autorisées)
+const TERMINAL_STATUTS=['annul','nonfact'];
+// Statuts toujours autorisés même quand un terminal est actif
+const ALWAYS_ALLOWED=['temps','nonfact','annul'];
+
 window.toggleStatut=function(key){
-  _statuts[key]=!_statuts[key];
   const btn=document.getElementById('tog-'+key);
+  if(btn.classList.contains('disabled'))return;
+  _statuts[key]=!_statuts[key];
   btn.classList.toggle('active',_statuts[key]);
+  applyExclusion();
 };
+
+function applyExclusion(){
+  // Un statut terminal est-il actif ?
+  const terminalActif=TERMINAL_STATUTS.some(k=>_statuts[k]);
+
+  Object.keys(_statuts).forEach(k=>{
+    const btn=document.getElementById('tog-'+k);
+    if(!btn)return;
+    if(terminalActif&&!ALWAYS_ALLOWED.includes(k)){
+      // Griser et désélectionner les non-autorisés
+      _statuts[k]=false;
+      btn.classList.remove('active');
+      btn.classList.add('disabled');
+    } else {
+      btn.classList.remove('disabled');
+    }
+  });
+}
 
 function resetStatuts(){
   Object.keys(_statuts).forEach(k=>{
     _statuts[k]=false;
     const btn=document.getElementById('tog-'+k);
-    if(btn) btn.classList.remove('active');
+    if(btn){btn.classList.remove('active');btn.classList.remove('disabled');}
   });
 }
 
