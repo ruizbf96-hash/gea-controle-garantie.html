@@ -730,7 +730,7 @@ function fillFormFromOcr(d){
 // Statuts "terminaux" qui grisent le reste (sauf exceptions autorisées)
 const TERMINAL_STATUTS=['annul','nonfact'];
 // Statuts toujours autorisés même quand un terminal est actif
-const ALWAYS_ALLOWED=['temps','nonfact','annul'];
+const ALWAYS_ALLOWED=['temps'];
 
 window.toggleStatut=function(key){
   const btn=document.getElementById('tog-'+key);
