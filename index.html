@@ -358,11 +358,8 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <button class="statut-toggle" style="--kc:#ffe066" id="tog-incomplet" onclick="toggleStatut('incomplet')">
               <span class="tog-dot"></span>Dossier incomplet / inutile
             </button>
-            <button class="statut-toggle" style="--kc:#fb923c" id="tog-retourinc" onclick="toggleStatut('retourinc')">
-              <span class="tog-dot"></span>Retour dossier incomplet
-            </button>
             <button class="statut-toggle" style="--kc:#ff4d6a" id="tog-nonfact" onclick="toggleStatut('nonfact')">
-              <span class="tog-dot"></span>Retour dossier non facturable
+              <span class="tog-dot"></span>Dossier non facturable
             </button>
             <button class="statut-toggle" style="--kc:#2ecc71" id="tog-temps" onclick="toggleStatut('temps')">
               <span class="tog-dot"></span>Temps traitement supp.
@@ -402,6 +399,10 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <div class="field span2" id="delai-wrap" style="display:none;">
               <label style="color:var(--warn);">📅 Délai de facturation (dossier incomplet / non facturable)</label>
               <input type="date" id="f-delai">
+            </div>
+            <div class="field span2" id="comment-wrap" style="display:none;">
+              <label style="color:var(--warn);">💬 Commentaires (dossier incomplet / non facturable)</label>
+              <textarea id="f-commentaires" rows="3" placeholder="Raison du retour, éléments manquants, précisions pour le site..."></textarea>
             </div>
           </div>
         </div>
@@ -519,7 +520,7 @@ let _selectedUser=null;
 let _selectedPin=null;
 let _ocrData={};
 let _currentSource='dcsnet';
-let _statuts={rattrapage:false,risque:false,malgre:false,annul:false,sauvee:false,incomplet:false,retourinc:false,nonfact:false,temps:false};
+let _statuts={rattrapage:false,risque:false,malgre:false,annul:false,sauvee:false,incomplet:false,nonfact:false,temps:false};
 let _detailId=null;
 
 const USERS={'Omar':'1472','Nico':'2583','Tahir':'3694','Marion':'4715','Céline':'5826'};
@@ -529,8 +530,8 @@ const SITE_MAP={
   'GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai',
   'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim'
 };
-const STATUT_LABELS={rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG malgré risque',annul:'Annulation déf.',sauvee:'DG sauvée',incomplet:'Incomplet',retourinc:'Retour incomplet',nonfact:'Retour non fact.',temps:'Temps supp.'};
-const STATUT_COLORS={rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',annul:'#ff4d6a',sauvee:'#00c896',incomplet:'#ffe066',retourinc:'#fb923c',nonfact:'#ff4d6a',temps:'#2ecc71'};
+const STATUT_LABELS={rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG malgré risque',annul:'Annulation déf.',sauvee:'DG sauvée',incomplet:'Incomplet',nonfact:'Non facturable',temps:'Temps supp.'};
+const STATUT_COLORS={rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',annul:'#ff4d6a',sauvee:'#00c896',incomplet:'#ffe066',nonfact:'#ff4d6a',temps:'#2ecc71'};
 const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet','Directive action non respectée','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non éxécutée','Garantie échue','Immat sur vidéo','IQ cloturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non cloturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur OR manuscrit sans contre-signature','Liste PPSO non utilisée','Manque dernier entretien participation AUDI','Photo ou vidéo manquante ou non conforme','Protocole non conforme ou manquant','Mise hors tension manquante','TPI non appliquée','Ticket clim absent ou non conforme'];
 
 // Init défauts — remplir la datalist (choix + saisie manuelle possible)
@@ -1009,7 +1010,7 @@ function siteFromMarqueVille(marque,ville){
 
 // ── STATUTS TOGGLE ──
 // Statuts "terminaux" — un seul des deux possible, et grisent tout le reste
-const TERMINAL_STATUTS=['annul','nonfact','retourinc'];
+const TERMINAL_STATUTS=['annul','nonfact'];
 // Statut toujours autorisé même quand un terminal est actif
 const ALWAYS_ALLOWED=['temps'];
 
@@ -1043,11 +1044,12 @@ function applyExclusion(){
     }
   });
 
-  // Afficher le délai de facturation si incomplet OU non facturable
+  // Afficher délai + commentaires si incomplet OU non facturable
+  const show=(_statuts.incomplet||_statuts.nonfact);
   const delaiWrap=document.getElementById('delai-wrap');
-  if(delaiWrap){
-    delaiWrap.style.display=(_statuts.incomplet||_statuts.nonfact||_statuts.retourinc)?'flex':'none';
-  }
+  if(delaiWrap) delaiWrap.style.display=show?'flex':'none';
+  const commWrap=document.getElementById('comment-wrap');
+  if(commWrap) commWrap.style.display=show?'flex':'none';
 }
 
 function resetStatuts(){
@@ -1121,6 +1123,7 @@ window.saveDossier=function(){
     tech1:document.getElementById('f-tech1').value,
     montant:montantTotal>0?montantTotal.toFixed(2):'',
     delai:document.getElementById('f-delai').value,
+    commentaires:document.getElementById('f-commentaires').value,
     date:document.getElementById('f-date').value,
     service:document.getElementById('f-service').value,
     interventions:interventionsList,
@@ -1316,11 +1319,17 @@ window.generatePDF=function(){
   const statutPdf=statutsActifs.length?statutsActifs[0].replace(/[^a-zA-Z0-9]/g,''):'Controle';
   doc.save(`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`);
 
-  // Mailto
-  const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_GARANTIE NON CONFORME`;
-  const corps=`Dossier de controle garantie\n\nN OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModele : ${modele}\nMontant : ${montant} ${montant!=='—'?'€':''}\n${delai?'Delai facturation : '+delai+'\n':''}\nStatuts :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDefauts :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n\nCree par ${_currentUser||'—'}`;
-  window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
-  toast('PDF généré + email préparé','success');
+  // Mailto UNIQUEMENT si dossier incomplet ou non facturable
+  if(_statuts.incomplet||_statuts.nonfact){
+    const commentaires=document.getElementById('f-commentaires').value||'';
+    const motif=_statuts.nonfact?'DOSSIER NON FACTURABLE':'DOSSIER INCOMPLET';
+    const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
+    const corps=`Dossier de controle garantie\n\nN OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModele : ${modele}\nMontant : ${montant} ${montant!=='—'?'€':''}\n${delai?'Delai facturation : '+delai+'\n':''}\nStatuts :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDefauts :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n${commentaires?'\nCommentaires :\n'+commentaires+'\n':''}\nCree par ${_currentUser||'—'}`;
+    window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+    toast('PDF généré + email préparé','success');
+  } else {
+    toast('PDF généré','success');
+  }
 };
 
 // ── RESET ──
@@ -1336,7 +1345,9 @@ window.resetForm=function(){
   document.getElementById('f-defaut2').value='';
   document.getElementById('f-correspondant').value=_currentUser||'';
   document.getElementById('f-delai').value='';
+  document.getElementById('f-commentaires').value='';
   document.getElementById('delai-wrap').style.display='none';
+  document.getElementById('comment-wrap').style.display='none';
   resetStatuts();
   clearInterventions();
   _ocrData={};
@@ -1414,6 +1425,7 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Correspondant</div><div class="detail-val">${d.correspondant||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Créé par</div><div class="detail-val">${d._createdBy||'—'}${d._ts?' · '+new Date(d._ts).toLocaleDateString('fr-FR'):''}</div></div>
     ${d.delai?`<div class="detail-row"><div class="detail-label">Délai facturation</div><div class="detail-val" style="color:var(--warn);">${d.delai}</div></div>`:''}
+    ${d.commentaires?`<div class="detail-row"><div class="detail-label">Commentaires</div><div class="detail-val">${d.commentaires}</div></div>`:''}
     ${d._modifiedBy?`<div class="detail-row"><div class="detail-label">Modifié par</div><div class="detail-val" style="color:var(--warn);">${d._modifiedBy} · ${new Date(d._modifiedTs).toLocaleString('fr-FR')}</div></div>`:''}
   `;
   document.getElementById('detail-foot').innerHTML=`
@@ -1445,6 +1457,7 @@ window.editFromDetail=function(id){
   setV('f-date',d.date); setV('f-site',d.site);
   setV('f-service',d.service); setV('f-correspondant',d.correspondant);
   setV('f-delai',d.delai);
+  setV('f-commentaires',d.commentaires);
   // Interventions
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
@@ -1486,6 +1499,7 @@ window.generatePDFFromDetail=function(id){
   document.getElementById('f-ccs').value=d.ccs||'';
   document.getElementById('f-modele').value=d.modele||'';
   document.getElementById('f-delai').value=d.delai||'';
+  document.getElementById('f-commentaires').value=d.commentaires||'';
   // Interventions
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
