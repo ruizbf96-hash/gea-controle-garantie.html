@@ -237,6 +237,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <span style="font-size:11px;color:var(--text3);">Source :</span>
           <button onclick="setSource('dcsnet')" id="src-dcs" class="btn" style="border-color:var(--accent);color:var(--accent);">DCSnet Neo</button>
           <button onclick="setSource('saga')" id="src-saga" class="btn">SAGA/2</button>
+          <button onclick="setSource('or')" id="src-or" class="btn">Ordre de réparation</button>
           <button onclick="startCapture()" class="btn" style="margin-left:auto;background:#1e1535;color:#a78bfa;border-color:#a78bfa50;">📸 Capturer la fenêtre</button>
         </div>
         <div class="ocr-zone" id="ocr-zone">
@@ -357,8 +358,11 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <button class="statut-toggle" style="--kc:#ffe066" id="tog-incomplet" onclick="toggleStatut('incomplet')">
               <span class="tog-dot"></span>Dossier incomplet / inutile
             </button>
+            <button class="statut-toggle" style="--kc:#fb923c" id="tog-retourinc" onclick="toggleStatut('retourinc')">
+              <span class="tog-dot"></span>Retour dossier incomplet
+            </button>
             <button class="statut-toggle" style="--kc:#ff4d6a" id="tog-nonfact" onclick="toggleStatut('nonfact')">
-              <span class="tog-dot"></span>Retour non facturable
+              <span class="tog-dot"></span>Retour dossier non facturable
             </button>
             <button class="statut-toggle" style="--kc:#2ecc71" id="tog-temps" onclick="toggleStatut('temps')">
               <span class="tog-dot"></span>Temps traitement supp.
@@ -384,12 +388,13 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             </div>
             <div class="field">
               <label>Défaut 1</label>
-              <select id="f-defaut1"><option value="">— Sélectionner —</option></select>
+              <input list="defauts-list" id="f-defaut1" placeholder="Choisir ou saisir...">
             </div>
             <div class="field">
               <label>Défaut 2</label>
-              <select id="f-defaut2"><option value="">— Sélectionner —</option></select>
+              <input list="defauts-list" id="f-defaut2" placeholder="Choisir ou saisir...">
             </div>
+            <datalist id="defauts-list"></datalist>
             <div class="field span2">
               <label>Heures non facturées</label>
               <input type="text" id="f-heures" value="0">
@@ -514,7 +519,7 @@ let _selectedUser=null;
 let _selectedPin=null;
 let _ocrData={};
 let _currentSource='dcsnet';
-let _statuts={rattrapage:false,risque:false,malgre:false,annul:false,sauvee:false,incomplet:false,nonfact:false,temps:false};
+let _statuts={rattrapage:false,risque:false,malgre:false,annul:false,sauvee:false,incomplet:false,retourinc:false,nonfact:false,temps:false};
 let _detailId=null;
 
 const USERS={'Omar':'1472','Nico':'2583','Tahir':'3694','Marion':'4715','Céline':'5826'};
@@ -524,15 +529,15 @@ const SITE_MAP={
   'GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai',
   'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim'
 };
-const STATUT_LABELS={rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG malgré risque',annul:'Annulation déf.',sauvee:'DG sauvée',incomplet:'Incomplet',nonfact:'Non facturable',temps:'Temps supp.'};
-const STATUT_COLORS={rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',annul:'#ff4d6a',sauvee:'#00c896',incomplet:'#ffe066',nonfact:'#ff4d6a',temps:'#2ecc71'};
+const STATUT_LABELS={rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG malgré risque',annul:'Annulation déf.',sauvee:'DG sauvée',incomplet:'Incomplet',retourinc:'Retour incomplet',nonfact:'Retour non fact.',temps:'Temps supp.'};
+const STATUT_COLORS={rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',annul:'#ff4d6a',sauvee:'#00c896',incomplet:'#ffe066',retourinc:'#fb923c',nonfact:'#ff4d6a',temps:'#2ecc71'};
 const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet','Directive action non respectée','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non éxécutée','Garantie échue','Immat sur vidéo','IQ cloturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non cloturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur OR manuscrit sans contre-signature','Liste PPSO non utilisée','Manque dernier entretien participation AUDI','Photo ou vidéo manquante ou non conforme','Protocole non conforme ou manquant','Mise hors tension manquante','TPI non appliquée','Ticket clim absent ou non conforme'];
 
-// Init défauts
-['f-defaut1','f-defaut2'].forEach(id=>{
-  const s=document.getElementById(id);
-  s.innerHTML='<option value="">— Sélectionner —</option>'+DEFAUTS.map(d=>`<option>${d}</option>`).join('');
-});
+// Init défauts — remplir la datalist (choix + saisie manuelle possible)
+(function(){
+  const dl=document.getElementById('defauts-list');
+  if(dl) dl.innerHTML=DEFAUTS.map(d=>`<option value="${d.replace(/"/g,'&quot;')}">`).join('');
+})();
 
 // ── LOGIN ──
 window.selectUser=function(name,pin){
@@ -589,11 +594,17 @@ window.showTab=function(tab){
 // ── SOURCE ──
 window.setSource=function(src){
   _currentSource=src;
-  document.getElementById('src-dcs').style.borderColor=src==='dcsnet'?'var(--accent)':'var(--border)';
-  document.getElementById('src-dcs').style.color=src==='dcsnet'?'var(--accent)':'var(--text2)';
-  document.getElementById('src-saga').style.borderColor=src==='saga'?'var(--accent)':'var(--border)';
-  document.getElementById('src-saga').style.color=src==='saga'?'var(--accent)':'var(--text2)';
-  document.getElementById('source-badge').textContent=src==='dcsnet'?'DCSnet Neo':'SAGA/2';
+  const map={dcsnet:'src-dcs',saga:'src-saga',or:'src-or'};
+  Object.entries(map).forEach(([s,id])=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.style.borderColor=src===s?'var(--accent)':'var(--border)';
+      el.style.color=src===s?'var(--accent)':'var(--text2)';
+    }
+  });
+  const labels={dcsnet:'DCSnet Neo',saga:'SAGA/2',or:'Ordre de réparation'};
+  const badge=document.getElementById('source-badge');
+  if(badge) badge.textContent=labels[src]||src;
 };
 
 // ── OCR ──
@@ -680,7 +691,7 @@ window.handleOcrFile=async function(file){
   try{
     const {b64,mime}=await compressImage(file);
     const apiKey=localStorage.getItem('gea_anthropic_key');
-    const prompt=_currentSource==='dcsnet'?PROMPT_DCS:PROMPT_SAGA;
+    const prompt=_currentSource==='dcsnet'?PROMPT_DCS:(_currentSource==='or'?PROMPT_OR:PROMPT_SAGA);
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -758,6 +769,43 @@ Colonnes: Fabricant|VIN|N Demande|N TPI|Date reception|Date reparation|Date soum
 Partenaire en haut = KVPs.
 Extrais la ligne sélectionnée (ou 1ère ligne). JSON sans markdown :
 {"nor":null,"vin":null,"date_reception":null,"date_reparation":null,"date_soumission":null,"valeur_demande":null,"code_dommage":null,"code_avarie":null,"type_demande":null,"niveau_traitement":null,"partenaire":null}`;
+
+const PROMPT_OR=`Analyse cet ORDRE DE RÉPARATION papier (document GEA - Grand Est Automobiles).
+
+STRUCTURE DU DOCUMENT :
+
+1. EN-TÊTE HAUT-GAUCHE : logo de marque + nom société + adresse
+   - Logo SKODA / "SKODA Service" → marque Skoda
+   - Logo 4 anneaux / "INGOLSTADT" → marque Audi
+   - Logo VW / "WOLFSBURG" → marque VW
+   - Logo SEAT / "SPORT" → marque SEAT
+   - Adresse ville : OBERNAI, ILLKIRCH, BISCHHEIM, HOENHEIM, STRASBOURG, MUTZIG...
+   → marque = "audi" / "vw" / "seat" / "skoda"
+   → ville = ville de l'adresse société (en haut à gauche, PAS l'adresse client)
+
+2. HAUT-DROITE : "OR N°" suivi du numéro + "Le [date] à [heure]"
+   - nor = numéro après "OR N°" (ex: 714525, 616197)
+
+3. BLOC NOM/ADRESSE (droite) = CLIENT → IGNORER (nom, adresse, email, tél du client)
+
+4. LIGNE INFOS VÉHICULE (milieu, cases) :
+   - Type = modèle (ex: "FABIA 1.0 TSI 11", "A6 Avant TDI2.0")
+   - Châssis = VIN 17 caractères (ex: TMBER6PJ8R4065083)
+   - Conseiller Client = numéro + NOM (ex: "12 FLORENT BRAULT" → "FLORENT BRAULT")
+   - Date/heure d'entrée = date OR (ex: 18/05/2026)
+   - Immatriculation, Mise en circulation, Km
+
+5. TABLEAU "TRAVAUX DEMANDÉS PAR LE CLIENT" :
+   Chaque intervention commence par une lettre (A:, B:, C:...).
+   - plainte = le texte des travaux demandés (ex: "A: DIAGNOSTIC", "LE CLIENT SIGNALE QUE L'ECRAN...")
+   - Regrouper les lignes de la même intervention (A) ensemble
+   - piece = désignations dans la colonne (ex: "AIRBAG", "ECROU", "VIS", "COMMANDE")
+   - Les codes type "657035869" en colonne CODIFICATION ne sont PAS des montants
+   - PRIX TTC à droite = montant si présent (souvent vide sur exemplaire client → null)
+
+Retourne UNIQUEMENT ce JSON sans markdown :
+{"marque":null,"ville":null,"nor":null,"vin":null,"modele":null,"ccs":null,"date_or":null,"kilometrage":null,"interventions":[{"plainte":null,"piece":null,"montant":null}]}
+date_or au format JJ/MM/AAAA. montant = null si pas de prix TTC visible.`;
 
 // ── ÉTAPES ──
 window.goToStep2=function(){
@@ -885,7 +933,8 @@ function fillFormFromOcr(d){
   let ccs=(d.ccs||'').trim();
   ccs=ccs.replace(/^\d+\s+/,'');
   setV('f-ccs',ccs);
-  if(d.date_livraison) setV('f-date',d.date_livraison);
+  if(d.date_livraison) setV('f-date',convDate(d.date_livraison));
+  if(d.date_or) setV('f-date',convDate(d.date_or));
 
   // Nettoyer un montant qui serait en fait un code compte (90000G, 90010G...)
   const cleanMontant=(m)=>{
@@ -906,7 +955,7 @@ function fillFormFromOcr(d){
     addIntervention(); // bloc vide
   }
 
-  // Site — priorité au code GIDA, sinon nom GARANTIE
+  // Site — 1) code GIDA (DCSnet), 2) nom GARANTIE, 3) marque+ville (OR papier)
   let siteVal='';
   if(d.code_site){
     const code=(d.code_site||'').toUpperCase().replace(/[^A-Z]/g,'');
@@ -915,6 +964,9 @@ function fillFormFromOcr(d){
   if(!siteVal&&d.site){
     siteVal=SITE_MAP[(d.site||'').toUpperCase().trim()]||'';
   }
+  if(!siteVal&&(d.marque||d.ville)){
+    siteVal=siteFromMarqueVille(d.marque,d.ville);
+  }
   if(siteVal){
     const siteEl=document.getElementById('f-site');
     siteEl.value=siteVal;
@@ -922,9 +974,42 @@ function fillFormFromOcr(d){
   }
 }
 
+// Convertir une date JJ/MM/AAAA → AAAA-MM-JJ pour input date
+function convDate(s){
+  if(!s)return'';
+  s=s.toString().trim();
+  // déjà au format AAAA-MM-JJ
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m=s.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return '';
+}
+
+// Déterminer le site depuis marque + ville (ordre de réparation papier)
+function siteFromMarqueVille(marque,ville){
+  const m=(marque||'').toLowerCase();
+  const v=(ville||'').toUpperCase();
+  if(m.includes('audi')){
+    if(v.includes('OBERNAI')) return 'Audi_Obernai';
+    return 'Audi_Hoenheim';
+  }
+  if(m.includes('seat')) return 'Seat_Hoenheim';
+  if(m.includes('skoda')) return 'Skoda_Hoenheim';
+  if(m.includes('vw')||m.includes('volkswagen')){
+    if(v.includes('OBERNAI')) return 'VW_Obernai';
+    if(v.includes('BISCHHEIM')) return 'VW_Bischheim';
+    return 'VW_Illkirch';
+  }
+  // fallback par ville seule
+  if(v.includes('OBERNAI')) return 'VW_Obernai';
+  if(v.includes('BISCHHEIM')) return 'VW_Bischheim';
+  if(v.includes('ILLKIRCH')) return 'VW_Illkirch';
+  return '';
+}
+
 // ── STATUTS TOGGLE ──
 // Statuts "terminaux" — un seul des deux possible, et grisent tout le reste
-const TERMINAL_STATUTS=['annul','nonfact'];
+const TERMINAL_STATUTS=['annul','nonfact','retourinc'];
 // Statut toujours autorisé même quand un terminal est actif
 const ALWAYS_ALLOWED=['temps'];
 
@@ -961,7 +1046,7 @@ function applyExclusion(){
   // Afficher le délai de facturation si incomplet OU non facturable
   const delaiWrap=document.getElementById('delai-wrap');
   if(delaiWrap){
-    delaiWrap.style.display=(_statuts.incomplet||_statuts.nonfact)?'flex':'none';
+    delaiWrap.style.display=(_statuts.incomplet||_statuts.nonfact||_statuts.retourinc)?'flex':'none';
   }
 }
 
@@ -1095,18 +1180,16 @@ window.generatePDF=function(){
   // Helper hex → rgb
   const rgb=(hex)=>{const h=hex.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];};
 
-  // ── BANDEAU EN-TÊTE COLORÉ ──
-  doc.setFillColor(15,17,23); // fond sombre
-  doc.rect(0,0,W,34,'F');
-  doc.setFillColor(0,212,168); // bande accent turquoise
-  doc.rect(0,34,W,2,'F');
-  doc.setTextColor(255,255,255);
+  // ── EN-TÊTE BLANC (économe en encre) ──
+  doc.setTextColor(20,25,40);
   doc.setFontSize(18);doc.setFont('helvetica','bold');
   doc.text('CONTRÔLE GARANTIE',105,16,{align:'center'});
-  doc.setTextColor(0,212,168);
+  doc.setTextColor(0,160,130);
   doc.setFontSize(10);doc.setFont('helvetica','normal');
-  doc.text('GEA · TeamGarantie — Grand Est Automobiles',105,25,{align:'center'});
-  y=46;
+  doc.text('GEA · TeamGarantie — Grand Est Automobiles',105,24,{align:'center'});
+  // Ligne turquoise sous le titre
+  doc.setDrawColor(0,180,140);doc.setLineWidth(1);doc.line(15,30,195,30);
+  y=42;
 
   // ── CARTOUCHE IDENTIFICATION ──
   const cardId=(label,val,bold=false)=>{
@@ -1126,9 +1209,9 @@ window.generatePDF=function(){
     y+=8;
   };
 
-  // Fond gris clair derrière l'identification
-  doc.setFillColor(245,247,250);
-  doc.roundedRect(13,y-3,184,62,2,2,'F');
+  // Cadre fin autour de l'identification (pas de remplissage)
+  doc.setDrawColor(220,225,232);doc.setLineWidth(0.3);
+  doc.roundedRect(13,y-3,184,62,2,2,'S');
   y+=4;
   section('Identification du dossier');
   cardId('N° OR :',nor,true);
