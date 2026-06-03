@@ -250,6 +250,10 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
         <button class="btn-create" id="btn-create" onclick="goToStep2()">
           ✓ Créer le formulaire →
         </button>
+        <div style="text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+          <span style="font-size:12px;color:var(--text3);">L'OCR ne fonctionne pas ?</span><br>
+          <button class="btn" onclick="manualForm()" style="margin-top:8px;display:inline-flex;">✎ Saisir manuellement le dossier</button>
+        </div>
       </div>
     </div>
 
@@ -823,6 +827,35 @@ window.goToStep1=function(){
   document.getElementById('step2').style.display='none';
   document.getElementById('step1-ind').className='step active';
   document.getElementById('step2-ind').className='step';
+};
+
+// ── SAISIE MANUELLE (sans OCR) ──
+window.manualForm=function(){
+  _ocrData={};
+  _editingDossierId=null;
+  // Réinitialiser les champs
+  ['f-nor','f-vin','f-modele','f-km','f-ccs','f-tech1','f-montant','f-date','f-heures'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.value='';el.classList.remove('filled');el.style.borderColor='';}
+  });
+  document.getElementById('f-site').value='';
+  document.getElementById('f-service').value='';
+  document.getElementById('f-relances').value='0';
+  document.getElementById('f-defaut1').value='';
+  document.getElementById('f-defaut2').value='';
+  document.getElementById('f-correspondant').value=_currentUser||'';
+  document.getElementById('f-delai').value='';
+  document.getElementById('f-commentaires').value='';
+  resetStatuts();
+  clearInterventions();
+  addIntervention(); // un bloc vide à remplir
+  // Aller à l'étape 2
+  document.getElementById('step1').style.display='none';
+  document.getElementById('step2').style.display='block';
+  document.getElementById('step1-ind').className='step done';
+  document.getElementById('step2-ind').className='step active';
+  document.getElementById('step3-ind').className='step';
+  toast('Saisie manuelle — remplissez les champs','info');
 };
 
 // ── INTERVENTIONS DYNAMIQUES ──
