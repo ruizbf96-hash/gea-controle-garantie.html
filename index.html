@@ -212,6 +212,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
       <a href="#" onclick="showTab('tab-new')" id="nav-new" class="active">+ Nouveau</a>
       <a href="#" onclick="showTab('tab-list')" id="nav-list">Dossiers</a>
       <a href="dashboard-couts.html">Dashboard</a>
+      <a href="tuto.html">Mode d'emploi</a>
     </nav>
     <div style="display:flex;align-items:center;gap:8px;">
       <div class="user-badge"><div class="user-dot"></div><span id="current-user-name">—</span></div>
@@ -1357,9 +1358,13 @@ window.generatePDF=function(){
     const commentaires=document.getElementById('f-commentaires').value||'';
     const motif=_statuts.nonfact?'DOSSIER NON FACTURABLE':'DOSSIER INCOMPLET';
     const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
-    const corps=`Dossier de controle garantie\n\nN OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModele : ${modele}\nMontant : ${montant} ${montant!=='—'?'€':''}\n${delai?'Delai facturation : '+delai+'\n':''}\nStatuts :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDefauts :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n${commentaires?'\nCommentaires :\n'+commentaires+'\n':''}\nCree par ${_currentUser||'—'}`;
-    window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
-    toast('PDF généré + email préparé','success');
+    const pdfNom=`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`;
+    const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de controle garantie (PDF a joindre depuis vos telechargements : ${pdfNom}).\n\nN OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModele : ${modele}\nMontant : ${montant} ${montant!=='—'?'€':''}\n${delai?'Delai facturation : '+delai+'\n':''}\nStatuts :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDefauts :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n${commentaires?'\nCommentaires :\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'} — TeamGarantie GEA`;
+    // Laisser le temps au PDF de se télécharger avant d'ouvrir le mail
+    setTimeout(()=>{
+      window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+    },800);
+    toast('PDF téléchargé — glissez-le dans l\'email qui s\'ouvre','info');
   } else {
     toast('PDF généré','success');
   }
