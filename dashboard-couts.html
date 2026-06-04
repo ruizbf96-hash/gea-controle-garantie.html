@@ -3,128 +3,136 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Coûts Garantie — TeamGarantie GEA</title>
+<title>Dashboard Garantie — TeamGarantie GEA</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
-:root {
-  --bg:#0f1117; --bg2:#161b27; --bg3:#1e2535;
-  --border:#2a3347; --border-hi:#3d4f6e;
-  --accent:#00d4a8; --accent2:#0099ff;
-  --text:#e8eef8; --text2:#b8c8e0; --text3:#8a9ab5;
-  --warn:#f5a623; --danger:#ff4d6a; --success:#00c896;
-  --r:6px;
-  --c-fact:#378add; --c-paye:#00c896; --c-rattrap:#f5c842;
-  --c-incomplet:#ffe066; --c-nonfact:#4a9eff; --c-annul:#ff4d6a;
-  --c-sauvee:#2ecc71; --c-risque:#ff6b35; --c-delai:#fb923c;
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+:root{
+  --bg:#f5f0e6; --bg2:#fdfaf3; --bg3:#efe7d6; --card:#fffdf8;
+  --border:#e0d5bf; --border-hi:#cdbfa0;
+  --ink:#3d3526; --ink2:#6b5f48; --ink3:#9a8c6f;
+  --accent:#0a8f6f; --accent2:#2f7fb8;
+  --fact:#5b9bd5; --paye:#4caf7d; --rattrap:#e6a817; --incomplet:#e8c33c;
+  --nonfact:#e8533c; --annul:#d9455f; --sauvee:#6fbf73; --temps:#7e9c4a; --audit:#e8c33c;
+  --r:10px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:13px;}
 
 /* Header */
-.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
-.logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;color:var(--text);text-decoration:none;}
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 22px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;color:var(--ink);text-decoration:none;}
 .logo span{color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:13px;}
 .nav{display:flex;gap:4px;}
-.nav a{padding:6px 12px;border-radius:var(--r);font-size:12px;color:var(--text2);text-decoration:none;transition:all .15s;}
-.nav a:hover{background:var(--bg3);color:var(--text);}
-.nav a.active{background:var(--bg3);color:var(--accent);}
+.nav a{padding:7px 13px;border-radius:var(--r);font-size:12px;color:var(--ink2);text-decoration:none;transition:all .15s;font-weight:500;}
+.nav a:hover{background:var(--bg3);color:var(--ink);}
+.nav a.active{background:var(--accent);color:#fff;}
 
 /* Toolbar */
-.toolbar{padding:10px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg2);}
-.toolbar select{padding:6px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;}
-.toolbar select:focus{outline:none;border-color:var(--accent2);}
-.btn{padding:6px 14px;border-radius:var(--r);border:1px solid var(--border);background:none;color:var(--text2);font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
-.btn:hover{background:var(--bg3);color:var(--text);}
-.btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600;}
-.btn.primary:hover{background:#00efc0;}
-.btn.capture{background:#1e1535;color:#a78bfa;border-color:#a78bfa50;}
-.btn.capture:hover{background:#2a1a4a;}
+.toolbar{padding:12px 22px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg2);}
+.toolbar select{padding:7px 11px;border-radius:var(--r);border:1px solid var(--border);background:var(--card);color:var(--ink);font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;}
+.toolbar select:focus{outline:none;border-color:var(--accent);}
+.btn{padding:7px 15px;border-radius:var(--r);border:1px solid var(--border);background:var(--card);color:var(--ink2);font-size:12px;font-family:inherit;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;white-space:nowrap;font-weight:500;}
+.btn:hover{background:var(--bg3);color:var(--ink);}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+.btn.primary:hover{background:#0a7d61;}
+.btn.excel{background:#1d7044;color:#fff;border-color:#1d7044;}
+.btn.excel:hover{background:#176038;}
+.btn.capture{background:#e8eef7;color:#2f7fb8;border-color:#b8d0e8;}
+.btn.mail{background:#7e5fb8;color:#fff;border-color:#7e5fb8;}
+.btn.mail:hover{background:#6d4fa5;}
 
 /* Import strip */
-.import-strip{margin:14px 20px 0;background:var(--bg3);border:1.5px dashed var(--border-hi);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);cursor:pointer;transition:border-color .15s;}
-.import-strip:hover{border-color:var(--accent);color:var(--text);}
-.import-strip input[type=file]{display:none;}
+.import-strip{margin:14px 22px 0;background:var(--card);border:1.5px dashed var(--border-hi);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--ink2);cursor:pointer;transition:border-color .15s;}
+.import-strip:hover{border-color:var(--accent);color:var(--ink);}
 .spinner{width:14px;height:14px;border:2px solid var(--border-hi);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* Main */
-.main{padding:16px 20px 60px;}
+.main{padding:18px 22px 60px;max-width:1500px;margin:0 auto;}
 
-/* ── KPI GRANDS (ligne 1) ── */
-.kpi-big{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:12px;}
-.kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden;transition:border-color .2s;}
-.kpi-card:hover{border-color:var(--border-hi);}
-.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kc,var(--accent));}
-.kpi-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;line-height:1.3;}
-.kpi-value{font-size:24px;font-weight:600;font-family:'IBM Plex Mono',monospace;line-height:1;color:var(--text);}
-.kpi-sub{font-size:11px;color:var(--text3);margin-top:5px;}
-.kpi-pct{font-size:13px;font-weight:600;margin-top:4px;}
+/* Section titre */
+.sec-title{display:flex;align-items:center;gap:10px;margin:26px 0 14px;}
+.sec-title .num{width:30px;height:30px;border-radius:8px;background:var(--accent2);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.sec-title h2{font-size:17px;font-weight:600;color:var(--ink);}
+.sec-title:first-child{margin-top:0;}
 
-/* ── KPI TYPES (ligne 2) ── */
-.kpi-types{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px;}
-.kpi-type{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;position:relative;overflow:hidden;}
-.kpi-type::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--accent));}
-.type-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;display:inline-block;margin-bottom:6px;font-family:'IBM Plex Mono',monospace;}
-.kpi-type .kpi-label{font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;}
-.kpi-type .kpi-value{font-size:16px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
-.kpi-type .kpi-sub{font-size:10px;color:var(--text3);margin-top:3px;}
+/* KPI cards */
+.kpi-row{display:grid;gap:12px;margin-bottom:16px;}
+.kpi-5{grid-template-columns:repeat(5,1fr);}
+.kpi-4{grid-template-columns:repeat(4,1fr);}
+.kpi-6{grid-template-columns:repeat(6,1fr);}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(120,100,60,.06);transition:transform .15s,box-shadow .15s;}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(120,100,60,.12);}
+.kpi::before{content:'';position:absolute;top:0;left:0;bottom:0;width:4px;background:var(--kc,var(--accent));}
+.kpi-label{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-weight:600;line-height:1.3;}
+.kpi-val{font-size:23px;font-weight:700;font-family:'IBM Plex Mono',monospace;line-height:1;color:var(--ink);}
+.kpi-sub{font-size:11px;color:var(--ink3);margin-top:5px;}
+.kpi-pct{font-size:13px;font-weight:700;margin-top:4px;}
 
-/* ── KPI CONTRÔLE (ligne 3) ── */
-.kpi-ctrl{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;}
+/* Panels */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(120,100,60,.06);}
+.panel-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;background:var(--bg2);}
+.panel-head h3{font-size:13px;font-weight:600;color:var(--ink);}
+.panel-head span{font-size:11px;color:var(--ink3);}
+.panel-body{padding:18px;}
+.panel-body canvas{max-height:280px;}
 
-/* Panel */
-.panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;}
-.panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
-.panel-head h3{font-size:13px;font-weight:500;color:var(--text);}
-.panel-head span{font-size:11px;color:var(--text3);}
-.panel-body{padding:16px;}
-.panel-body canvas{max-height:250px;}
-
-/* Charts */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
-.g21{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;}
+.g21{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
 
-/* Tableau synthèse */
-.table-wrap{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:12px;}
-thead th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border-hi);border-right:1px solid var(--border);white-space:nowrap;color:var(--text2);}
-thead th.th-site{background:#1a2a1a;color:#00c896;}
-thead th.th-fact{background:#0a1a2e;color:var(--c-fact);}
-thead th.th-paye{background:#0a2218;color:var(--c-paye);}
-thead th.th-risque{background:#2e1500;color:var(--c-risque);}
-thead th.th-annul{background:#2e0010;color:var(--c-annul);}
-thead th.th-sauv{background:#0a2e18;color:var(--c-sauvee);}
-tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
-tbody tr:hover{background:var(--bg3);}
-tbody tr.tr-total{background:#1a2535;border-top:2px solid var(--border-hi);}
-tbody tr.tr-total td{font-weight:600;color:var(--text);}
-tbody td{padding:8px 12px;color:var(--text);border-right:1px solid var(--border);vertical-align:middle;}
-tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
-tbody td.pct{font-size:11px;color:var(--text2);}
-tbody td.td-ok{color:var(--success);}
-tbody td.td-warn{color:var(--warn);}
-tbody td.td-bad{color:var(--danger);}
+/* Tableaux colorés style Excel */
+.tbl-wrap{overflow-x:auto;}
+table.xl{width:100%;border-collapse:collapse;font-size:11px;background:var(--card);}
+table.xl thead th{padding:7px 9px;text-align:center;font-size:10px;font-weight:600;border:1px solid #fff;white-space:nowrap;color:#fff;line-height:1.25;}
+table.xl thead th.grp-fact{background:#5b9bd5;}
+table.xl thead th.grp-paye{background:#8fbce0;color:#1d3a52;}
+table.xl thead th.grp-rattrap{background:#f0a8a8;color:#5a1a1a;}
+table.xl thead th.grp-incomplet{background:#e8c33c;color:#4a3c00;}
+table.xl thead th.grp-nonfact{background:#e8533c;}
+table.xl thead th.grp-annul{background:#d9455f;}
+table.xl thead th.grp-sauvee{background:#6fbf73;color:#0d2e0d;}
+table.xl thead th.grp-audit{background:#e8c33c;color:#4a3c00;}
+table.xl thead th.grp-sub{background:var(--bg3);color:var(--ink2);font-size:9px;}
+table.xl thead th.grp-site{background:#7e9c4a;}
+table.xl tbody td{padding:6px 9px;text-align:center;border:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink);}
+table.xl tbody td.site{text-align:left;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;}
+table.xl tbody tr:nth-child(even){background:var(--bg2);}
+table.xl tbody tr.total{background:var(--bg3);font-weight:700;}
+table.xl tbody tr.total td{font-weight:700;color:var(--ink);}
+.heat-r{background:#f5b8b8;color:#7a1a1a;}
+.heat-o{background:#f5d08a;color:#5a3a00;}
+.heat-g{background:#a8dca8;color:#1a4a1a;}
+
+/* Résumé exécutif */
+.exec{background:linear-gradient(135deg,#fffdf8,#f0e8d8);border:1px solid var(--border-hi);border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(120,100,60,.1);}
+.exec h2{font-size:18px;color:var(--ink);margin-bottom:4px;display:flex;align-items:center;gap:10px;}
+.exec .period{font-size:12px;color:var(--ink3);margin-bottom:18px;}
+.exec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.exec-stat{background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid var(--border);}
+.exec-stat .v{font-size:21px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--ink);}
+.exec-stat .l{font-size:11px;color:var(--ink3);margin-top:3px;}
+.exec-text{background:var(--card);border-radius:12px;padding:16px 18px;font-size:13px;line-height:1.7;color:var(--ink2);border:1px solid var(--border);}
+.exec-text strong{color:var(--ink);}
+.alert-line{display:flex;align-items:center;gap:8px;padding:4px 0;}
+.alert-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 
 /* Capture modal */
-.cap-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.cap-modal{display:none;position:fixed;inset:0;background:rgba(60,50,30,.7);z-index:600;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
 .cap-modal.open{display:flex;}
 .cap-preview{max-width:80vw;max-height:60vh;border-radius:8px;border:2px solid var(--accent);object-fit:contain;}
-.cap-actions{display:flex;gap:10px;}
 
-/* Toast */
-#toast{position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:var(--r);font-size:12px;font-weight:500;z-index:999;transform:translateY(60px);opacity:0;transition:all .2s;pointer-events:none;}
+#toast{position:fixed;bottom:20px;right:20px;padding:11px 17px;border-radius:var(--r);font-size:12px;font-weight:600;z-index:999;transform:translateY(60px);opacity:0;transition:all .2s;pointer-events:none;}
 #toast.show{transform:translateY(0);opacity:1;}
-#toast.success{background:#0d2a22;border:1px solid var(--success);color:var(--success);}
-#toast.error{background:#2a0d14;border:1px solid var(--danger);color:var(--danger);}
-#toast.info{background:#2a1f0d;border:1px solid var(--warn);color:var(--warn);}
-
-/* Section title */
-.section-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;padding:0 2px;}
+#toast.success{background:#d6f0e4;border:1px solid var(--accent);color:#0a6d52;}
+#toast.error{background:#f8dcdc;border:1px solid var(--annul);color:#a02838;}
+#toast.info{background:#f5ecd0;border:1px solid var(--rattrap);color:#7a5c00;}
 
 @media(max-width:900px){
-  .kpi-big,.kpi-types,.kpi-ctrl{grid-template-columns:repeat(2,1fr);}
-  .g2,.g21{grid-template-columns:1fr;}
+  .kpi-5,.kpi-4,.kpi-6{grid-template-columns:repeat(2,1fr);}
+  .g2,.g21,.g3{grid-template-columns:1fr;}
+  .exec-grid{grid-template-columns:repeat(2,1fr);}
 }
 </style>
 </head>
@@ -145,7 +153,7 @@ tbody td.td-bad{color:var(--danger);}
     <option value="2025">2025</option>
   </select>
   <select id="f-mois" onchange="refresh()">
-    <option value="">Tous les mois</option>
+    <option value="">Cumul année</option>
     <option value="01">Janvier</option><option value="02">Février</option>
     <option value="03">Mars</option><option value="04">Avril</option>
     <option value="05">Mai</option><option value="06">Juin</option>
@@ -153,208 +161,122 @@ tbody td.td-bad{color:var(--danger);}
     <option value="09">Septembre</option><option value="10">Octobre</option>
     <option value="11">Novembre</option><option value="12">Décembre</option>
   </select>
-  <select id="f-site" onchange="refresh()">
-    <option value="">Tous les sites</option>
-    <option value="VW_Illkirch">VW Illkirch (02153)</option>
-    <option value="VW_Bischheim">VW Bischheim (02154)</option>
-    <option value="Audi_Hoenheim">Audi Hoenheim (02155)</option>
-    <option value="Seat_Hoenheim">SEAT Hoenheim (63930)</option>
-    <option value="Skoda_Hoenheim">Skoda Hoenheim (02376)</option>
-    <option value="Audi_Obernai">Audi Obernai (02486)</option>
-    <option value="VW_Obernai">VW Obernai (02485)</option>
-  </select>
   <button class="btn capture" onclick="startCapture()">📸 Capturer SAGA</button>
-  <button class="btn primary" onclick="document.getElementById('saga-file').click()">↑ Upload SAGA</button>
-  <button class="btn" onclick="refresh()">↺ Actualiser</button>
-  <button class="btn" onclick="exportCSV()">↓ CSV</button>
+  <button class="btn primary" onclick="document.getElementById('saga-file').click()">↑ Import SAGA</button>
+  <button class="btn excel" onclick="exportExcel()">↓ Export Excel</button>
+  <button class="btn mail" onclick="copyExecSummary()">✉ Résumé direction</button>
   <input type="file" id="saga-file" accept="image/*" style="display:none" onchange="importSaga(this.files[0])">
-  <span id="last-sync" style="font-size:11px;color:var(--text3);margin-left:4px;"></span>
+  <span id="last-sync" style="font-size:11px;color:var(--ink3);margin-left:4px;"></span>
 </div>
 
 <div class="import-strip" onclick="document.getElementById('saga-file').click()">
   <div id="import-spinner" style="display:none;"><div class="spinner"></div></div>
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-  <span id="import-label">📋 Ctrl+V · 📸 Capturer · ou cliquer — importer capture SAGA (toutes les lignes visibles)</span>
+  <span id="import-label">📋 Ctrl+V · 📸 Capturer · ou cliquer — importer une capture SAGA (toutes les lignes)</span>
 </div>
 
-<!-- Capture modal -->
 <div class="cap-modal" id="cap-modal">
-  <p style="color:var(--text2);font-size:13px;" id="cap-status">Sélectionnez la fenêtre SAGA...</p>
+  <p style="color:#fff;font-size:13px;" id="cap-status">Sélectionnez la fenêtre SAGA...</p>
   <img id="cap-preview" class="cap-preview" src="" alt="" style="display:none;">
-  <div class="cap-actions">
+  <div style="display:flex;gap:10px;">
     <button class="btn primary" id="cap-confirm" onclick="confirmCapture()" style="display:none;">Importer</button>
-    <button class="btn" onclick="document.getElementById('cap-modal').classList.remove('open')">Annuler</button>
+    <button class="btn" onclick="document.getElementById('cap-modal').classList.remove('open')" style="background:#fff;">Annuler</button>
   </div>
 </div>
 
 <div class="main">
 
-  <!-- ── LIGNE 1 : KPIs globaux ── -->
-  <div class="section-title">Vue globale</div>
-  <div class="kpi-big">
-    <div class="kpi-card" style="--kc:var(--c-fact)">
-      <div class="kpi-label">CA Total facturé</div>
-      <div class="kpi-value" id="k-fact">— €</div>
-      <div class="kpi-sub" id="k-fact-nb">— dossiers</div>
+  <!-- ════ RÉSUMÉ EXÉCUTIF ════ -->
+  <div class="exec">
+    <h2>📊 Résumé exécutif <span id="exec-badge" style="font-size:12px;font-weight:500;color:var(--accent);"></span></h2>
+    <div class="period" id="exec-period">—</div>
+    <div class="exec-grid">
+      <div class="exec-stat"><div class="v" id="ex-ca">— €</div><div class="l">CA total facturé</div></div>
+      <div class="exec-stat"><div class="v" id="ex-paye">—%</div><div class="l">Taux de paiement</div></div>
+      <div class="exec-stat"><div class="v" id="ex-risque">— €</div><div class="l">CA en risque + annulé</div></div>
+      <div class="exec-stat"><div class="v" id="ex-encours">— €</div><div class="l">En-cours +60j à traiter</div></div>
     </div>
-    <div class="kpi-card" style="--kc:var(--c-paye)">
-      <div class="kpi-label">CA Payé</div>
-      <div class="kpi-value" id="k-paye">— €</div>
-      <div class="kpi-pct" id="k-paye-pct" style="color:var(--text3);">—%</div>
-      <div class="kpi-sub">taux de paiement</div>
-    </div>
-    <div class="kpi-card" style="--kc:var(--c-risque)">
-      <div class="kpi-label">CA en risque actif</div>
-      <div class="kpi-value" id="k-risque-ca">— €</div>
-      <div class="kpi-pct" id="k-risque-pct" style="color:var(--c-risque);">—%</div>
-      <div class="kpi-sub" id="k-risque-nb">— dossiers du total</div>
-    </div>
-    <div class="kpi-card" style="--kc:var(--c-annul)">
-      <div class="kpi-label">CA Annulés définitivement</div>
-      <div class="kpi-value" id="k-annul-ca">— €</div>
-      <div class="kpi-pct" id="k-annul-pct" style="color:var(--c-annul);">—%</div>
-      <div class="kpi-sub" id="k-annul-nb">— dossiers du total</div>
-    </div>
-    <div class="kpi-card" style="--kc:var(--c-sauvee)">
-      <div class="kpi-label">CA Rattrapé / Sauvé</div>
-      <div class="kpi-value" id="k-sauv-ca">— €</div>
-      <div class="kpi-sub" id="k-sauv-nb">rattrapé + sauvé</div>
-    </div>
+    <div class="exec-text" id="exec-text">Importez des données SAGA pour générer le résumé.</div>
   </div>
 
-  <!-- ── LIGNE 2 : KPIs par type ── -->
-  <div class="section-title">Par type de garantie</div>
-  <div class="kpi-types">
-    <div class="kpi-type" style="--kc:#378add">
-      <div class="type-badge" style="background:#0a1a3a;color:#378add;">1-10</div>
-      <div class="kpi-label">Garantie véhicule</div>
-      <div class="kpi-value" id="kt-110-ca" style="color:#378add;">— €</div>
-      <div class="kpi-sub" id="kt-110-nb">— dossiers</div>
-    </div>
-    <div class="kpi-type" style="--kc:#60b8ff">
-      <div class="type-badge" style="background:#0a2040;color:#60b8ff;">1-21</div>
-      <div class="kpi-label">Garantie pièce</div>
-      <div class="kpi-value" id="kt-121-ca" style="color:#60b8ff;">— €</div>
-      <div class="kpi-sub" id="kt-121-nb">— dossiers</div>
-    </div>
-    <div class="kpi-type" style="--kc:#a78bfa">
-      <div class="type-badge" style="background:#2a1a4a;color:#a78bfa;">7-10</div>
-      <div class="kpi-label">Actions / Rappels</div>
-      <div class="kpi-value" id="kt-710-ca" style="color:#a78bfa;">— €</div>
-      <div class="kpi-sub" id="kt-710-nb">— dossiers</div>
-    </div>
-    <div class="kpi-type" style="--kc:#f5a623">
-      <div class="type-badge" style="background:#2e1800;color:#f5a623;">2-10</div>
-      <div class="kpi-label">Participation client</div>
-      <div class="kpi-value" id="kt-210-ca" style="color:#f5a623;">— €</div>
-      <div class="kpi-sub" id="kt-210-nb">— dossiers</div>
-    </div>
-    <div class="kpi-type" style="--kc:#ffcc66">
-      <div class="type-badge" style="background:#2e2000;color:#ffcc66;">2-SK</div>
-      <div class="kpi-label">Participation SK</div>
-      <div class="kpi-value" id="kt-2sk-ca" style="color:#ffcc66;">— €</div>
-      <div class="kpi-sub" id="kt-2sk-nb">— dossiers</div>
-    </div>
-    <div class="kpi-type" style="--kc:#f5c842">
-      <div class="type-badge" style="background:#2a2000;color:#f5c842;">1-M1</div>
-      <div class="kpi-label">VDR</div>
-      <div class="kpi-value" id="kt-1m1-ca" style="color:#f5c842;">— €</div>
-      <div class="kpi-sub" id="kt-1m1-nb">— dossiers</div>
-    </div>
+  <!-- ════ KPIs PRINCIPAUX ════ -->
+  <div class="kpi-row kpi-5">
+    <div class="kpi" style="--kc:var(--fact)"><div class="kpi-label">CA DG facturées</div><div class="kpi-val" id="k-fact">—</div><div class="kpi-sub" id="k-fact-nb">— dossiers</div></div>
+    <div class="kpi" style="--kc:var(--paye)"><div class="kpi-label">CA DG payées</div><div class="kpi-val" id="k-paye">—</div><div class="kpi-pct" id="k-paye-pct">—%</div></div>
+    <div class="kpi" style="--kc:var(--nonfact)"><div class="kpi-label">CA en risque actif</div><div class="kpi-val" id="k-risque">—</div><div class="kpi-sub" id="k-risque-nb">—% du total</div></div>
+    <div class="kpi" style="--kc:var(--annul)"><div class="kpi-label">CA annulés déf.</div><div class="kpi-val" id="k-annul">—</div><div class="kpi-sub" id="k-annul-nb">—% du total</div></div>
+    <div class="kpi" style="--kc:var(--sauvee)"><div class="kpi-label">CA rattrapé / sauvé</div><div class="kpi-val" id="k-sauv">—</div><div class="kpi-sub" id="k-sauv-nb">—</div></div>
   </div>
 
-  <!-- ── LIGNE 3 : KPIs contrôle ── -->
-  <div class="section-title">Contrôle qualité</div>
-  <div class="kpi-ctrl">
-    <div class="kpi-card" style="--kc:var(--c-rattrap)">
-      <div class="kpi-label">DG rattrapées</div>
-      <div class="kpi-value" id="k-rattrap-ca">— €</div>
-      <div class="kpi-sub" id="k-rattrap-nb">— dossiers</div>
-    </div>
-    <div class="kpi-card" style="--kc:var(--c-incomplet)">
-      <div class="kpi-label">Dossiers incomplets</div>
-      <div class="kpi-value" id="k-incomplet">—</div>
-      <div class="kpi-sub">renvoyés en garantie</div>
-    </div>
-    <div class="kpi-card" style="--kc:var(--c-nonfact)">
-      <div class="kpi-label">Retour non facturable</div>
-      <div class="kpi-value" id="k-nonfact-ca">— €</div>
-      <div class="kpi-sub" id="k-nonfact-nb">— dossiers</div>
-    </div>
-    <div class="kpi-card" style="--kc:var(--c-delai)">
-      <div class="kpi-label">Délai moyen soumission</div>
-      <div class="kpi-value" id="k-delai">—</div>
-      <div class="kpi-sub" id="k-delai-sub">jours</div>
-    </div>
-    <div class="kpi-card" style="--kc:var(--warn)">
-      <div class="kpi-label">Nb relances total</div>
-      <div class="kpi-value" id="k-relances">—</div>
-      <div class="kpi-sub">sur tous les dossiers</div>
-    </div>
-  </div>
-
-  <!-- ── GRAPHIQUE 1 : CA par site par mois ── -->
+  <!-- ════ 1. RÉPARTITION COÛTS ════ -->
+  <div class="sec-title"><div class="num">1</div><h2>Répartition des coûts garantie <span id="t1-period" style="font-size:13px;color:var(--ink3);font-weight:400;"></span></h2></div>
   <div class="panel">
-    <div class="panel-head">
-      <h3>CA facturé par site par mois</h3>
-      <span id="chart1-period">—</span>
-    </div>
-    <div class="panel-body"><canvas id="chart-site-mois" style="max-height:280px;"></canvas></div>
+    <div class="tbl-wrap"><table class="xl" id="tbl-couts"><thead></thead><tbody></tbody></table></div>
   </div>
 
-  <!-- ── GRAPHIQUES 2 + 3 ── -->
+  <!-- Graphiques section 1 -->
   <div class="g21">
     <div class="panel">
-      <div class="panel-head"><h3>Dossiers en risque par site</h3><span>Risque annulation + annulés déf.</span></div>
-      <div class="panel-body"><canvas id="chart-risque-site"></canvas></div>
+      <div class="panel-head"><h3>CA facturé par site</h3></div>
+      <div class="panel-body"><canvas id="ch-ca-site"></canvas></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><h3>CA par type de garantie</h3></div>
-      <div class="panel-body"><canvas id="chart-types"></canvas></div>
+      <div class="panel-head"><h3>Répartition par catégorie</h3></div>
+      <div class="panel-body"><canvas id="ch-categories"></canvas></div>
     </div>
   </div>
 
-  <!-- ── GRAPHIQUE 4 : Taux paiement ── -->
-  <div class="g2">
+  <!-- ════ 2. PAR MARQUE ════ -->
+  <div class="sec-title"><div class="num">2</div><h2>DG facturées par marque</h2></div>
+  <div class="g21">
     <div class="panel">
-      <div class="panel-head"><h3>Taux de paiement par site (%)</h3><span style="color:var(--success);">vert ≥95% · </span><span style="color:var(--warn);">orange ≥80% · </span><span style="color:var(--danger);">rouge &lt;80%</span></div>
-      <div class="panel-body"><canvas id="chart-taux"></canvas></div>
+      <div class="tbl-wrap"><table class="xl" id="tbl-marque"><thead></thead><tbody></tbody></table></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><h3>Top 10 codes dommage</h3></div>
-      <div class="panel-body"><canvas id="chart-codes"></canvas></div>
+      <div class="panel-head"><h3>% CA par marque</h3></div>
+      <div class="panel-body"><canvas id="ch-marque"></canvas></div>
     </div>
   </div>
 
-  <!-- ── TABLEAU SYNTHÈSE PAR SITE ── -->
+  <!-- ════ 3. BUDGET CIG ════ -->
+  <div class="sec-title"><div class="num">3</div><h2>Budget CIG 70/30 restant <span style="font-size:12px;color:var(--ink3);font-weight:400;">(données fixes — à importer)</span></h2></div>
   <div class="panel">
-    <div class="panel-head">
-      <h3>Synthèse par site</h3>
-      <span id="synthese-period">—</span>
+    <div class="panel-body" id="budget-placeholder" style="text-align:center;color:var(--ink3);padding:30px;">
+      Le tableau budget s'affichera une fois le fichier de données budget fourni.
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="th-site">Site</th>
-            <th class="th-site">KVPs</th>
-            <th class="th-fact">Nb DG</th>
-            <th class="th-fact">CA facturé</th>
-            <th class="th-paye">CA payé</th>
-            <th class="th-paye">% payé</th>
-            <th class="th-risque">En risque</th>
-            <th class="th-risque">CA risque</th>
-            <th class="th-annul">Annulés</th>
-            <th class="th-annul">CA annulé</th>
-            <th class="th-annul">% annulé</th>
-            <th class="th-sauv">Sauvés</th>
-            <th class="th-sauv">CA sauvé</th>
-          </tr>
-        </thead>
-        <tbody id="synthese-body">
-          <tr><td colspan="13" style="text-align:center;padding:30px;color:var(--text3);">Importez une capture SAGA pour commencer</td></tr>
-        </tbody>
-      </table>
+  </div>
+
+  <!-- ════ 4. CUMUL ANNUEL ════ -->
+  <div class="sec-title"><div class="num">4</div><h2>Cumul répartition des coûts <span id="t4-year" style="font-size:13px;color:var(--ink3);font-weight:400;"></span></h2></div>
+  <div class="panel">
+    <div class="tbl-wrap"><table class="xl" id="tbl-cumul"><thead></thead><tbody></tbody></table></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Évolution mensuelle du CA facturé</h3></div>
+    <div class="panel-body"><canvas id="ch-mensuel" style="max-height:240px;"></canvas></div>
+  </div>
+
+  <!-- ════ 5. CESSION INTERNE ════ -->
+  <div class="sec-title"><div class="num">5</div><h2>Récap comptes de cession interne</h2></div>
+  <div class="g21">
+    <div class="panel">
+      <div class="tbl-wrap"><table class="xl" id="tbl-cession"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Cession par marque et par mois</h3></div>
+      <div class="panel-body"><canvas id="ch-cession"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ════ 6. EN-COURS ════ -->
+  <div class="sec-title"><div class="num">6</div><h2>Récap En-cours Garantie +60 jours</h2></div>
+  <div class="g21">
+    <div class="panel">
+      <div class="tbl-wrap"><table class="xl" id="tbl-encours"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>En-cours +60j à traiter</h3></div>
+      <div class="panel-body"><canvas id="ch-encours"></canvas></div>
     </div>
   </div>
 
@@ -374,16 +296,16 @@ const firebaseConfig = {
   messagingSenderId:"988294526180",
   appId:"1:988294526180:web:119987fabec448679228f1"
 };
-const app = initializeApp(firebaseConfig);
-const db  = getDatabase(app);
+const app=initializeApp(firebaseConfig);
+const db=getDatabase(app);
 window._db=db; window._ref=ref; window._push=push;
-onValue(ref(db,'saga_lignes'), snap => {
+onValue(ref(db,'saga_lignes'),snap=>{
   window._saga={};
   const v=snap.val();
   if(v) Object.entries(v).forEach(([k,d])=>{window._saga[k]={_id:k,...d};});
   setTimeout(()=>{if(typeof window.refresh==='function')window.refresh();},50);
 },{onlyOnce:false});
-onValue(ref(db,'controle_garantie'), snap => {
+onValue(ref(db,'controle_garantie'),snap=>{
   window._ctrl={};
   const v=snap.val();
   if(v) Object.entries(v).forEach(([k,d])=>{window._ctrl[k]={_id:k,...d};});
@@ -398,19 +320,22 @@ let _ch={};
 
 const KVPS_MAP={'02153':'VW_Illkirch','02154':'VW_Bischheim','02155':'Audi_Hoenheim','63930':'Seat_Hoenheim','02376':'Skoda_Hoenheim','02486':'Audi_Obernai','02485':'VW_Obernai'};
 const KVPS_LABEL={'VW_Illkirch':'02153','VW_Bischheim':'02154','Audi_Hoenheim':'02155','Seat_Hoenheim':'63930','Skoda_Hoenheim':'02376','Audi_Obernai':'02486','VW_Obernai':'02485'};
-const SITES=['VW_Illkirch','VW_Bischheim','Audi_Hoenheim','Seat_Hoenheim','Skoda_Hoenheim','Audi_Obernai','VW_Obernai'];
-const SITE_SHORT={'VW_Illkirch':'VW Illkirch','VW_Bischheim':'VW Bischheim','Audi_Hoenheim':'Audi Hoen.','Seat_Hoenheim':'SEAT Hoen.','Skoda_Hoenheim':'Skoda Hoen.','Audi_Obernai':'Audi Obern.','VW_Obernai':'VW Obern.'};
-const COLORS=['#00d4a8','#0099ff','#f5a623','#ff4d6a','#a78bfa','#34d399','#fb923c'];
+const SITES=['Seat_Hoenheim','Skoda_Hoenheim','VW_Bischheim','VW_Illkirch','VW_Obernai','Audi_Hoenheim','Audi_Obernai'];
+const SITE_SHORT={'VW_Illkirch':'VW Illkirch','VW_Bischheim':'VW Bischheim','Audi_Hoenheim':'Audi Hoenheim','Seat_Hoenheim':'SEAT Hoenheim','Skoda_Hoenheim':'Skoda Hoenheim','Audi_Obernai':'Audi Obernai','VW_Obernai':'VW Obernai'};
+const SITE_COLOR={'Seat_Hoenheim':'#b8a9d0','Skoda_Hoenheim':'#6fbf73','VW_Bischheim':'#7ec8e3','VW_Illkirch':'#f0d0b0','VW_Obernai':'#e8e0c0','Audi_Hoenheim':'#d0c8b0','Audi_Obernai':'#a89878'};
+const MARQUE_OF={'Seat_Hoenheim':'SEAT','Skoda_Hoenheim':'SKODA','VW_Bischheim':'VW','VW_Illkirch':'VW','VW_Obernai':'VW','Audi_Hoenheim':'AUDI','Audi_Obernai':'AUDI'};
 const MOIS=['01','02','03','04','05','06','07','08','09','10','11','12'];
 const MOIS_N=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+const MOIS_FULL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
-const fmt=v=>v>0?v.toLocaleString('fr-FR',{maximumFractionDigits:0})+' €':'0 €';
-const fmtn=v=>(v||0).toLocaleString('fr-FR',{maximumFractionDigits:0});
-const mon=s=>parseFloat((s||'0').toString().replace(',','.'))||0;
+const fmt=v=>(v>0?Math.round(v).toLocaleString('fr-FR'):'0')+' €';
+const fmtn=v=>(v||0).toLocaleString('fr-FR');
+const mon=s=>parseFloat((s||'0').toString().replace(/\s/g,'').replace(',','.'))||0;
 const pct=(a,b)=>b>0?Math.round(a/b*100)+'%':'—';
+const pct1=(a,b)=>b>0?(Math.round(a/b*1000)/10).toFixed(1).replace('.',',')+'%':'0%';
 const pctN=(a,b)=>b>0?Math.round(a/b*100):0;
 
-// ── Capture écran ──
+// ── Capture ──
 let _capBlob=null;
 window.startCapture=async function(){
   try{
@@ -433,21 +358,17 @@ window.startCapture=async function(){
       document.getElementById('cap-status').textContent='Aperçu — confirmez pour importer';
       document.getElementById('cap-confirm').style.display='flex';
     },'image/png');
-  }catch(e){
-    document.getElementById('cap-status').textContent='Capture annulée (Chrome/Edge requis)';
-  }
+  }catch(e){document.getElementById('cap-status').textContent='Capture annulée (Chrome/Edge requis)';}
 };
 window.confirmCapture=function(){if(_capBlob){document.getElementById('cap-modal').classList.remove('open');importSaga(_capBlob);}};
 
-// Ctrl+V
 document.addEventListener('paste',e=>{
   const items=e.clipboardData?.items;
   if(!items)return;
   for(const item of items){if(item.type.startsWith('image/')){importSaga(item.getAsFile());break;}}
 });
 
-// ── Compression image ──
-function compressImage(file,maxW=1400){
+function compressImage(file,maxW=1500){
   return new Promise(resolve=>{
     const r=new FileReader();
     r.onload=e=>{
@@ -465,11 +386,10 @@ function compressImage(file,maxW=1400){
   });
 }
 
-// ── Import SAGA ──
 window.importSaga=async function(file){
   if(!file)return;
   const key=localStorage.getItem('gea_anthropic_key');
-  if(!key){toast('Clé API non configurée','error');return;}
+  if(!key){toast('Clé API non configurée (voir page Contrôle)','error');return;}
   const lbl=document.getElementById('import-label'),spn=document.getElementById('import-spinner');
   lbl.textContent='Extraction en cours...';spn.style.display='block';
   try{
@@ -479,26 +399,21 @@ window.importSaga=async function(file){
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:8000,messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:b64}},
-        {type:'text',text:`Capture SAGA/2 liste des demandes de garanties VW Group.
-Colonnes: Fabricant | VIN | N Demande | N TPI | Date reception | Date reparation | Date soumission | Justifie | Valeur demande | Valeur note credit | Type demande | Code dommage | Code avarie | Code reparation | Numero cas | Code-barres | Niveau traitement
-Champ "Partenaire" visible en haut = code KVPs du site.
-
-Extrais TOUTES les lignes visibles. JSON uniquement, sans markdown, guillemets doubles:
-[{"fabricant":"C-0360","vin":"VIN17CHARS","nor":"714341 01","date_reception":"23.04.2026","date_reparation":"25.04.2026","date_soumission":"27.04.2026","valeur_demande":100.77,"valeur_payee":119.41,"code_dommage":"69EY","code_avarie":"0099","type_demande":"7-10","niveau_traitement":"Demande remboursee","partenaire":"02376","est_action":false}]
-- valeur_demande/payee = nombre decimal avec point
-- est_action = true si type commence par 7
-- niveau_traitement sans accents ni apostrophes
-- null si non visible`}
+        {type:'text',text:`Capture SAGA/2 liste demandes garanties VW Group.
+Colonnes: Fabricant|VIN|N Demande|N TPI|Date reception|Date reparation|Date soumission|Justifie|Valeur demande|Valeur note credit|Type demande|Code dommage|Code avarie|Code reparation|Numero cas|Code-barres|Niveau traitement
+Partenaire en haut = code KVPs.
+Extrais TOUTES les lignes. JSON uniquement, guillemets doubles:
+[{"vin":"VIN","nor":"714341 01","date_reception":"23.04.2026","date_soumission":"27.04.2026","valeur_demande":100.77,"valeur_payee":119.41,"code_dommage":"69EY","type_demande":"7-10","niveau_traitement":"Demande remboursee","partenaire":"02376"}]
+valeur = nombre decimal point. Sans accents. null si absent.`}
       ]}]})
     });
     const data=await res.json();
     if(data.error)throw new Error(data.error.message);
-    let txt=data.content[0].text.trim();
-    txt=txt.replace(/```json|```/g,'').trim();
+    let txt=data.content[0].text.trim().replace(/```json|```/g,'').trim();
     const match=txt.match(/\[[\s\S]*\]/);
     if(!match)throw new Error('Pas de tableau JSON');
     const lignes=JSON.parse(match[0]);
-    if(!Array.isArray(lignes)||!lignes.length)throw new Error('Aucune ligne extraite');
+    if(!Array.isArray(lignes)||!lignes.length)throw new Error('Aucune ligne');
     let saved=0;
     for(const l of lignes){
       if(!l.nor)continue;
@@ -506,261 +421,351 @@ Extrais TOUTES les lignes visibles. JSON uniquement, sans markdown, guillemets d
       l._annee=dp.slice(-4)||new Date().getFullYear().toString();
       l._mois=dp.slice(3,5)||'';
       l._site=KVPS_MAP[l.partenaire]||'';
-      l._import_ts=Date.now();
+      l._ts=Date.now();
       await window._push(window._ref(window._db,'saga_lignes'),l);
       saved++;
     }
     lbl.textContent=`✓ ${saved} lignes importées`;
     document.getElementById('last-sync').textContent='Sync '+new Date().toLocaleTimeString('fr-FR');
     toast(`${saved} lignes SAGA importées`,'success');
-  }catch(err){
-    lbl.textContent='Erreur — réessayez';
-    toast('Erreur: '+err.message,'error');
-    console.error(err);
-  }finally{spn.style.display='none';}
+  }catch(err){lbl.textContent='Erreur — réessayez';toast('Erreur: '+err.message,'error');console.error(err);}
+  finally{spn.style.display='none';}
 };
 
-// ── Refresh ──
+// Catégories de statut contrôle (depuis _ctrl)
+function ctrlStat(ctrl,site,key){
+  return ctrl.filter(c=>c.site===site&&c[key]).reduce((s,c)=>s+(parseFloat((c.montant||'0').toString().replace(',','.'))||0),0);
+}
+function ctrlNb(ctrl,site,key){
+  return ctrl.filter(c=>c.site===site&&c[key]).length;
+}
+
+// ── REFRESH ──
 window.refresh=function(){
   const annee=document.getElementById('f-annee').value;
   const mois=document.getElementById('f-mois').value;
-  const site=document.getElementById('f-site').value;
-
   let saga=Object.values(window._saga);
   let ctrl=Object.values(window._ctrl);
-
   if(annee)saga=saga.filter(d=>d._annee===annee||(d.date_reception||'').includes(annee));
-  if(mois)saga=saga.filter(d=>d._mois===mois);
-  // Assigner site depuis KVPs si pas déjà fait
   saga=saga.map(s=>({...s,_site:s._site||KVPS_MAP[s.partenaire]||''}));
-  if(site){saga=saga.filter(d=>d._site===site);ctrl=ctrl.filter(d=>d.site===site);}
+  const sagaMois=mois?saga.filter(d=>d._mois===mois):saga;
 
-  const period=(mois?MOIS_N[parseInt(mois)-1]+' ':'')+annee+(site?' — '+SITE_SHORT[site]||site:'');
-  document.getElementById('chart1-period').textContent=period;
-  document.getElementById('synthese-period').textContent=period;
+  const periodTxt=(mois?MOIS_FULL[parseInt(mois)-1]+' ':'Cumul ')+annee;
+  document.getElementById('exec-period').textContent=periodTxt;
+  document.getElementById('exec-badge').textContent=periodTxt;
+  document.getElementById('t1-period').textContent='— '+periodTxt;
+  document.getElementById('t4-year').textContent='— Année '+annee;
 
-  renderKPIs(saga,ctrl);
-  renderCharts(saga,ctrl);
-  renderSynthese(saga,ctrl);
+  renderExec(sagaMois,ctrl,periodTxt);
+  renderKPIs(sagaMois,ctrl);
+  renderTblCouts(sagaMois,ctrl,'tbl-couts');
+  renderTblCumul(saga,ctrl,'tbl-cumul');
+  renderTblMarque(sagaMois);
+  renderTblCession(saga,annee);
+  renderTblEncours(ctrl);
+  renderCharts(sagaMois,saga,ctrl);
 };
+
+// ── RÉSUMÉ EXÉCUTIF ──
+function renderExec(saga,ctrl,period){
+  const caFact=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
+  const caPaye=saga.reduce((t,d)=>t+mon(d.valeur_payee),0);
+  const tauxP=pctN(caPaye,caFact);
+  const caRisque=ctrl.filter(c=>c.risque).reduce((t,c)=>t+mon(c.montant),0);
+  const caAnnul=ctrl.filter(c=>c.annul).reduce((t,c)=>t+mon(c.montant),0);
+  const nbAnnul=ctrl.filter(c=>c.annul).length;
+  const caEncours=ctrl.filter(c=>c.incomplet||c.nonfact).reduce((t,c)=>t+mon(c.montant),0);
+  const nbIncomplet=ctrl.filter(c=>c.incomplet).length;
+  const caSauv=ctrl.filter(c=>c.sauvee).reduce((t,c)=>t+mon(c.montant),0)+ctrl.filter(c=>c.rattrapage).reduce((t,c)=>t+mon(c.montant),0);
+
+  document.getElementById('ex-ca').textContent=fmt(caFact);
+  document.getElementById('ex-paye').textContent=tauxP+'%';
+  document.getElementById('ex-risque').textContent=fmt(caRisque+caAnnul);
+  document.getElementById('ex-encours').textContent=fmt(caEncours);
+
+  // Site avec le plus de risque
+  let worstSite='',worstVal=0;
+  SITES.forEach(s=>{
+    const v=ctrlStat(ctrl,s,'risque')+ctrlStat(ctrl,s,'annul');
+    if(v>worstVal){worstVal=v;worstSite=s;}
+  });
+
+  const txt=`Sur la période <strong>${period}</strong>, le chiffre d'affaires garantie facturé s'élève à <strong>${fmt(caFact)}</strong> pour <strong>${saga.length} dossiers</strong>, avec un taux de paiement de <strong>${tauxP}%</strong>.
+  <div style="margin-top:10px;">
+  <div class="alert-line"><span class="alert-dot" style="background:var(--annul);"></span>${nbAnnul} dossier(s) annulé(s) définitivement représentant <strong>${fmt(caAnnul)}</strong></div>
+  <div class="alert-line"><span class="alert-dot" style="background:var(--nonfact);"></span>CA en risque actif : <strong>${fmt(caRisque)}</strong></div>
+  <div class="alert-line"><span class="alert-dot" style="background:var(--incomplet);"></span>${nbIncomplet} dossier(s) incomplet(s) — en-cours à traiter : <strong>${fmt(caEncours)}</strong></div>
+  <div class="alert-line"><span class="alert-dot" style="background:var(--sauvee);"></span>Montant rattrapé / sauvé par la TeamGarantie : <strong>${fmt(caSauv)}</strong></div>
+  ${worstSite?`<div class="alert-line"><span class="alert-dot" style="background:var(--annul);"></span>Site le plus exposé : <strong>${SITE_SHORT[worstSite]}</strong> (${fmt(worstVal)} à risque/annulé)</div>`:''}
+  </div>`;
+  document.getElementById('exec-text').innerHTML=txt;
+}
 
 // ── KPIs ──
 function renderKPIs(saga,ctrl){
   const caFact=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
   const caPaye=saga.reduce((t,d)=>t+mon(d.valeur_payee),0);
-  const tauxPct=pctN(caPaye,caFact);
+  const tauxP=pctN(caPaye,caFact);
+  const caRisque=ctrl.filter(c=>c.risque).reduce((t,c)=>t+mon(c.montant),0);
+  const caAnnul=ctrl.filter(c=>c.annul).reduce((t,c)=>t+mon(c.montant),0);
+  const caSauv=ctrl.filter(c=>c.sauvee).reduce((t,c)=>t+mon(c.montant),0);
+  const caRatt=ctrl.filter(c=>c.rattrapage).reduce((t,c)=>t+mon(c.montant),0);
 
-  // Contrôle
-  const ctrlMon=k=>ctrl.filter(c=>c[k]==='oui').reduce((t,c)=>t+mon(c.montant),0);
-  const ctrlNb=k=>ctrl.filter(c=>c[k]==='oui').length;
-
-  const caRisque=ctrlMon('risque'); const nbRisque=ctrlNb('risque');
-  const caAnnul=ctrlMon('annul');  const nbAnnul=ctrlNb('annul');
-  const caRatt=ctrlMon('rattrapage'); const nbRatt=ctrlNb('rattrapage');
-  const caSauv=ctrlMon('sauvee');  const nbSauv=ctrlNb('sauvee');
-
-  // Ligne 1
   document.getElementById('k-fact').textContent=fmt(caFact);
-  document.getElementById('k-fact-nb').textContent=saga.length+' dossiers SAGA';
+  document.getElementById('k-fact-nb').textContent=saga.length+' dossiers';
   document.getElementById('k-paye').textContent=fmt(caPaye);
   const pc=document.getElementById('k-paye-pct');
-  pc.textContent=tauxPct+'%';
-  pc.style.color=tauxPct>=95?'var(--success)':tauxPct>=80?'var(--warn)':'var(--danger)';
-  document.getElementById('k-risque-ca').textContent=fmt(caRisque);
-  document.getElementById('k-risque-pct').textContent=pct(caRisque,caFact)+' du total';
-  document.getElementById('k-risque-nb').textContent=nbRisque+' dossiers';
-  document.getElementById('k-annul-ca').textContent=fmt(caAnnul);
-  document.getElementById('k-annul-pct').textContent=pct(caAnnul,caFact)+' du total';
-  document.getElementById('k-annul-nb').textContent=nbAnnul+' dossiers';
-  document.getElementById('k-sauv-ca').textContent=fmt(caRatt+caSauv);
-  document.getElementById('k-sauv-nb').textContent=nbRatt+' rattrapés · '+nbSauv+' sauvés';
-
-  // Ligne 2 — types
-  const TYPES=[
-    {ids:['1-10'],k:'110'},{ids:['1-21'],k:'121'},{ids:['7-10'],k:'710'},
-    {ids:['2-10'],k:'210'},{ids:['2-SK','2-sk'],k:'2sk'},{ids:['1-M1','1-m1'],k:'1m1'}
-  ];
-  TYPES.forEach(t=>{
-    const items=saga.filter(d=>t.ids.some(id=>(d.type_demande||'').toUpperCase()===id.toUpperCase()));
-    const ca=items.reduce((s,d)=>s+mon(d.valeur_demande),0);
-    document.getElementById('kt-'+t.k+'-ca').textContent=fmt(ca);
-    document.getElementById('kt-'+t.k+'-nb').textContent=items.length+' dossiers · '+pct(ca,caFact);
-  });
-
-  // Ligne 3 — contrôle
-  document.getElementById('k-rattrap-ca').textContent=fmt(caRatt);
-  document.getElementById('k-rattrap-nb').textContent=nbRatt+' dossiers';
-  document.getElementById('k-incomplet').textContent=ctrlNb('incomplet');
-  document.getElementById('k-nonfact-ca').textContent=fmt(ctrlMon('nonfact'));
-  document.getElementById('k-nonfact-nb').textContent=ctrlNb('nonfact')+' dossiers';
-  // Délai moyen
-  const delais=saga.map(d=>{
-    if(!d.date_reception||!d.date_soumission)return null;
-    const p=s=>{const x=s.split('.');return x.length===3?new Date(x[2]+'-'+x[1]+'-'+x[0]):null;};
-    const d1=p(d.date_reception),d2=p(d.date_soumission);
-    if(!d1||!d2)return null;
-    return Math.round((d2-d1)/86400000);
-  }).filter(x=>x!==null&&x>=0&&x<365);
-  const mDelai=delais.length?Math.round(delais.reduce((a,b)=>a+b,0)/delais.length):null;
-  document.getElementById('k-delai').textContent=mDelai!==null?mDelai:'—';
-  document.getElementById('k-delai-sub').textContent=delais.length?'jours ('+delais.length+' calc.)':'aucune date';
-  // Relances
-  const totalRelances=ctrl.reduce((t,c)=>t+(parseInt(c.relances)||0),0);
-  document.getElementById('k-relances').textContent=totalRelances;
+  pc.textContent=tauxP+'%';
+  pc.style.color=tauxP>=95?'var(--paye)':tauxP>=80?'var(--rattrap)':'var(--annul)';
+  document.getElementById('k-risque').textContent=fmt(caRisque);
+  document.getElementById('k-risque-nb').textContent=pct(caRisque,caFact)+' du total';
+  document.getElementById('k-annul').textContent=fmt(caAnnul);
+  document.getElementById('k-annul-nb').textContent=pct(caAnnul,caFact)+' du total';
+  document.getElementById('k-sauv').textContent=fmt(caRatt+caSauv);
+  document.getElementById('k-sauv-nb').textContent='rattrapé + sauvé';
 }
 
-// ── Charts ──
-function renderCharts(saga,ctrl){
-  const dc=id=>{if(_ch[id]){_ch[id].destroy();delete _ch[id];}};
-  const BASE={
-    responsive:true,maintainAspectRatio:true,
-    plugins:{
-      legend:{display:false},
-      tooltip:{backgroundColor:'#1e2535',borderColor:'#2a3347',borderWidth:1,titleColor:'#e8eef8',bodyColor:'#b8c8e0',titleFont:{family:'IBM Plex Sans',size:11},bodyFont:{family:'IBM Plex Mono',size:12}}
-    },
-    scales:{
-      x:{ticks:{color:'#8a9ab5',font:{size:10}},grid:{color:'#2a334720'},border:{display:false}},
-      y:{ticks:{color:'#8a9ab5',font:{size:10}},grid:{color:'#2a334740'},border:{display:false}}
-    }
-  };
-
-  // 1. CA par site par mois (barres groupées)
-  dc('chart-site-mois');
-  const sitesActifs=SITES.filter(s=>saga.some(d=>d._site===s));
-  const datasets=sitesActifs.map((s,i)=>({
-    label:SITE_SHORT[s]||s,
-    data:MOIS.map(m=>Math.round(saga.filter(d=>d._site===s&&d._mois===m).reduce((t,d)=>t+mon(d.valeur_demande),0))),
-    backgroundColor:COLORS[i%COLORS.length]+'30',
-    borderColor:COLORS[i%COLORS.length],
-    borderWidth:1.5,borderRadius:3
-  }));
-  _ch['chart-site-mois']=new Chart(document.getElementById('chart-site-mois'),{
-    type:'bar',
-    data:{labels:MOIS_N,datasets},
-    options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'top',labels:{color:'#b8c8e0',font:{size:10},padding:10,boxWidth:10}}}}
-  });
-
-  // 2. Risque par site
-  dc('chart-risque-site');
-  const risqueData=SITES.map(s=>ctrl.filter(c=>c.site===s&&(c.risque==='oui'||c.annul==='oui')).length);
-  const annulData=SITES.map(s=>ctrl.filter(c=>c.site===s&&c.annul==='oui').length);
-  _ch['chart-risque-site']=new Chart(document.getElementById('chart-risque-site'),{
-    type:'bar',
-    data:{
-      labels:SITES.map(s=>SITE_SHORT[s]||s),
-      datasets:[
-        {label:'En risque',data:risqueData,backgroundColor:'#ff6b3530',borderColor:'#ff6b35',borderWidth:1.5,borderRadius:3},
-        {label:'Annulés',data:annulData,backgroundColor:'#ff4d6a30',borderColor:'#ff4d6a',borderWidth:1.5,borderRadius:3}
-      ]
-    },
-    options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'top',labels:{color:'#b8c8e0',font:{size:10},padding:8,boxWidth:10}}}}
-  });
-
-  // 3. CA par type (donut)
-  dc('chart-types');
-  const typeLabels=['Gar. véhicule','Gar. pièce','Actions','Participation','Part. SK','VDR'];
-  const typeIds=[['1-10'],['1-21'],['7-10'],['2-10'],['2-SK','2-sk'],['1-M1','1-m1']];
-  const typeColors=['#378add','#60b8ff','#a78bfa','#f5a623','#ffcc66','#f5c842'];
-  const typeCA=typeIds.map(ids=>saga.filter(d=>ids.some(id=>(d.type_demande||'').toUpperCase()===id.toUpperCase())).reduce((t,d)=>t+mon(d.valeur_demande),0));
-  _ch['chart-types']=new Chart(document.getElementById('chart-types'),{
-    type:'doughnut',
-    data:{labels:typeLabels,datasets:[{data:typeCA.map(v=>Math.round(v)),backgroundColor:typeColors.map(c=>c+'40'),borderColor:typeColors,borderWidth:2,hoverOffset:6}]},
-    options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#b8c8e0',font:{size:10},padding:8,boxWidth:10}}},scales:{}}
-  });
-
-  // 4. Taux paiement
-  dc('chart-taux');
-  const tauxD=SITES.map(s=>{const ss=saga.filter(d=>d._site===s);const f=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);const p=ss.reduce((t,d)=>t+mon(d.valeur_payee),0);return f>0?Math.round(p/f*100):0;});
-  _ch['chart-taux']=new Chart(document.getElementById('chart-taux'),{
-    type:'bar',
-    data:{labels:SITES.map(s=>SITE_SHORT[s]||s),datasets:[{data:tauxD,backgroundColor:tauxD.map(v=>v>=95?'#2ecc7130':v>=80?'#f5a62330':'#ff4d6a30'),borderColor:tauxD.map(v=>v>=95?'#2ecc71':v>=80?'#f5a623':'#ff4d6a'),borderWidth:1.5,borderRadius:4}]},
-    options:{...BASE,scales:{...BASE.scales,y:{...BASE.scales.y,max:100,ticks:{callback:v=>v+'%',color:'#8a9ab5',font:{size:10}}}}}
-  });
-
-  // 5. Top 10 codes dommage
-  dc('chart-codes');
-  const cc={};
-  saga.forEach(d=>{if(d.code_dommage)cc[d.code_dommage]=(cc[d.code_dommage]||0)+1;});
-  const top=Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  _ch['chart-codes']=new Chart(document.getElementById('chart-codes'),{
-    type:'bar',
-    data:{labels:top.map(e=>e[0]),datasets:[{data:top.map(e=>e[1]),backgroundColor:'#f5a62325',borderColor:'#f5a623',borderWidth:1.5,borderRadius:3}]},
-    options:{...BASE,indexAxis:'y',scales:{x:{...BASE.scales.x,ticks:{...BASE.scales.x.ticks,precision:0}},y:{...BASE.scales.y}}}
-  });
-}
-
-// ── Tableau synthèse ──
-function renderSynthese(saga,ctrl){
-  const sitesActifs=SITES.filter(s=>saga.some(d=>d._site===s)||ctrl.some(c=>c.site===s));
-  if(!sitesActifs.length){
-    document.getElementById('synthese-body').innerHTML='<tr><td colspan="13" style="text-align:center;padding:30px;color:var(--text3);">Importez une capture SAGA pour commencer</td></tr>';
-    return;
-  }
+// ── TABLEAU COÛTS (style Excel) ──
+function buildCoutsTable(saga,ctrl,tblId,withActions){
+  const tbl=document.getElementById(tblId);
   const totFact=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
-  const rows=sitesActifs.map(s=>{
+  // En-têtes 2 niveaux
+  tbl.querySelector('thead').innerHTML=`
+    <tr>
+      <th class="grp-site" rowspan="2">Site</th>
+      <th class="grp-fact" colspan="5">1 — DG facturées</th>
+      <th class="grp-paye" colspan="2">DG payées</th>
+      <th class="grp-rattrap" colspan="2">2 — Rattrapées</th>
+      <th class="grp-incomplet" colspan="2">3 — Incomplets</th>
+      <th class="grp-nonfact" colspan="2">4 — Non facturable</th>
+      <th class="grp-annul" colspan="2">5 — Annulées déf.</th>
+      <th class="grp-sauvee" colspan="2">6 — Sauvées</th>
+    </tr>
+    <tr>
+      <th class="grp-sub">Nb DG</th><th class="grp-sub">Dont act.</th><th class="grp-sub">CA actions</th><th class="grp-sub">% fact.</th><th class="grp-sub">CA facturé</th>
+      <th class="grp-sub">CA payé</th><th class="grp-sub">% payé</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
+    </tr>`;
+  const heatPct=(p)=>p>=20?'heat-r':p>=10?'heat-o':p>0?'heat-g':'';
+  const heatPay=(p)=>p>=95?'heat-g':p>=80?'heat-o':'heat-r';
+  let rows='';
+  const tot={nb:0,act:0,caAct:0,caF:0,caP:0,rNb:0,rCA:0,iNb:0,iCA:0,nNb:0,nCA:0,aNb:0,aCA:0,sNb:0,sCA:0};
+  SITES.forEach(s=>{
     const ss=saga.filter(d=>d._site===s);
-    const cs=ctrl.filter(c=>c.site===s);
+    if(!ss.length&&!ctrl.some(c=>c.site===s))return;
+    const nb=ss.length;
+    const act=ss.filter(d=>(d.type_demande||'').includes('7')).length;
+    const caAct=ss.filter(d=>(d.type_demande||'').includes('7')).reduce((t,d)=>t+mon(d.valeur_demande),0);
     const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
     const caP=ss.reduce((t,d)=>t+mon(d.valeur_payee),0);
-    const nbR=cs.filter(c=>c.risque==='oui').length;
-    const caR=cs.filter(c=>c.risque==='oui').reduce((t,c)=>t+mon(c.montant),0);
-    const nbA=cs.filter(c=>c.annul==='oui').length;
-    const caA=cs.filter(c=>c.annul==='oui').reduce((t,c)=>t+mon(c.montant),0);
-    const nbS=cs.filter(c=>c.sauvee==='oui').length;
-    const caS=cs.filter(c=>c.sauvee==='oui').reduce((t,c)=>t+mon(c.montant),0);
-    const taux=pctN(caP,caF);
-    const tauxClass=taux>=95?'td-ok':taux>=80?'td-warn':'td-bad';
-    return `<tr>
-      <td style="font-weight:600;color:var(--text);">${SITE_SHORT[s]||s}</td>
-      <td class="mono" style="color:var(--text3);">${KVPS_LABEL[s]||'—'}</td>
-      <td class="mono">${ss.length}</td>
-      <td class="mono" style="color:var(--c-fact);">${fmt(caF)}</td>
-      <td class="mono" style="color:var(--c-paye);">${fmt(caP)}</td>
-      <td class="mono ${tauxClass}">${pct(caP,caF)}</td>
-      <td class="mono" style="color:var(--c-risque);">${nbR}</td>
-      <td class="mono" style="color:var(--c-risque);">${fmt(caR)}</td>
-      <td class="mono" style="color:var(--c-annul);">${nbA}</td>
-      <td class="mono" style="color:var(--c-annul);">${fmt(caA)}</td>
-      <td class="mono" style="color:var(--c-annul);">${pct(caA,caF)}</td>
-      <td class="mono" style="color:var(--c-sauvee);">${nbS}</td>
-      <td class="mono" style="color:var(--c-sauvee);">${fmt(caS)}</td>
+    const rNb=ctrlNb(ctrl,s,'rattrapage'),rCA=ctrlStat(ctrl,s,'rattrapage');
+    const iNb=ctrlNb(ctrl,s,'incomplet'),iCA=ctrlStat(ctrl,s,'incomplet');
+    const nNb=ctrlNb(ctrl,s,'nonfact'),nCA=ctrlStat(ctrl,s,'nonfact');
+    const aNb=ctrlNb(ctrl,s,'annul'),aCA=ctrlStat(ctrl,s,'annul');
+    const sNb=ctrlNb(ctrl,s,'sauvee'),sCA=ctrlStat(ctrl,s,'sauvee');
+    tot.nb+=nb;tot.act+=act;tot.caAct+=caAct;tot.caF+=caF;tot.caP+=caP;
+    tot.rNb+=rNb;tot.rCA+=rCA;tot.iNb+=iNb;tot.iCA+=iCA;tot.nNb+=nNb;tot.nCA+=nCA;tot.aNb+=aNb;tot.aCA+=aCA;tot.sNb+=sNb;tot.sCA+=sCA;
+    rows+=`<tr>
+      <td class="site" style="border-left:4px solid ${SITE_COLOR[s]};">${SITE_SHORT[s]}</td>
+      <td>${nb}</td><td>${act}</td><td>${fmt(caAct)}</td><td>${pct1(caF,totFact)}</td><td>${fmt(caF)}</td>
+      <td>${fmt(caP)}</td><td class="${heatPay(pctN(caP,caF))}">${pct1(caP,caF)}</td>
+      <td>${rNb}</td><td>${fmt(rCA)}</td>
+      <td>${iNb}</td><td class="${heatPct(pctN(iCA,caF))}">${fmt(iCA)}</td>
+      <td>${nNb}</td><td>${fmt(nCA)}</td>
+      <td>${aNb}</td><td class="${aCA>0?'heat-r':''}">${fmt(aCA)}</td>
+      <td>${sNb}</td><td class="${sCA>0?'heat-g':''}">${fmt(sCA)}</td>
     </tr>`;
   });
-  // Ligne total
-  const tot_fact=sitesActifs.reduce((t,s)=>t+saga.filter(d=>d._site===s).reduce((tt,d)=>tt+mon(d.valeur_demande),0),0);
-  const tot_paye=sitesActifs.reduce((t,s)=>t+saga.filter(d=>d._site===s).reduce((tt,d)=>tt+mon(d.valeur_payee),0),0);
-  const tot_r=ctrl.filter(c=>c.risque==='oui').length;
-  const tot_a=ctrl.filter(c=>c.annul==='oui').length;
-  const tot_s=ctrl.filter(c=>c.sauvee==='oui').length;
-  const tT=pctN(tot_paye,tot_fact);
-  const tTc=tT>=95?'td-ok':tT>=80?'td-warn':'td-bad';
-  rows.push(`<tr class="tr-total">
-    <td colspan="2">TOTAL</td>
-    <td class="mono">${saga.length}</td>
-    <td class="mono" style="color:var(--c-fact);">${fmt(tot_fact)}</td>
-    <td class="mono" style="color:var(--c-paye);">${fmt(tot_paye)}</td>
-    <td class="mono ${tTc}">${pct(tot_paye,tot_fact)}</td>
-    <td class="mono" style="color:var(--c-risque);">${tot_r}</td>
-    <td class="mono">—</td>
-    <td class="mono" style="color:var(--c-annul);">${tot_a}</td>
-    <td class="mono">—</td>
-    <td class="mono">—</td>
-    <td class="mono" style="color:var(--c-sauvee);">${tot_s}</td>
-    <td class="mono">—</td>
-  </tr>`);
-  document.getElementById('synthese-body').innerHTML=rows.join('');
+  rows+=`<tr class="total">
+    <td class="site">TOTAL</td>
+    <td>${tot.nb}</td><td>${tot.act}</td><td>${fmt(tot.caAct)}</td><td>100%</td><td>${fmt(tot.caF)}</td>
+    <td>${fmt(tot.caP)}</td><td>${pct1(tot.caP,tot.caF)}</td>
+    <td>${tot.rNb}</td><td>${fmt(tot.rCA)}</td>
+    <td>${tot.iNb}</td><td>${fmt(tot.iCA)}</td>
+    <td>${tot.nNb}</td><td>${fmt(tot.nCA)}</td>
+    <td>${tot.aNb}</td><td>${fmt(tot.aCA)}</td>
+    <td>${tot.sNb}</td><td>${fmt(tot.sCA)}</td>
+  </tr>`;
+  tbl.querySelector('tbody').innerHTML=rows;
+  return tot;
+}
+function renderTblCouts(saga,ctrl,id){buildCoutsTable(saga,ctrl,id,true);}
+function renderTblCumul(saga,ctrl,id){buildCoutsTable(saga,ctrl,id,true);}
+
+// ── TABLEAU MARQUE ──
+function renderTblMarque(saga){
+  const tbl=document.getElementById('tbl-marque');
+  tbl.querySelector('thead').innerHTML=`<tr>
+    <th class="grp-site">Site / Marque</th><th class="grp-incomplet">Total DG</th><th class="grp-incomplet">% DG</th><th class="grp-fact">CA facturé</th><th class="grp-fact">% CA</th>
+  </tr>`;
+  const totF=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
+  const totN=saga.length;
+  let rows='';
+  SITES.forEach(s=>{
+    const ss=saga.filter(d=>d._site===s);
+    if(!ss.length)return;
+    const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
+    rows+=`<tr>
+      <td class="site" style="border-left:4px solid ${SITE_COLOR[s]};">${SITE_SHORT[s]}</td>
+      <td>${ss.length}</td><td>${pct(ss.length,totN)}</td><td>${fmt(caF)}</td><td>${pct(caF,totF)}</td>
+    </tr>`;
+  });
+  rows+=`<tr class="total"><td class="site">TOTAL</td><td>${totN}</td><td>100%</td><td>${fmt(totF)}</td><td>100%</td></tr>`;
+  tbl.querySelector('tbody').innerHTML=rows;
 }
 
-window.exportCSV=function(){
-  const data=Object.values(window._saga);
-  const cols=['fabricant','vin','nor','date_reception','date_reparation','date_soumission','valeur_demande','valeur_payee','code_dommage','code_avarie','type_demande','niveau_traitement','partenaire','_site','est_action','_annee','_mois'];
-  const heads=['FABRICANT','VIN','N°DEMANDE','DATE RECEP','DATE REPAR','DATE SOUM','CA DEMANDE','CA PAYE','CODE DOM','CODE AVARIE','TYPE','NIVEAU','KVPS','SITE','EST_ACTION','ANNEE','MOIS'];
-  const rows=[heads,...data.map(d=>cols.map(c=>d[c]??''))];
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
-  a.download='dashboard-'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click();
+// ── TABLEAU CESSION (par mois × marque) ──
+function renderTblCession(saga,annee){
+  const tbl=document.getElementById('tbl-cession');
+  const marques=['AUDI','SKODA','VW','SEAT'];
+  // cession = type_demande contient cession ? On approxime via niveau ou type. Ici on prend valeur par marque/mois (placeholder réaliste depuis saga)
+  tbl.querySelector('thead').innerHTML=`<tr>
+    <th class="grp-site">Mois ${annee}</th>${marques.map(m=>`<th class="grp-fact">${m}</th>`).join('')}<th class="grp-incomplet">Total</th>
+  </tr>`;
+  let rows='';
+  const totByM={};marques.forEach(m=>totByM[m]=0);let grand=0;
+  MOIS.slice(0,6).forEach((mo,i)=>{
+    const moisSaga=saga.filter(d=>d._mois===mo);
+    if(!moisSaga.length)return;
+    let rowTot=0;
+    const cells=marques.map(m=>{
+      const v=moisSaga.filter(d=>MARQUE_OF[d._site]===m).reduce((t,d)=>t+mon(d.valeur_demande),0);
+      totByM[m]+=v;rowTot+=v;
+      return `<td>${fmtn(Math.round(v))}</td>`;
+    }).join('');
+    grand+=rowTot;
+    rows+=`<tr><td class="site">${MOIS_N[i]}</td>${cells}<td><strong>${fmtn(Math.round(rowTot))}</strong></td></tr>`;
+  });
+  rows+=`<tr class="total"><td class="site">Total</td>${marques.map(m=>`<td>${fmtn(Math.round(totByM[m]))}</td>`).join('')}<td>${fmtn(Math.round(grand))}</td></tr>`;
+  tbl.querySelector('tbody').innerHTML=rows||'<tr><td colspan="6" style="padding:20px;color:var(--ink3);">Aucune donnée</td></tr>';
+}
+
+// ── TABLEAU EN-COURS ──
+function renderTblEncours(ctrl){
+  const tbl=document.getElementById('tbl-encours');
+  tbl.querySelector('thead').innerHTML=`<tr><th class="grp-site">Site</th><th class="grp-nonfact">Montant en-cours +60j</th></tr>`;
+  let rows='';let grand=0;
+  SITES.forEach(s=>{
+    const v=ctrl.filter(c=>c.site===s&&(c.incomplet||c.nonfact)).reduce((t,c)=>t+mon(c.montant),0);
+    if(v<=0)return;
+    grand+=v;
+    rows+=`<tr><td class="site" style="border-left:4px solid ${SITE_COLOR[s]};">${SITE_SHORT[s]}</td><td>${fmt(v)}</td></tr>`;
+  });
+  rows+=`<tr class="total"><td class="site">Total général</td><td>${fmt(grand)}</td></tr>`;
+  tbl.querySelector('tbody').innerHTML=rows;
+}
+
+// ── CHARTS ──
+function renderCharts(sagaMois,sagaAll,ctrl){
+  const dc=id=>{if(_ch[id]){_ch[id].destroy();delete _ch[id];}};
+  const FONT={family:'IBM Plex Sans',size:10};
+  const BASE={responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fffdf8',titleColor:'#3d3526',bodyColor:'#6b5f48',borderColor:'#e0d5bf',borderWidth:1,titleFont:FONT,bodyFont:{family:'IBM Plex Mono',size:11}}},scales:{x:{ticks:{color:'#9a8c6f',font:FONT},grid:{color:'#e0d5bf40'},border:{display:false}},y:{ticks:{color:'#9a8c6f',font:FONT},grid:{color:'#e0d5bf60'},border:{display:false}}}};
+
+  // CA par site
+  dc('ch-ca-site');
+  const sActifs=SITES.filter(s=>sagaMois.some(d=>d._site===s));
+  _ch['ch-ca-site']=new Chart(document.getElementById('ch-ca-site'),{type:'bar',data:{labels:sActifs.map(s=>SITE_SHORT[s]),datasets:[{data:sActifs.map(s=>Math.round(sagaMois.filter(d=>d._site===s).reduce((t,d)=>t+mon(d.valeur_demande),0))),backgroundColor:sActifs.map(s=>SITE_COLOR[s]),borderColor:sActifs.map(s=>SITE_COLOR[s]),borderWidth:1,borderRadius:5}]},options:BASE});
+
+  // Catégories donut
+  dc('ch-categories');
+  const cats=[
+    {l:'Payées',v:ctrl.filter(c=>!c.annul&&!c.nonfact).length,c:'#4caf7d'},
+    {l:'Rattrapées',v:ctrl.filter(c=>c.rattrapage).length,c:'#e6a817'},
+    {l:'Incomplets',v:ctrl.filter(c=>c.incomplet).length,c:'#e8c33c'},
+    {l:'Non fact.',v:ctrl.filter(c=>c.nonfact).length,c:'#e8533c'},
+    {l:'Annulées',v:ctrl.filter(c=>c.annul).length,c:'#d9455f'},
+    {l:'Sauvées',v:ctrl.filter(c=>c.sauvee).length,c:'#6fbf73'},
+  ].filter(x=>x.v>0);
+  _ch['ch-categories']=new Chart(document.getElementById('ch-categories'),{type:'doughnut',data:{labels:cats.map(c=>c.l),datasets:[{data:cats.map(c=>c.v),backgroundColor:cats.map(c=>c.c),borderColor:'#fffdf8',borderWidth:2}]},options:{...BASE,scales:{},plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,padding:8,boxWidth:10}}}}});
+
+  // Marque
+  dc('ch-marque');
+  const marques=['AUDI','SKODA','VW','SEAT'];
+  const mColors={AUDI:'#a89878',SKODA:'#6fbf73',VW:'#7ec8e3',SEAT:'#b8a9d0'};
+  const mData=marques.map(m=>Math.round(sagaMois.filter(d=>MARQUE_OF[d._site]===m).reduce((t,d)=>t+mon(d.valeur_demande),0)));
+  _ch['ch-marque']=new Chart(document.getElementById('ch-marque'),{type:'doughnut',data:{labels:marques,datasets:[{data:mData,backgroundColor:marques.map(m=>mColors[m]),borderColor:'#fffdf8',borderWidth:2}]},options:{...BASE,scales:{},plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,padding:8,boxWidth:10}}}}});
+
+  // Mensuel
+  dc('ch-mensuel');
+  const mensuel=MOIS.map(mo=>Math.round(sagaAll.filter(d=>d._mois===mo).reduce((t,d)=>t+mon(d.valeur_demande),0)));
+  _ch['ch-mensuel']=new Chart(document.getElementById('ch-mensuel'),{type:'bar',data:{labels:MOIS_N,datasets:[{data:mensuel,backgroundColor:'#5b9bd540',borderColor:'#5b9bd5',borderWidth:1.5,borderRadius:4}]},options:BASE});
+
+  // Cession (barres groupées par mois)
+  dc('ch-cession');
+  const cMarques=['AUDI','SKODA','VW','SEAT'];
+  _ch['ch-cession']=new Chart(document.getElementById('ch-cession'),{type:'bar',data:{labels:MOIS_N.slice(0,6),datasets:cMarques.map(m=>({label:m,data:MOIS.slice(0,6).map(mo=>Math.round(sagaAll.filter(d=>d._mois===mo&&MARQUE_OF[d._site]===m).reduce((t,d)=>t+mon(d.valeur_demande),0))),backgroundColor:mColors[m],borderColor:mColors[m],borderWidth:1,borderRadius:3}))},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'top',labels:{color:'#6b5f48',font:FONT,padding:8,boxWidth:10}}}}});
+
+  // En-cours camembert
+  dc('ch-encours');
+  const encData=SITES.map(s=>ctrl.filter(c=>c.site===s&&(c.incomplet||c.nonfact)).reduce((t,c)=>t+mon(c.montant),0));
+  const encActifs=SITES.map((s,i)=>({s,v:encData[i]})).filter(x=>x.v>0);
+  _ch['ch-encours']=new Chart(document.getElementById('ch-encours'),{type:'doughnut',data:{labels:encActifs.map(x=>SITE_SHORT[x.s]),datasets:[{data:encActifs.map(x=>Math.round(x.v)),backgroundColor:encActifs.map(x=>SITE_COLOR[x.s]),borderColor:'#fffdf8',borderWidth:2}]},options:{...BASE,scales:{},plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,padding:6,boxWidth:10}}}}});
+}
+
+// ── EXPORT EXCEL ──
+window.exportExcel=function(){
+  const wb=XLSX.utils.book_new();
+  const annee=document.getElementById('f-annee').value;
+  const mois=document.getElementById('f-mois').value;
+  let saga=Object.values(window._saga).map(s=>({...s,_site:s._site||KVPS_MAP[s.partenaire]||''}));
+  if(annee)saga=saga.filter(d=>d._annee===annee||(d.date_reception||'').includes(annee));
+  const sagaMois=mois?saga.filter(d=>d._mois===mois):saga;
+  const ctrl=Object.values(window._ctrl);
+
+  // Feuille 1 : Répartition coûts
+  const aoa=[['Répartition des coûts garantie — '+(mois?MOIS_FULL[parseInt(mois)-1]+' ':'Cumul ')+annee],[],
+    ['Site','Nb DG','Dont actions','CA actions','% facturé','CA facturé','CA payé','% payé','Rattrap. Nb','Rattrap. CA','Incompl. Nb','Incompl. CA','NonFact Nb','NonFact CA','Annul Nb','Annul CA','Sauv Nb','Sauv CA']];
+  const totF=sagaMois.reduce((t,d)=>t+mon(d.valeur_demande),0);
+  SITES.forEach(s=>{
+    const ss=sagaMois.filter(d=>d._site===s);
+    if(!ss.length&&!ctrl.some(c=>c.site===s))return;
+    const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
+    const caP=ss.reduce((t,d)=>t+mon(d.valeur_payee),0);
+    aoa.push([SITE_SHORT[s],ss.length,ss.filter(d=>(d.type_demande||'').includes('7')).length,
+      Math.round(ss.filter(d=>(d.type_demande||'').includes('7')).reduce((t,d)=>t+mon(d.valeur_demande),0)),
+      pctN(caF,totF)+'%',Math.round(caF),Math.round(caP),pctN(caP,caF)+'%',
+      ctrlNb(ctrl,s,'rattrapage'),Math.round(ctrlStat(ctrl,s,'rattrapage')),
+      ctrlNb(ctrl,s,'incomplet'),Math.round(ctrlStat(ctrl,s,'incomplet')),
+      ctrlNb(ctrl,s,'nonfact'),Math.round(ctrlStat(ctrl,s,'nonfact')),
+      ctrlNb(ctrl,s,'annul'),Math.round(ctrlStat(ctrl,s,'annul')),
+      ctrlNb(ctrl,s,'sauvee'),Math.round(ctrlStat(ctrl,s,'sauvee'))]);
+  });
+  const ws1=XLSX.utils.aoa_to_sheet(aoa);
+  ws1['!cols']=Array(18).fill({wch:12});
+  XLSX.utils.book_append_sheet(wb,ws1,'Coûts garantie');
+
+  // Feuille 2 : Données SAGA brutes
+  const sagaAoa=[['VIN','N°Demande','Date récep.','Date soum.','Valeur demande','Valeur payée','Code dommage','Type','Niveau','KVPs','Site']];
+  saga.forEach(d=>sagaAoa.push([d.vin,d.nor,d.date_reception,d.date_soumission,mon(d.valeur_demande),mon(d.valeur_payee),d.code_dommage,d.type_demande,d.niveau_traitement,d.partenaire,SITE_SHORT[d._site]||'']));
+  const ws2=XLSX.utils.aoa_to_sheet(sagaAoa);
+  XLSX.utils.book_append_sheet(wb,ws2,'Données SAGA');
+
+  // Feuille 3 : Dossiers contrôle
+  const ctrlAoa=[['N°OR','Site','VIN','CCS','Montant','Rattrapage','Risque','Annulé','Sauvée','Incomplet','Non fact.','Défaut 1','Créé par']];
+  ctrl.forEach(c=>ctrlAoa.push([c.nor,SITE_SHORT[c.site]||c.site,c.vin,c.ccs,mon(c.montant),c.rattrapage?'X':'',c.risque?'X':'',c.annul?'X':'',c.sauvee?'X':'',c.incomplet?'X':'',c.nonfact?'X':'',c.defaut1,c._createdBy]));
+  const ws3=XLSX.utils.aoa_to_sheet(ctrlAoa);
+  XLSX.utils.book_append_sheet(wb,ws3,'Dossiers contrôle');
+
+  XLSX.writeFile(wb,`Dashboard_Garantie_GEA_${annee}${mois?'_'+mois:''}.xlsx`);
+  toast('Export Excel généré','success');
+};
+
+// ── RÉSUMÉ DIRECTION (copie presse-papier + mail) ──
+window.copyExecSummary=function(){
+  const period=document.getElementById('exec-period').textContent;
+  const txt=document.getElementById('exec-text').innerText;
+  const ca=document.getElementById('ex-ca').textContent;
+  const paye=document.getElementById('ex-paye').textContent;
+  const risque=document.getElementById('ex-risque').textContent;
+  const enc=document.getElementById('ex-encours').textContent;
+  const body=`RÉSUMÉ EXÉCUTIF GARANTIE — ${period}\n\nCA total facturé : ${ca}\nTaux de paiement : ${paye}\nCA en risque + annulé : ${risque}\nEn-cours +60j à traiter : ${enc}\n\n${txt}\n\nTeamGarantie — Grand Est Automobiles`;
+  const sujet=`Résumé garantie ${period} — TeamGarantie GEA`;
+  window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(body)}`;
+  toast('Email résumé direction préparé','success');
 };
 
 window.toast=function(msg,type='info'){
