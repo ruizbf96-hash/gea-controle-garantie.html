@@ -784,7 +784,7 @@ ZONES DE L'ÉCRAN :
 
    Pour CHAQUE intervention (A, B, C...), extraire :
    - plainte = le libellé/diagnostic de l'intervention
-   - piece = désignation(s) des pièces (colonne Désignation, ex: "POMPE EAU", "CABL.CHARG")
+   - piece = le CODE RÉFÉRENCE de la colonne "Référence" (1re colonne du tableau), code alphanumérique de pièce (ex: "8P0898201A", "1EA971675BH", "04E115561H"). Si plusieurs pièces, séparer les références par " / ". Ce n'est PAS la désignation textuelle.
    - montant = SOMME des valeurs de la DERNIÈRE colonne "Montant" à droite, pour les lignes de CETTE intervention
 
    ⚠ RÈGLE CRITIQUE sur le montant :
@@ -836,8 +836,8 @@ STRUCTURE DU DOCUMENT :
    Chaque intervention commence par une lettre (A:, B:, C:...).
    - plainte = le texte des travaux demandés (ex: "A: DIAGNOSTIC", "LE CLIENT SIGNALE QUE L'ECRAN...")
    - Regrouper les lignes de la même intervention (A) ensemble
-   - piece = désignations dans la colonne (ex: "AIRBAG", "ECROU", "VIS", "COMMANDE")
-   - Les codes type "657035869" en colonne CODIFICATION ne sont PAS des montants
+   - piece = le CODE de la colonne "CODIFICATION" (référence pièce alphanumérique, ex: "4F1880204J", "657035869", "1EA971675BH"). Si plusieurs, séparer par " / ". Ce n'est PAS la désignation textuelle (AIRBAG, ECROU...).
+   - Les codes de la colonne CODIFICATION sont des références pièces, PAS des montants
    - PRIX TTC à droite = montant si présent (souvent vide sur exemplaire client → null)
 
 Retourne UNIQUEMENT ce JSON sans markdown :
@@ -912,7 +912,7 @@ window.addIntervention=function(plainte='',piece='',montant='',factu=''){
       <textarea id="iv-plainte-${id}" rows="2">${plainte||''}</textarea>
     </div>
     <div class="field">
-      <label>Pièce remplacée / Intervention</label>
+      <label>Référence pièce</label>
       <input type="text" id="iv-piece-${id}" value="${(piece||'').replace(/"/g,'&quot;')}">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -1441,7 +1441,7 @@ window.generatePDF=function(){
     const motif=_statuts.nonfact?'DOSSIER NON FACTURABLE':'DOSSIER INCOMPLET';
     const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
     const pdfNom=`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`;
-    const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de controle garantie (PDF a joindre depuis vos telechargements : ${pdfNom}).\n\nN OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModele : ${modele}\nMontant : ${montant} ${montant!=='—'?'€':''}\n${delai?'Delai facturation : '+delai+'\n':''}\nStatuts :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDefauts :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n${commentaires?'\nCommentaires :\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'} — TeamGarantie GEA`;
+    const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie (PDF à joindre depuis vos téléchargements : ${pdfNom}).\n\nN° OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModèle : ${modele}\nMontant : ${montant} ${montant!=='—'?'€':''}\n${delai?'Délai de facturation : '+delai+'\n':''}\nStatuts de contrôle :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDéfauts identifiés :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n${commentaires?'\nCommentaires :\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'} — TeamGarantie GEA`;
     // Laisser le temps au PDF de se télécharger avant d'ouvrir le mail
     setTimeout(()=>{
       window.location.href=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
