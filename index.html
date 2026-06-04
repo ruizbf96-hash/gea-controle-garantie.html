@@ -1353,10 +1353,29 @@ window.generatePDF=function(){
   doc.roundedRect(13,y-3,184,cardH,2,2,'S');
   y+=4;
   section('Identification du dossier');
-  // "Dossier facturable jusqu'au ..." en orange, justifié à droite au niveau du N° OR
+  // "Dossier facturable jusqu'au [DATE] (jour compris)" : texte noir, date orange et plus grosse, justifié à droite
   if(delai){
-    doc.setFontSize(9.5);doc.setFont('helvetica','bold');doc.setTextColor(245,166,35);
-    doc.text(`Dossier facturable jusqu'au ${fmtDateSlash(delai)} (jour compris)`,193,y,{align:'right'});
+    const dateStr=fmtDateSlash(delai);
+    const txtAvant='Dossier facturable jusqu\'au ';
+    const txtApres=' (jour compris)';
+    doc.setFont('helvetica','bold');
+    // Mesurer chaque partie
+    doc.setFontSize(9.5);
+    const wAvant=doc.getTextWidth(txtAvant);
+    const wApres=doc.getTextWidth(txtApres);
+    doc.setFontSize(12);
+    const wDate=doc.getTextWidth(dateStr);
+    const total=wAvant+wDate+wApres;
+    let x=193-total; // point de départ pour finir à droite (193)
+    // Texte "avant" en noir
+    doc.setFontSize(9.5);doc.setTextColor(30,35,50);
+    doc.text(txtAvant,x,y);x+=wAvant;
+    // Date en orange, plus grosse
+    doc.setFontSize(12);doc.setTextColor(245,150,20);
+    doc.text(dateStr,x,y);x+=wDate;
+    // Texte "après" en noir
+    doc.setFontSize(9.5);doc.setTextColor(30,35,50);
+    doc.text(txtApres,x,y);
   }
   cardId('N° OR :',nor,true);
   cardId('Site :',SITE_SHORT[site]||site);
@@ -1481,9 +1500,15 @@ window.generatePDF=function(){
     const pdfNom=`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`;
     const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre depuis vos téléchargements : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUTS DE CONTRÔLE\n──────────────────────────────\n${statutsActifs.map(s=>'  • '+s).join('\n')}\n\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
     // Laisser le temps au PDF de se télécharger avant d'ouvrir le mail
+    const mailtoUrl=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
     setTimeout(()=>{
-      window.location.href=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
-    },800);
+      const a=document.createElement('a');
+      a.href=mailtoUrl;
+      a.style.display='none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>a.remove(),500);
+    },1000);
     toast('PDF téléchargé — glissez-le dans l\'email qui s\'ouvre','info');
   } else {
     toast('PDF généré','success');
