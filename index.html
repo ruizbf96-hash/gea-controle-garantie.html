@@ -324,6 +324,18 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <input type="text" id="f-tech1">
           </div>
           <div class="field">
+            <label>Type de garantie</label>
+            <select id="f-typegar">
+              <option value="">— Sélectionner —</option>
+              <option>Action</option>
+              <option>Garantie constructeur</option>
+              <option>Extension de garantie</option>
+              <option>Garantie pièce</option>
+              <option>Participation commerciale</option>
+              <option>Autre</option>
+            </select>
+          </div>
+          <div class="field">
             <label>Montant total (€) — auto</label>
             <input type="text" id="f-montant" readonly style="background:var(--bg2);color:var(--accent);font-weight:600;">
           </div>
@@ -872,6 +884,7 @@ window.manualForm=function(){
   });
   document.getElementById('f-site').value='';
   document.getElementById('f-service').value='';
+  document.getElementById('f-typegar').value='';
   document.getElementById('f-relances').value='0';
   document.getElementById('f-defaut1').value='';
   document.getElementById('f-defaut2').value='';
@@ -1236,11 +1249,13 @@ window.saveDossier=function(){
     modele:document.getElementById('f-modele').value,
     kilometrage:document.getElementById('f-km').value,
     tech1:document.getElementById('f-tech1').value,
+    typegar:document.getElementById('f-typegar').value,
     montant:montantTotal>0?montantTotal.toFixed(2):'',
     delai:document.getElementById('f-delai').value,
     commentaires:document.getElementById('f-commentaires').value,
     date:document.getElementById('f-date').value,
     service:document.getElementById('f-service').value,
+    typegar:document.getElementById('f-typegar').value,
     interventions:interventionsList,
     correspondant:document.getElementById('f-correspondant').value,
     relances:document.getElementById('f-relances').value,
@@ -1286,8 +1301,12 @@ window.generatePDF=function(){
   const montantTot=interventions.reduce((s,iv)=>s+(parseFloat((iv.montant||'0').toString().replace(',','.'))||0),0);
   const montant=montantTot>0?montantTot.toFixed(2).replace('.',','):'—';
   const delai=document.getElementById('f-delai').value||'';
+  const typegar=document.getElementById('f-typegar').value||'';
+  const commentaires=document.getElementById('f-commentaires').value||'';
   const def1=document.getElementById('f-defaut1').value||'';
   const def2=document.getElementById('f-defaut2').value||'';
+  // Format date AAAA/MM/JJ (depuis input date AAAA-MM-JJ)
+  const fmtDateSlash=(s)=>{if(!s||s==='—')return s;return s.replace(/-/g,'/');};
   const statutsActifsKeys=Object.entries(_statuts).filter(([,v])=>v).map(([k])=>k);
   const statutsActifs=statutsActifsKeys.map(k=>STATUT_LABELS[k]);
 
@@ -1328,25 +1347,32 @@ window.generatePDF=function(){
     y+=8;
   };
 
-  // Cadre fin autour de l'identification (pas de remplissage)
+  // Cadre fin autour de l'identification (hauteur adaptée au contenu)
+  const cardH=typegar?69:62;
   doc.setDrawColor(220,225,232);doc.setLineWidth(0.3);
-  doc.roundedRect(13,y-3,184,62,2,2,'S');
+  doc.roundedRect(13,y-3,184,cardH,2,2,'S');
   y+=4;
   section('Identification du dossier');
+  // "Dossier facturable jusqu'au ..." en orange, justifié à droite au niveau du N° OR
+  if(delai){
+    doc.setFontSize(9.5);doc.setFont('helvetica','bold');doc.setTextColor(245,166,35);
+    doc.text(`Dossier facturable jusqu'au ${fmtDateSlash(delai)} (jour compris)`,193,y,{align:'right'});
+  }
   cardId('N° OR :',nor,true);
   cardId('Site :',SITE_SHORT[site]||site);
-  cardId('Date OR :',date);
+  cardId('Date OR :',fmtDateSlash(date));
   cardId('Châssis (VIN) :',vin);
   cardId('Modèle :',modele);
   cardId('CCS :',ccs);
   // Montant en vert accent
-  doc.setFontSize(9);doc.setTextColor(130,140,160);doc.text('Montant total :',18,y);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);doc.text('Montant total :',18,y);
   doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(0,180,140);
   doc.text(montant!=='—'?montant+' €':'—',70,y);y+=7;
-  if(delai){
-    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);doc.text('Délai facturation :',18,y);
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(245,166,35);
-    doc.text(delai,70,y);y+=7;
+  // Type de garantie en bleu gras (sous le montant / délai)
+  if(typegar){
+    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);doc.text('Type de garantie :',18,y);
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,110,200);
+    doc.text(typegar,70,y);y+=7;
   }
   y+=6;
 
@@ -1425,8 +1451,20 @@ window.generatePDF=function(){
   if(def2){doc.setTextColor(40,45,60);doc.text('2.  '+def2,22,y);y+=6;}
   if(!def1&&!def2){doc.setTextColor(150,155,170);doc.text('Aucun défaut sélectionné',22,y);y+=6;}
 
+  // Commentaires en bas des défauts
+  if(commentaires){
+    y+=4;
+    if(y>260){doc.addPage();y=20;}
+    doc.setFontSize(9.5);doc.setFont('helvetica','bold');doc.setTextColor(110,120,140);
+    doc.text('Commentaires :',18,y);y+=6;
+    doc.setFont('helvetica','normal');doc.setTextColor(40,45,60);doc.setFontSize(10);
+    const cLines=doc.splitTextToSize(commentaires,175);
+    doc.text(cLines,18,y);y+=cLines.length*5+2;
+  }
+
   // ── PIED DE PAGE ──
   y+=10;
+  if(y>275){doc.addPage();y=20;}
   doc.setDrawColor(0,212,168);doc.setLineWidth(0.5);doc.line(15,y,195,y);y+=6;
   doc.setFontSize(8);doc.setTextColor(150,155,170);doc.setFont('helvetica','italic');
   doc.text('Créé par '+(_currentUser||'—')+' · '+new Date().toLocaleString('fr-FR'),15,y);
@@ -1441,7 +1479,7 @@ window.generatePDF=function(){
     const motif=_statuts.nonfact?'DOSSIER NON FACTURABLE':'DOSSIER INCOMPLET';
     const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
     const pdfNom=`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`;
-    const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie (PDF à joindre depuis vos téléchargements : ${pdfNom}).\n\nN° OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModèle : ${modele}\nMontant : ${montant} ${montant!=='—'?'€':''}\n${delai?'Délai de facturation : '+delai+'\n':''}\nStatuts de contrôle :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDéfauts identifiés :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n${commentaires?'\nCommentaires :\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'} — TeamGarantie GEA`;
+    const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre depuis vos téléchargements : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUTS DE CONTRÔLE\n──────────────────────────────\n${statutsActifs.map(s=>'  • '+s).join('\n')}\n\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
     // Laisser le temps au PDF de se télécharger avant d'ouvrir le mail
     setTimeout(()=>{
       window.location.href=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
@@ -1461,6 +1499,7 @@ window.resetForm=function(){
   });
   document.getElementById('f-site').value='';
   document.getElementById('f-service').value='';
+  document.getElementById('f-typegar').value='';
   document.getElementById('f-relances').value='0';
   document.getElementById('f-defaut1').value='';
   document.getElementById('f-defaut2').value='';
@@ -1565,6 +1604,7 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Date OR</div><div class="detail-val">${d.date||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">CCS</div><div class="detail-val">${d.ccs||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Montant</div><div class="detail-val">${d.montant||'—'} €</div></div>
+    ${d.typegar?`<div class="detail-row"><div class="detail-label">Type garantie</div><div class="detail-val" style="color:#0a6ec8;font-weight:600;">${d.typegar}</div></div>`:''}
     <div class="detail-row"><div class="detail-label">Interventions</div><div class="detail-val">${(Array.isArray(d.interventions)&&d.interventions.length)?d.interventions.map(iv=>{const fl={possible:'Facturation possible',nonfacturable:'Non facturable',cession:'Cession'};const fc={possible:'#00c896',nonfacturable:'#ff4d6a',cession:'#f5a623'};return `<div style="margin-bottom:8px;"><strong style="color:var(--accent2);">${iv.letter||'•'}.</strong> ${iv.plainte||''}${iv.piece?' — '+iv.piece:''}${iv.montant?' ('+iv.montant+' €)':''}${iv.factu?` <span class="sbadge" style="background:${fc[iv.factu]}20;color:${fc[iv.factu]};border:1px solid ${fc[iv.factu]}40;">${fl[iv.factu]}</span>`:''}</div>`;}).join(''):(d.intervention||d.plainte||'—')}</div></div>
     <div class="detail-row"><div class="detail-label">Statuts actifs</div><div class="detail-val">${statActifs.length?statActifs.map(([k,l])=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;margin:2px;">${l}</span>`).join(''):'Aucun'}</div></div>
     <div class="detail-row"><div class="detail-label">Défaut 1</div><div class="detail-val">${d.defaut1||'—'}</div></div>
@@ -1603,7 +1643,7 @@ window.editFromDetail=function(id){
   setV('f-km',d.kilometrage); setV('f-ccs',d.ccs); setV('f-tech1',d.tech1);
   setV('f-date',d.date); setV('f-site',d.site);
   setV('f-service',d.service); setV('f-correspondant',d.correspondant);
-  setV('f-delai',d.delai);
+  setV('f-typegar',d.typegar); setV('f-delai',d.delai);
   setV('f-commentaires',d.commentaires);
   // Interventions
   clearInterventions();
@@ -1646,6 +1686,7 @@ window.generatePDFFromDetail=function(id){
   document.getElementById('f-ccs').value=d.ccs||'';
   document.getElementById('f-modele').value=d.modele||'';
   document.getElementById('f-delai').value=d.delai||'';
+  document.getElementById('f-typegar').value=d.typegar||'';
   document.getElementById('f-commentaires').value=d.commentaires||'';
   // Interventions
   clearInterventions();
@@ -1680,7 +1721,7 @@ let _draftTimer=null;
 function collectFormState(){
   return {
     nor:val('f-nor'),site:val('f-site'),vin:val('f-vin'),modele:val('f-modele'),
-    km:val('f-km'),ccs:val('f-ccs'),tech1:val('f-tech1'),date:val('f-date'),
+    km:val('f-km'),ccs:val('f-ccs'),tech1:val('f-tech1'),typegar:val('f-typegar'),date:val('f-date'),
     service:val('f-service'),correspondant:val('f-correspondant'),relances:val('f-relances'),
     defaut1:val('f-defaut1'),defaut2:val('f-defaut2'),heures:val('f-heures'),
     delai:val('f-delai'),commentaires:val('f-commentaires'),
@@ -1721,7 +1762,7 @@ function checkDraft(){
 function restoreDraft(d){
   const setV=(id,v)=>{const e=document.getElementById(id);if(e&&v){e.value=v;e.classList.add('filled');}};
   setV('f-nor',d.nor);setV('f-site',d.site);setV('f-vin',d.vin);setV('f-modele',d.modele);
-  setV('f-km',d.km);setV('f-ccs',d.ccs);setV('f-tech1',d.tech1);setV('f-date',d.date);
+  setV('f-km',d.km);setV('f-ccs',d.ccs);setV('f-tech1',d.tech1);setV('f-typegar',d.typegar);setV('f-date',d.date);
   setV('f-service',d.service);setV('f-correspondant',d.correspondant);setV('f-relances',d.relances);
   setV('f-defaut1',d.defaut1);setV('f-defaut2',d.defaut2);setV('f-heures',d.heures);
   setV('f-delai',d.delai);setV('f-commentaires',d.commentaires);
