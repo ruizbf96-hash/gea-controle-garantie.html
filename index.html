@@ -1306,7 +1306,7 @@ window.generatePDF=function(){
   const def1=document.getElementById('f-defaut1').value||'';
   const def2=document.getElementById('f-defaut2').value||'';
   // Format date AAAA/MM/JJ (depuis input date AAAA-MM-JJ)
-  const fmtDateSlash=(s)=>{if(!s||s==='—')return s;return s.replace(/-/g,'/');};
+  const fmtDateSlash=(s)=>{if(!s||s==='—')return s;const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:s.replace(/-/g,'/');};
   const statutsActifsKeys=Object.entries(_statuts).filter(([,v])=>v).map(([k])=>k);
   const statutsActifs=statutsActifsKeys.map(k=>STATUT_LABELS[k]);
 
