@@ -545,6 +545,8 @@ let _detailId=null;
 
 const USERS={'Omar':'1472','Nico':'2583','Tahir':'3694','Marion':'4715','Céline':'5826'};
 const SITE_SHORT={'VW_Illkirch':'VW Illkirch','VW_Bischheim':'VW Bischheim','Audi_Hoenheim':'Audi Hoenheim','Seat_Hoenheim':'SEAT Hoenheim','Skoda_Hoenheim':'Skoda Hoenheim','Audi_Obernai':'Audi Obernai','VW_Obernai':'VW Obernai'};
+// Format date JJ/MM/AAAA (depuis AAAA-MM-JJ ou autre)
+function dateFR(s){if(!s||s==='—')return s||'—';const m=s.toString().match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:s;}
 const SITE_MAP={
   'GIDAAUDHOE':'Audi_Hoenheim','GIDAVWBIS':'VW_Bischheim','GIDAAUDOBE':'Audi_Obernai',
   'GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai',
@@ -1306,7 +1308,7 @@ window.generatePDF=function(){
   const def1=document.getElementById('f-defaut1').value||'';
   const def2=document.getElementById('f-defaut2').value||'';
   // Format date AAAA/MM/JJ (depuis input date AAAA-MM-JJ)
-  const fmtDateSlash=(s)=>{if(!s||s==='—')return s;const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:s.replace(/-/g,'/');};
+  const fmtDateSlash=dateFR;
   const statutsActifsKeys=Object.entries(_statuts).filter(([,v])=>v).map(([k])=>k);
   const statutsActifs=statutsActifsKeys.map(k=>STATUT_LABELS[k]);
 
@@ -1608,7 +1610,7 @@ window.renderList=function(){
       <td>${statActifs||'<span style="color:var(--text3);">—</span>'}</td>
       <td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.defaut1||''}">${d.defaut1||'—'}</td>
       <td>${d.correspondant||'—'}</td>
-      <td style="font-size:11px;">${d.date||'—'}</td>
+      <td style="font-size:11px;">${dateFR(d.date)}</td>
       <td style="color:var(--text3);">${d._createdBy||'—'}</td>
     </tr>`;
   }).join('');
@@ -1626,7 +1628,7 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Site</div><div class="detail-val">${SITE_SHORT[d.site]||d.site||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Châssis</div><div class="detail-val" style="font-family:'IBM Plex Mono',monospace;">${d.vin||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Modèle</div><div class="detail-val">${d.modele||'—'}</div></div>
-    <div class="detail-row"><div class="detail-label">Date OR</div><div class="detail-val">${d.date||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Date OR</div><div class="detail-val">${dateFR(d.date)}</div></div>
     <div class="detail-row"><div class="detail-label">CCS</div><div class="detail-val">${d.ccs||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Montant</div><div class="detail-val">${d.montant||'—'} €</div></div>
     ${d.typegar?`<div class="detail-row"><div class="detail-label">Type garantie</div><div class="detail-val" style="color:#0a6ec8;font-weight:600;">${d.typegar}</div></div>`:''}
@@ -1636,7 +1638,7 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Défaut 2</div><div class="detail-val">${d.defaut2||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Correspondant</div><div class="detail-val">${d.correspondant||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Créé par</div><div class="detail-val">${d._createdBy||'—'}${d._ts?' · '+new Date(d._ts).toLocaleDateString('fr-FR'):''}</div></div>
-    ${d.delai?`<div class="detail-row"><div class="detail-label">Délai facturation</div><div class="detail-val" style="color:var(--warn);">${d.delai}</div></div>`:''}
+    ${d.delai?`<div class="detail-row"><div class="detail-label">Délai facturation</div><div class="detail-val" style="color:var(--warn);">${dateFR(d.delai)}</div></div>`:''}
     ${d.commentaires?`<div class="detail-row"><div class="detail-label">Commentaires</div><div class="detail-val">${d.commentaires}</div></div>`:''}
     ${d._modifiedBy?`<div class="detail-row"><div class="detail-label">Modifié par</div><div class="detail-val" style="color:var(--warn);">${d._modifiedBy} · ${new Date(d._modifiedTs).toLocaleString('fr-FR')}</div></div>`:''}
   `;
