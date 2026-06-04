@@ -215,6 +215,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
       <a href="tuto.html">Mode d'emploi</a>
     </nav>
     <div style="display:flex;align-items:center;gap:8px;">
+      <span id="daily-count" style="font-size:11px;color:var(--text3);padding:4px 10px;background:var(--bg3);border-radius:20px;">—</span>
       <div class="user-badge"><div class="user-dot"></div><span id="current-user-name">—</span></div>
       <button class="logout-btn" onclick="logout()">Déconnexion</button>
     </div>
@@ -295,6 +296,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <div class="field">
             <label>N° OR *</label>
             <input type="text" id="f-nor">
+            <div id="nor-warn" style="display:none;font-size:11px;color:var(--warn);margin-top:3px;"></div>
           </div>
           <div class="field">
             <label>Date OR</label>
@@ -303,6 +305,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <div class="field">
             <label>Châssis (VIN)</label>
             <input type="text" id="f-vin">
+            <div id="vin-warn" style="display:none;font-size:11px;color:var(--warn);margin-top:3px;"></div>
           </div>
           <div class="field">
             <label>Modèle</label>
@@ -456,16 +459,16 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <option value="incomplet">Incomplets</option>
             <option value="nonfact">Non facturable</option>
           </select>
-          <input type="text" id="lf-search" placeholder="N°OR, chassis, CCS..." oninput="renderList()" style="min-width:180px;">
+          <input type="text" id="lf-search" placeholder="N°OR, châssis, CCS, modèle, date, conseiller..." oninput="renderList()" style="min-width:240px;">
           <button class="btn" onclick="exportCSV()" style="margin-left:auto;">↓ CSV</button>
         </div>
         <div style="overflow-x:auto;">
         <table>
           <thead>
-            <tr>
-              <th>Site</th><th>N°OR</th><th>Châssis</th><th>CCS</th>
-              <th>Modèle</th><th>Montant</th><th>Statuts actifs</th>
-              <th>Défaut</th><th>Correspondant</th><th>Date</th><th>Créé par</th>
+            <tr style="cursor:pointer;">
+              <th onclick="sortList('site')">Site ⇅</th><th onclick="sortList('nor')">N°OR ⇅</th><th onclick="sortList('vin')">Châssis ⇅</th><th onclick="sortList('ccs')">CCS ⇅</th>
+              <th onclick="sortList('modele')">Modèle ⇅</th><th onclick="sortList('montant')">Montant ⇅</th><th>Statuts actifs</th>
+              <th onclick="sortList('defaut1')">Défaut ⇅</th><th onclick="sortList('correspondant')">Correspondant ⇅</th><th onclick="sortList('_ts')">Date ⇅</th><th onclick="sortList('_createdBy')">Créé par ⇅</th>
             </tr>
           </thead>
           <tbody id="list-tbody"></tbody>
@@ -561,11 +564,10 @@ window.checkPin=function(){
   const val=document.getElementById('pin-input').value;
   if(val.length===4){
     if(val===_selectedPin){
-      _currentUser=_selectedUser;
-      document.getElementById('login-screen').style.display='none';
-      document.getElementById('app-screen').style.display='block';
-      document.getElementById('current-user-name').textContent=_currentUser;
-      document.getElementById('f-correspondant').value=_currentUser;
+      doLogin(_selectedUser);
+      // Mémoriser la session (expire à minuit)
+      const expire=new Date();expire.setHours(23,59,59,999);
+      localStorage.setItem('gea_session',JSON.stringify({user:_selectedUser,expire:expire.getTime()}));
     } else {
       document.getElementById('login-error').style.display='block';
       document.getElementById('pin-input').value='';
@@ -573,7 +575,31 @@ window.checkPin=function(){
   }
 };
 
+function doLogin(user){
+  _currentUser=user;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-screen').style.display='block';
+  document.getElementById('current-user-name').textContent=_currentUser;
+  const corr=document.getElementById('f-correspondant');
+  if(corr) corr.value=_currentUser;
+  // Charger un éventuel brouillon
+  setTimeout(checkDraft,300);
+  updateConnDot();
+}
+
+// Reconnexion auto si session valide
+(function autoLogin(){
+  try{
+    const s=JSON.parse(localStorage.getItem('gea_session')||'null');
+    if(s&&s.user&&s.expire>Date.now()){
+      // Attendre que le DOM soit prêt
+      setTimeout(()=>doLogin(s.user),100);
+    }
+  }catch(e){}
+})();
+
 window.logout=function(){
+  localStorage.removeItem('gea_session');
   _currentUser=null; _selectedUser=null;
   document.getElementById('app-screen').style.display='none';
   document.getElementById('login-screen').style.display='flex';
@@ -1234,6 +1260,7 @@ window.saveDossier=function(){
   window._set(window._ref(window._db,'controle_garantie/OR_'+norKey),obj)
     .then(()=>{
       toast(existant?'Dossier mis à jour ✓':'Dossier enregistré ✓','success');
+      clearDraft();
       document.getElementById('step2-ind').className='step done';
       document.getElementById('step3-ind').className='step active';
       _saving=false;
@@ -1427,6 +1454,7 @@ window.generatePDF=function(){
 
 // ── RESET ──
 window.resetForm=function(){
+  clearDraft();
   ['f-nor','f-vin','f-modele','f-km','f-ccs','f-tech1','f-montant','f-date','f-heures'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){el.value='';el.classList.remove('filled');}
@@ -1455,6 +1483,12 @@ window.resetForm=function(){
 };
 
 // ── LISTE ──
+let _sortBy='_ts', _sortDir=-1;
+window.sortList=function(col){
+  if(_sortBy===col){_sortDir=-_sortDir;}else{_sortBy=col;_sortDir=col==='_ts'?-1:1;}
+  renderList();
+};
+
 window.renderList=function(){
   const fSite=document.getElementById('lf-site')?.value||'';
   const fStat=document.getElementById('lf-statut')?.value||'';
@@ -1463,8 +1497,26 @@ window.renderList=function(){
   let data=Object.values(window._dossiers);
   if(fSite) data=data.filter(d=>d.site===fSite);
   if(fStat) data=data.filter(d=>d[fStat]);
-  if(fSearch) data=data.filter(d=>(d.nor||'').toLowerCase().includes(fSearch)||(d.vin||'').toLowerCase().includes(fSearch)||(d.ccs||'').toLowerCase().includes(fSearch));
-  data=data.sort((a,b)=>(b._ts||0)-(a._ts||0));
+  if(fSearch) data=data.filter(d=>
+    (d.nor||'').toLowerCase().includes(fSearch)||
+    (d.vin||'').toLowerCase().includes(fSearch)||
+    (d.ccs||'').toLowerCase().includes(fSearch)||
+    (d.correspondant||'').toLowerCase().includes(fSearch)||
+    (d.modele||'').toLowerCase().includes(fSearch)||
+    (d.date||'').toLowerCase().includes(fSearch)||
+    (d._createdBy||'').toLowerCase().includes(fSearch)||
+    (d.defaut1||'').toLowerCase().includes(fSearch));
+  // Tri configurable
+  data=data.sort((a,b)=>{
+    let va=a[_sortBy],vb=b[_sortBy];
+    if(_sortBy==='_ts'||_sortBy==='montant'){
+      va=parseFloat((va||'0').toString().replace(',','.'))||0;
+      vb=parseFloat((vb||'0').toString().replace(',','.'))||0;
+      return (va-vb)*_sortDir;
+    }
+    va=(va||'').toString().toLowerCase();vb=(vb||'').toString().toLowerCase();
+    return va<vb?-_sortDir:va>vb?_sortDir:0;
+  });
 
   document.getElementById('kl-total').textContent=data.length;
   document.getElementById('kl-risque').textContent=data.filter(d=>d.risque).length;
@@ -1472,6 +1524,8 @@ window.renderList=function(){
   document.getElementById('kl-sauv').textContent=data.filter(d=>d.sauvee).length;
   document.getElementById('kl-rattrap').textContent=data.filter(d=>d.rattrapage).length;
   document.getElementById('list-count').textContent=data.length+' dossiers';
+  updateDailyCount();
+  updateConnDot();
 
   const tbody=document.getElementById('list-tbody');
   if(!data.length){
@@ -1618,6 +1672,153 @@ window.exportCSV=function(){
   a.download='controle-garantie-'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
 };
+
+// ════════ AMÉLIORATIONS ════════
+
+// ── 2. BROUILLON AUTO ──
+let _draftTimer=null;
+function collectFormState(){
+  return {
+    nor:val('f-nor'),site:val('f-site'),vin:val('f-vin'),modele:val('f-modele'),
+    km:val('f-km'),ccs:val('f-ccs'),tech1:val('f-tech1'),date:val('f-date'),
+    service:val('f-service'),correspondant:val('f-correspondant'),relances:val('f-relances'),
+    defaut1:val('f-defaut1'),defaut2:val('f-defaut2'),heures:val('f-heures'),
+    delai:val('f-delai'),commentaires:val('f-commentaires'),
+    statuts:{..._statuts},
+    interventions:getInterventions(),
+    editingId:_editingDossierId,
+    ts:Date.now()
+  };
+}
+function val(id){const e=document.getElementById(id);return e?e.value:'';}
+
+function saveDraft(){
+  if(!_currentUser)return;
+  // Ne sauvegarder que si au moins un champ rempli
+  const st=collectFormState();
+  if(!st.nor&&!st.vin&&!st.ccs&&!st.interventions.length)return;
+  localStorage.setItem('gea_draft_'+_currentUser,JSON.stringify(st));
+  const ind=document.getElementById('draft-indicator');
+  if(ind){ind.textContent='✓ Brouillon sauvegardé';ind.style.opacity='1';clearTimeout(ind._t);ind._t=setTimeout(()=>ind.style.opacity='0',2000);}
+}
+function scheduleDraft(){clearTimeout(_draftTimer);_draftTimer=setTimeout(saveDraft,1500);}
+
+function checkDraft(){
+  if(!_currentUser)return;
+  try{
+    const d=JSON.parse(localStorage.getItem('gea_draft_'+_currentUser)||'null');
+    if(d&&(d.nor||d.vin||d.ccs||(d.interventions&&d.interventions.length))){
+      const when=new Date(d.ts).toLocaleString('fr-FR');
+      if(confirm(`Un brouillon non enregistré a été trouvé (${when}).\n\nN°OR: ${d.nor||'—'} · ${d.vin||'—'}\n\nVoulez-vous le restaurer ?`)){
+        restoreDraft(d);
+      } else {
+        clearDraft();
+      }
+    }
+  }catch(e){}
+}
+
+function restoreDraft(d){
+  const setV=(id,v)=>{const e=document.getElementById(id);if(e&&v){e.value=v;e.classList.add('filled');}};
+  setV('f-nor',d.nor);setV('f-site',d.site);setV('f-vin',d.vin);setV('f-modele',d.modele);
+  setV('f-km',d.km);setV('f-ccs',d.ccs);setV('f-tech1',d.tech1);setV('f-date',d.date);
+  setV('f-service',d.service);setV('f-correspondant',d.correspondant);setV('f-relances',d.relances);
+  setV('f-defaut1',d.defaut1);setV('f-defaut2',d.defaut2);setV('f-heures',d.heures);
+  setV('f-delai',d.delai);setV('f-commentaires',d.commentaires);
+  _editingDossierId=d.editingId||null;
+  clearInterventions();
+  if(d.interventions&&d.interventions.length){
+    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||'',iv.factu||''));
+  } else { addIntervention(); }
+  if(d.statuts){
+    Object.keys(_statuts).forEach(k=>{
+      _statuts[k]=!!d.statuts[k];
+      const btn=document.getElementById('tog-'+k);
+      if(btn){btn.classList.toggle('active',_statuts[k]);btn.classList.remove('disabled');}
+    });
+    applyExclusion();
+  }
+  updateMontantTotal();
+  // Aller à l'étape 2
+  document.getElementById('step1').style.display='none';
+  document.getElementById('step2').style.display='block';
+  document.getElementById('step1-ind').className='step done';
+  document.getElementById('step2-ind').className='step active';
+  toast('Brouillon restauré','success');
+}
+function clearDraft(){if(_currentUser)localStorage.removeItem('gea_draft_'+_currentUser);}
+
+// ── 4. VALIDATION VIN (17 caractères) ──
+function validateVIN(){
+  const el=document.getElementById('f-vin');
+  if(!el)return;
+  const vin=el.value.trim().toUpperCase();
+  const warn=document.getElementById('vin-warn');
+  if(vin&&vin.length!==17){
+    el.style.borderColor='var(--warn)';
+    if(warn){warn.style.display='block';warn.textContent=`⚠ Le VIN fait ${vin.length} caractères (attendu : 17)`;}
+  } else {
+    el.style.borderColor=vin?'#00c89640':'';
+    if(warn)warn.style.display='none';
+  }
+}
+
+// ── 5. DOUBLON TEMPS RÉEL ──
+function checkDuplicate(){
+  const nor=val('f-nor').trim();
+  const warn=document.getElementById('nor-warn');
+  if(!warn)return;
+  if(!nor){warn.style.display='none';return;}
+  const existant=Object.values(window._dossiers||{}).find(d=>(d.nor||'').trim()===nor);
+  if(existant&&!_editingDossierId){
+    warn.style.display='block';
+    warn.innerHTML=`⚠ Dossier déjà existant (créé par ${existant._createdBy||'?'}) — l'enregistrement le mettra à jour`;
+  } else {
+    warn.style.display='none';
+  }
+}
+
+// ── 6. COMPTEUR QUOTIDIEN ──
+function updateDailyCount(){
+  const badge=document.getElementById('daily-count');
+  if(!badge||!_currentUser)return;
+  const today=new Date();today.setHours(0,0,0,0);
+  const n=Object.values(window._dossiers||{}).filter(d=>d._createdBy===_currentUser&&d._ts>=today.getTime()).length;
+  badge.textContent=n+(n>1?' dossiers':' dossier')+" aujourd'hui";
+}
+
+// ── INDICATEUR CONNEXION FIREBASE ──
+function updateConnDot(){
+  const dot=document.querySelector('.user-dot');
+  if(dot) dot.style.background=window._db?'var(--success,#00c896)':'#ff4d6a';
+}
+
+// Brancher les écouteurs sur les champs (après chargement)
+(function bindEnhancements(){
+  setTimeout(()=>{
+    ['f-nor','f-site','f-vin','f-ccs','f-modele','f-km','f-date','f-defaut1','f-defaut2','f-commentaires','f-delai'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){el.addEventListener('input',scheduleDraft);el.addEventListener('change',scheduleDraft);}
+    });
+    const norEl=document.getElementById('f-nor');
+    if(norEl)norEl.addEventListener('input',checkDuplicate);
+    const vinEl=document.getElementById('f-vin');
+    if(vinEl)vinEl.addEventListener('input',validateVIN);
+  },500);
+})();
+
+// ── 9. CONFIRMATION AVANT DE QUITTER ──
+window.addEventListener('beforeunload',e=>{
+  if(!_currentUser)return;
+  const st=collectFormState();
+  const hasContent=st.nor||st.vin||st.ccs||(st.interventions&&st.interventions.length&&st.interventions.some(i=>i.plainte||i.piece));
+  // Seulement si le formulaire est visible (étape 2) et non vide
+  const step2Visible=document.getElementById('step2')&&document.getElementById('step2').style.display!=='none';
+  if(hasContent&&step2Visible){
+    e.preventDefault();
+    e.returnValue='';
+  }
+});
 
 window.toast=function(msg,type='info'){
   const t=document.getElementById('toast');
