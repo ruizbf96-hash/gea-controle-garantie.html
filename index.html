@@ -922,11 +922,53 @@ window.updateMontantTotal=function(){
   if(el) el.value=total>0?total.toFixed(2).replace('.',',')+' €':'';
 };
 
+let _lastDeleted=null; // dernière intervention supprimée (pour annuler)
+
 window.delIntervention=function(id){
   const el=document.getElementById('interv-'+id);
-  if(el)el.remove();
+  if(el){
+    // Sauvegarder le contenu avant suppression
+    const plainte=el.querySelector('textarea')?.value||'';
+    const inputs=el.querySelectorAll('input');
+    const piece=inputs[0]?.value||'';
+    const montant=inputs[1]?.value||'';
+    const factu=el.querySelector('select')?.value||'';
+    _lastDeleted={plainte,piece,montant,factu};
+    el.remove();
+    showUndoBtn();
+  }
   relabelInterventions();
   updateMontantTotal();
+};
+
+// Bouton annuler (undo)
+function showUndoBtn(){
+  let btn=document.getElementById('undo-interv-btn');
+  if(!btn){
+    btn=document.createElement('button');
+    btn.id='undo-interv-btn';
+    btn.type='button';
+    btn.className='btn';
+    btn.style.cssText='margin-top:8px;margin-left:8px;font-size:12px;padding:6px 12px;background:#f5ecd0;color:#7a5c00;border-color:#e6a817;display:inline-flex;';
+    btn.innerHTML='↩ Annuler la suppression';
+    btn.onclick=undoDelete;
+    const addBtn=document.querySelector('button[onclick="addIntervention()"]');
+    if(addBtn&&addBtn.parentNode) addBtn.parentNode.insertBefore(btn,addBtn.nextSibling);
+  }
+  btn.style.display='inline-flex';
+  // Masquer après 15 secondes
+  clearTimeout(btn._t);
+  btn._t=setTimeout(()=>{btn.style.display='none';_lastDeleted=null;},15000);
+}
+
+window.undoDelete=function(){
+  if(_lastDeleted){
+    addIntervention(_lastDeleted.plainte,_lastDeleted.piece,_lastDeleted.montant,_lastDeleted.factu);
+    _lastDeleted=null;
+    const btn=document.getElementById('undo-interv-btn');
+    if(btn)btn.style.display='none';
+    toast('Intervention restaurée','success');
+  }
 };
 
 function relabelInterventions(){
