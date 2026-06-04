@@ -731,9 +731,14 @@ ZONES DE L'ÉCRAN :
 1. COIN HAUT-GAUCHE du bandeau turquoise : un CODE COMPTE en majuscules collées (ex: "GIDAAUDHOE", "GIDAVWBIS", "GIDAAUDOBE", "GIDASEAHOE", "GIDASKOHOE", "GIDAVWILL", "GIDAVWOBE")
    - code_site = ce code exact (ex: "GIDAAUDOBE")
 
-2. BANDEAU TURQUOISE : "N°OR [CHIFFRES] CCS [NUM] [NOM_CONSEILLER]"
-   - nor = CHIFFRES après "N°OR" (ex: 616110). JAMAIS le code imputation "90010 G"
-   - ccs = NOM après le numéro CCS (ex: "CCS 09 FLORENT BATT" → "FLORENT BATT"). JAMAIS le nom client.
+2. BANDEAU TURQUOISE — il contient plusieurs champs étiquetés dans l'ordre :
+   [NOM_COMPTE]  N°OR [chiffres]  CCS [num] [NOM_CONSEILLER]  EQUIPE [code]  CAISSE [n]  ORV [marque-libellé]
+   - nor = CHIFFRES après l'étiquette "N°OR" (ex: 616110). JAMAIS le code imputation "90010 G".
+   - ccs = le NOM qui suit l'étiquette "CCS" et son numéro (ex: "CCS 09 FLORENT BATT" → "FLORENT BATT").
+     ⚠ Le champ CCS est entre "N°OR" et "EQUIPE". NE PAS confondre avec :
+       · le champ "EQUIPE" (ex: "ME") qui est un code court à droite du CCS → IGNORER
+       · le nom du client (bloc NOM/PRENOM plus bas) → IGNORER
+     Le CCS est toujours un NOM + PRÉNOM de conseiller précédé d'un numéro.
 
 3. LIGNE VÉHICULE : "VIN | IMMAT | N°FABR | MODELE/VERSION | DATE LIV | KILOM"
    - vin = 17 caractères
@@ -1085,10 +1090,18 @@ function siteFromMarqueVille(marque,ville){
 }
 
 // ── STATUTS TOGGLE ──
-// Statuts "terminaux" — un seul des deux possible, et grisent tout le reste
-const TERMINAL_STATUTS=['annul','nonfact'];
-// Statut toujours autorisé même quand un terminal est actif
-const ALWAYS_ALLOWED=['temps'];
+// Règles d'exclusion : pour chaque statut "meneur", la liste des statuts qui restent autorisés (en plus de lui-même)
+// Si un statut actif n'est pas dans cette table, il n'impose aucune restriction.
+const EXCLUSION_RULES={
+  rattrapage:['temps','risque'],   // rattrapage → tout grisé sauf temps + risque
+  malgre:['temps'],                // DG passée malgré → tout grisé sauf temps
+  sauvee:['temps'],                // DG sauvée suite → tout grisé sauf temps
+  nonfact:['temps'],               // dossier non facturable → tout grisé sauf temps
+  risque:['temps'],                // risque d'annulation → tout grisé sauf temps
+  annul:[],                        // annulation définitive → tout grisé
+  incomplet:['temps'],             // dossier incomplet → tout grisé sauf temps
+  // temps : n'impose aucune restriction (absent de la table)
+};
 
 window.toggleStatut=function(key){
   const btn=document.getElementById('tog-'+key);
@@ -1099,18 +1112,18 @@ window.toggleStatut=function(key){
 };
 
 function applyExclusion(){
-  // Quel statut terminal est actif (annul OU nonfact) ?
-  const terminalActifKey=TERMINAL_STATUTS.find(k=>_statuts[k]);
+  // Trouver le statut "meneur" actif (le premier statut actif qui a une règle d'exclusion)
+  const meneur=Object.keys(EXCLUSION_RULES).find(k=>_statuts[k]);
 
   Object.keys(_statuts).forEach(k=>{
     const btn=document.getElementById('tog-'+k);
     if(!btn)return;
-    if(terminalActifKey){
-      // Un terminal est actif : autoriser uniquement lui-même + "temps"
-      if(k===terminalActifKey||ALWAYS_ALLOWED.includes(k)){
+    if(meneur){
+      const autorises=EXCLUSION_RULES[meneur]; // statuts encore cliquables
+      if(k===meneur||autorises.includes(k)){
         btn.classList.remove('disabled');
       } else {
-        // Tout le reste (y compris l'autre terminal) est grisé + désélectionné
+        // Grisé + désélectionné
         _statuts[k]=false;
         btn.classList.remove('active');
         btn.classList.add('disabled');
@@ -1404,7 +1417,7 @@ window.generatePDF=function(){
     const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de controle garantie (PDF a joindre depuis vos telechargements : ${pdfNom}).\n\nN OR : ${nor}\nSite : ${SITE_SHORT[site]||site}\nVIN : ${vin}\nModele : ${modele}\nMontant : ${montant} ${montant!=='—'?'€':''}\n${delai?'Delai facturation : '+delai+'\n':''}\nStatuts :\n${statutsActifs.map(s=>'- '+s).join('\n')}\n\nDefauts :\n${[def1,def2].filter(Boolean).map(d=>'- '+d).join('\n')}\n${commentaires?'\nCommentaires :\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'} — TeamGarantie GEA`;
     // Laisser le temps au PDF de se télécharger avant d'ouvrir le mail
     setTimeout(()=>{
-      window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+      window.location.href=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
     },800);
     toast('PDF téléchargé — glissez-le dans l\'email qui s\'ouvre','info');
   } else {
