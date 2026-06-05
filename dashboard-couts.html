@@ -144,6 +144,7 @@ table.xl tbody tr.total td{font-weight:700;color:var(--ink);}
     <a href="index.html">Contrôle</a>
     <a href="dashboard-couts.html" class="active">Dashboard</a>
     <a href="extraction-ocr.html">Extraction OCR</a>
+    <a href="tuto.html">Mode d'emploi</a>
   </nav>
 </header>
 
@@ -161,27 +162,18 @@ table.xl tbody tr.total td{font-weight:700;color:var(--ink);}
     <option value="09">Septembre</option><option value="10">Octobre</option>
     <option value="11">Novembre</option><option value="12">Décembre</option>
   </select>
-  <button class="btn capture" onclick="startCapture()">📸 Capturer SAGA</button>
-  <button class="btn primary" onclick="document.getElementById('saga-file').click()">↑ Import SAGA</button>
+  <button class="btn primary" onclick="document.getElementById('xlsx-file').click()">↑ Importer Excel</button>
   <button class="btn excel" onclick="exportExcel()">↓ Export Excel</button>
   <button class="btn mail" onclick="copyExecSummary()">✉ Résumé direction</button>
-  <input type="file" id="saga-file" accept="image/*" style="display:none" onchange="importSaga(this.files[0])">
+  <button class="btn" onclick="purgeData()" style="background:#f8dcdc;color:#a02838;border-color:#e8a0a0;margin-left:auto;">🗑 Effacer données</button>
+  <input type="file" id="xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this.files[0])">
   <span id="last-sync" style="font-size:11px;color:var(--ink3);margin-left:4px;"></span>
 </div>
 
-<div class="import-strip" onclick="document.getElementById('saga-file').click()">
+<div class="import-strip" onclick="document.getElementById('xlsx-file').click()">
   <div id="import-spinner" style="display:none;"><div class="spinner"></div></div>
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-  <span id="import-label">📋 Ctrl+V · 📸 Capturer · ou cliquer — importer une capture SAGA (toutes les lignes)</span>
-</div>
-
-<div class="cap-modal" id="cap-modal">
-  <p style="color:#fff;font-size:13px;" id="cap-status">Sélectionnez la fenêtre SAGA...</p>
-  <img id="cap-preview" class="cap-preview" src="" alt="" style="display:none;">
-  <div style="display:flex;gap:10px;">
-    <button class="btn primary" id="cap-confirm" onclick="confirmCapture()" style="display:none;">Importer</button>
-    <button class="btn" onclick="document.getElementById('cap-modal').classList.remove('open')" style="background:#fff;">Annuler</button>
-  </div>
+  <span id="import-label">📊 Cliquer pour importer un fichier Excel VGF (suivi garanties, cessions, détails) — détection automatique du contenu</span>
 </div>
 
 <div class="main">
@@ -286,7 +278,7 @@ table.xl tbody tr.total td{font-weight:700;color:var(--ink);}
 <!-- ══ FIREBASE ══ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 const firebaseConfig = {
   apiKey:"AIzaSyApg898LLWpWlLy8o0JEU9mTMqkbORKLQ0",
   authDomain:"controle-garantie.firebaseapp.com",
@@ -298,13 +290,22 @@ const firebaseConfig = {
 };
 const app=initializeApp(firebaseConfig);
 const db=getDatabase(app);
-window._db=db; window._ref=ref; window._push=push;
-onValue(ref(db,'saga_lignes'),snap=>{
-  window._saga={};
+window._db=db; window._ref=ref; window._push=push; window._set=set; window._remove=remove;
+// Données VGF garanties (CA facturé par site/activité)
+onValue(ref(db,'vgf_garanties'),snap=>{
+  window._vgfGar={};
   const v=snap.val();
-  if(v) Object.entries(v).forEach(([k,d])=>{window._saga[k]={_id:k,...d};});
+  if(v) Object.entries(v).forEach(([k,d])=>{window._vgfGar[k]={_id:k,...d};});
   setTimeout(()=>{if(typeof window.refresh==='function')window.refresh();},50);
 },{onlyOnce:false});
+// Données VGF cessions
+onValue(ref(db,'vgf_cessions'),snap=>{
+  window._vgfCess={};
+  const v=snap.val();
+  if(v) Object.entries(v).forEach(([k,d])=>{window._vgfCess[k]={_id:k,...d};});
+  setTimeout(()=>{if(typeof window.refresh==='function')window.refresh();},50);
+},{onlyOnce:false});
+// Dossiers de contrôle (statuts manuels)
 onValue(ref(db,'controle_garantie'),snap=>{
   window._ctrl={};
   const v=snap.val();
@@ -315,7 +316,7 @@ onValue(ref(db,'controle_garantie'),snap=>{
 
 <!-- ══ SCRIPT ══ -->
 <script>
-window._saga={}; window._ctrl={};
+window._vgfGar={}; window._vgfCess={}; window._ctrl={};
 let _ch={};
 
 const KVPS_MAP={'02153':'VW_Illkirch','02154':'VW_Bischheim','02155':'Audi_Hoenheim','63930':'Seat_Hoenheim','02376':'Skoda_Hoenheim','02486':'Audi_Obernai','02485':'VW_Obernai'};
@@ -335,102 +336,140 @@ const pct=(a,b)=>b>0?Math.round(a/b*100)+'%':'—';
 const pct1=(a,b)=>b>0?(Math.round(a/b*1000)/10).toFixed(1).replace('.',',')+'%':'0%';
 const pctN=(a,b)=>b>0?Math.round(a/b*100):0;
 
-// ── Capture ──
-let _capBlob=null;
-window.startCapture=async function(){
-  try{
-    document.getElementById('cap-modal').classList.add('open');
-    document.getElementById('cap-status').textContent='Sélectionnez la fenêtre SAGA...';
-    document.getElementById('cap-preview').style.display='none';
-    document.getElementById('cap-confirm').style.display='none';
-    const stream=await navigator.mediaDevices.getDisplayMedia({video:{cursor:'never'},audio:false});
-    const track=stream.getVideoTracks()[0];
-    const ic=new ImageCapture(track);
-    const bm=await ic.grabFrame();
-    stream.getTracks().forEach(t=>t.stop());
-    const cv=document.createElement('canvas');
-    cv.width=bm.width;cv.height=bm.height;
-    cv.getContext('2d').drawImage(bm,0,0);
-    cv.toBlob(blob=>{
-      _capBlob=blob;
-      const img=document.getElementById('cap-preview');
-      img.src=URL.createObjectURL(blob);img.style.display='block';
-      document.getElementById('cap-status').textContent='Aperçu — confirmez pour importer';
-      document.getElementById('cap-confirm').style.display='flex';
-    },'image/png');
-  }catch(e){document.getElementById('cap-status').textContent='Capture annulée (Chrome/Edge requis)';}
-};
-window.confirmCapture=function(){if(_capBlob){document.getElementById('cap-modal').classList.remove('open');importSaga(_capBlob);}};
+// ── MAPPING GIDA → SITE ──
+const GIDA_SITE={'GIDAAUDHOE':'Audi_Hoenheim','GIDAAUDOBE':'Audi_Obernai','GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWBIS':'VW_Bischheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai'};
+// Comptes de cession
+const CESSION_COMPTES={'93120':'Malfaçon méca','93130':'Malfaçon garantie APV','93140':'Annulation garantie','93500':'Concession commerciale APV'};
 
-document.addEventListener('paste',e=>{
-  const items=e.clipboardData?.items;
-  if(!items)return;
-  for(const item of items){if(item.type.startsWith('image/')){importSaga(item.getAsFile());break;}}
-});
-
-function compressImage(file,maxW=1500){
-  return new Promise(resolve=>{
-    const r=new FileReader();
-    r.onload=e=>{
-      const img=new Image();
-      img.onload=()=>{
-        const scale=Math.min(1,maxW/img.width);
-        const cv=document.createElement('canvas');
-        cv.width=Math.round(img.width*scale);cv.height=Math.round(img.height*scale);
-        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-        resolve({b64:cv.toDataURL('image/jpeg',0.82).split(',')[1],mime:'image/jpeg'});
-      };
-      img.src=e.target.result;
-    };
-    r.readAsDataURL(file);
-  });
+// Extraire la période AAAA-MM depuis le nom de fichier (ex: 202605-VGF... → 2026-05)
+function periodeFromName(name){
+  const m=(name||'').match(/(20\d{2})[-_]?(0[1-9]|1[0-2])/);
+  if(m) return {annee:m[1],mois:m[2]};
+  const now=new Date();
+  return {annee:now.getFullYear().toString(),mois:String(now.getMonth()+1).padStart(2,'0')};
 }
 
-window.importSaga=async function(file){
+// ── IMPORT EXCEL (détection auto du contenu) ──
+window.importExcel=async function(file){
   if(!file)return;
-  const key=localStorage.getItem('gea_anthropic_key');
-  if(!key){toast('Clé API non configurée (voir page Contrôle)','error');return;}
   const lbl=document.getElementById('import-label'),spn=document.getElementById('import-spinner');
-  lbl.textContent='Extraction en cours...';spn.style.display='block';
+  lbl.textContent='Lecture du fichier Excel...';spn.style.display='block';
   try{
-    const {b64,mime}=await compressImage(file);
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:8000,messages:[{role:'user',content:[
-        {type:'image',source:{type:'base64',media_type:mime,data:b64}},
-        {type:'text',text:`Capture SAGA/2 liste demandes garanties VW Group.
-Colonnes: Fabricant|VIN|N Demande|N TPI|Date reception|Date reparation|Date soumission|Justifie|Valeur demande|Valeur note credit|Type demande|Code dommage|Code avarie|Code reparation|Numero cas|Code-barres|Niveau traitement
-Partenaire en haut = code KVPs.
-Extrais TOUTES les lignes. JSON uniquement, guillemets doubles:
-[{"vin":"VIN","nor":"714341 01","date_reception":"23.04.2026","date_soumission":"27.04.2026","valeur_demande":100.77,"valeur_payee":119.41,"code_dommage":"69EY","type_demande":"7-10","niveau_traitement":"Demande remboursee","partenaire":"02376"}]
-valeur = nombre decimal point. Sans accents. null si absent.`}
-      ]}]})
-    });
-    const data=await res.json();
-    if(data.error)throw new Error(data.error.message);
-    let txt=data.content[0].text.trim().replace(/```json|```/g,'').trim();
-    const match=txt.match(/\[[\s\S]*\]/);
-    if(!match)throw new Error('Pas de tableau JSON');
-    const lignes=JSON.parse(match[0]);
-    if(!Array.isArray(lignes)||!lignes.length)throw new Error('Aucune ligne');
-    let saved=0;
-    for(const l of lignes){
-      if(!l.nor)continue;
-      const dp=l.date_reception||'';
-      l._annee=dp.slice(-4)||new Date().getFullYear().toString();
-      l._mois=dp.slice(3,5)||'';
-      l._site=KVPS_MAP[l.partenaire]||'';
-      l._ts=Date.now();
-      await window._push(window._ref(window._db,'saga_lignes'),l);
-      saved++;
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    const periode=periodeFromName(file.name);
+    let totalImported=0, feuillesLues=[];
+
+    for(const sheetName of wb.SheetNames){
+      const ws=wb.Sheets[sheetName];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      const type=detectSheetType(sheetName,rows);
+      if(type==='garanties'){
+        const n=await parseGaranties(rows,periode);
+        if(n){feuillesLues.push('Suivi garanties ('+n+')');totalImported+=n;}
+      } else if(type==='cessions'){
+        const n=await parseCessions(rows,periode);
+        if(n){feuillesLues.push('Cessions ('+n+')');totalImported+=n;}
+      }
     }
-    lbl.textContent=`✓ ${saved} lignes importées`;
-    document.getElementById('last-sync').textContent='Sync '+new Date().toLocaleTimeString('fr-FR');
-    toast(`${saved} lignes SAGA importées`,'success');
-  }catch(err){lbl.textContent='Erreur — réessayez';toast('Erreur: '+err.message,'error');console.error(err);}
+
+    if(totalImported){
+      lbl.textContent='✓ Importé : '+feuillesLues.join(', ');
+      document.getElementById('last-sync').textContent='Période '+periode.mois+'/'+periode.annee;
+      // Positionner les filtres sur la période importée
+      document.getElementById('f-annee').value=periode.annee;
+      document.getElementById('f-mois').value=periode.mois;
+      toast(totalImported+' lignes importées ('+periode.mois+'/'+periode.annee+')','success');
+    } else {
+      lbl.textContent='Aucune donnée reconnue dans ce fichier';
+      toast('Aucune feuille VGF reconnue','info');
+    }
+  }catch(err){lbl.textContent='Erreur de lecture';toast('Erreur : '+err.message,'error');console.error(err);}
   finally{spn.style.display='none';}
 };
+
+// Détecter le type de feuille via son nom + en-têtes
+function detectSheetType(name,rows){
+  const n=(name||'').toUpperCase();
+  // Chercher la ligne d'en-tête (contient "Nom Affaire")
+  const headerRow=rows.find(r=>r&&r.some(c=>(c||'').toString().includes('Nom Affaire')));
+  const hdr=(headerRow||[]).map(c=>(c||'').toString().toLowerCase());
+  const hasCol=(txt)=>hdr.some(h=>h.includes(txt));
+
+  if(n.includes('CESSION')||hasCol('cession')||hasCol('nb dossiers cessions')) return 'cessions';
+  if(n.includes('SUIVI DES GARANTIES')||hasCol('nb dossiers garanties')) return 'garanties';
+  // DETAILS : on ignore pour le dashboard synthèse (trop volumineux)
+  if(n.includes('DETAILS')) return 'ignore';
+  return 'unknown';
+}
+
+// Parser SUIVI GARANTIES : lignes "TOTAL GIDAxxx" = CA + Nb par site
+async function parseGaranties(rows,periode){
+  let count=0;
+  const updates=[];
+  for(const r of rows){
+    if(!r)continue;
+    const c0=(r[0]||'').toString();
+    const m=c0.match(/TOTAL\s+(GIDA\w+)/);
+    if(m){
+      const site=GIDA_SITE[m[1]];
+      if(!site)continue;
+      // Colonnes: [Nom Affaire, ORV, Montant TTC, Nb Dossiers]
+      const montant=parseFloat(r[2])||0;
+      const nb=parseInt(r[3])||0;
+      const key='vgf_garanties/'+periode.annee+'_'+periode.mois+'_'+site;
+      updates.push(window._set(window._ref(window._db,key),{
+        site,annee:periode.annee,mois:periode.mois,
+        ca_facture:montant,nb_dossiers:nb,_ts:Date.now()
+      }));
+      count++;
+    }
+  }
+  await Promise.all(updates);
+  return count;
+}
+
+// Parser SUIVI CESSIONS : lignes "TOTAL GIDAxxx" + détail comptes
+async function parseCessions(rows,periode){
+  let count=0;
+  const updates=[];
+  let currentSite=null;
+  // Accumuler par site les montants par compte
+  const bySite={};
+  for(const r of rows){
+    if(!r)continue;
+    const c0=(r[0]||'').toString();
+    const noClient=(r[2]||'').toString();
+    const montant=parseFloat(r[4])||0;
+    const nb=parseInt(r[5])||0;
+    // Ligne détail compte (No client = 93xxx)
+    if(/^93\d{3}$/.test(noClient)){
+      // Trouver le site courant via la prochaine ligne TOTAL ou contexte
+      // On accumule temporairement sous "pending"
+      if(!bySite._pending)bySite._pending={comptes:{},total:0,nb:0};
+      bySite._pending.comptes[noClient]=(bySite._pending.comptes[noClient]||0)+montant;
+      bySite._pending.total+=montant;bySite._pending.nb+=nb;
+    }
+    // Ligne TOTAL GIDAxxx → clôt le site courant
+    const m=c0.match(/TOTAL\s+(GIDA\w+)/);
+    if(m){
+      const site=GIDA_SITE[m[1]];
+      if(site&&bySite._pending){
+        const key='vgf_cessions/'+periode.annee+'_'+periode.mois+'_'+site;
+        updates.push(window._set(window._ref(window._db,key),{
+          site,annee:periode.annee,mois:periode.mois,
+          total:parseFloat(r[4])||bySite._pending.total,
+          nb:parseInt(r[5])||bySite._pending.nb,
+          comptes:bySite._pending.comptes,_ts:Date.now()
+        }));
+        count++;
+      }
+      bySite._pending=null;
+    }
+  }
+  await Promise.all(updates);
+  return count;
+}
 
 // Catégories de statut contrôle (depuis _ctrl)
 function ctrlStat(ctrl,site,key){
@@ -444,11 +483,22 @@ function ctrlNb(ctrl,site,key){
 window.refresh=function(){
   const annee=document.getElementById('f-annee').value;
   const mois=document.getElementById('f-mois').value;
-  let saga=Object.values(window._saga);
-  let ctrl=Object.values(window._ctrl);
-  if(annee)saga=saga.filter(d=>d._annee===annee||(d.date_reception||'').includes(annee));
-  saga=saga.map(s=>({...s,_site:s._site||KVPS_MAP[s.partenaire]||''}));
-  const sagaMois=mois?saga.filter(d=>d._mois===mois):saga;
+  const ctrl=Object.values(window._ctrl);
+
+  // Données VGF garanties → format "saga-like" pour réutiliser le rendu
+  // Une entrée par site/mois : ca_facture, nb_dossiers
+  let gar=Object.values(window._vgfGar);
+  if(annee)gar=gar.filter(g=>g.annee===annee);
+  const garMois=mois?gar.filter(g=>g.mois===mois):gar;
+  // Convertir en lignes "saga" (une par site, valeur_demande=ca, valeur_payee=ca par défaut)
+  const toSaga=arr=>arr.map(g=>({_site:g.site,_annee:g.annee,_mois:g.mois,
+    valeur_demande:g.ca_facture,valeur_payee:g.ca_facture,nb_dossiers:g.nb_dossiers}));
+  const sagaMois=toSaga(garMois);
+  const sagaAll=toSaga(gar);
+
+  // Cessions VGF
+  let cess=Object.values(window._vgfCess);
+  if(annee)cess=cess.filter(c=>c.annee===annee);
 
   const periodTxt=(mois?MOIS_FULL[parseInt(mois)-1]+' ':'Cumul ')+annee;
   document.getElementById('exec-period').textContent=periodTxt;
@@ -459,11 +509,11 @@ window.refresh=function(){
   renderExec(sagaMois,ctrl,periodTxt);
   renderKPIs(sagaMois,ctrl);
   renderTblCouts(sagaMois,ctrl,'tbl-couts');
-  renderTblCumul(saga,ctrl,'tbl-cumul');
+  renderTblCumul(sagaAll,ctrl,'tbl-cumul');
   renderTblMarque(sagaMois);
-  renderTblCession(saga,annee);
+  renderTblCession(cess,annee);
   renderTblEncours(ctrl);
-  renderCharts(sagaMois,saga,ctrl);
+  renderCharts(sagaMois,sagaAll,ctrl,cess);
 };
 
 // ── RÉSUMÉ EXÉCUTIF ──
@@ -557,9 +607,9 @@ function buildCoutsTable(saga,ctrl,tblId,withActions){
   SITES.forEach(s=>{
     const ss=saga.filter(d=>d._site===s);
     if(!ss.length&&!ctrl.some(c=>c.site===s))return;
-    const nb=ss.length;
-    const act=ss.filter(d=>(d.type_demande||'').includes('7')).length;
-    const caAct=ss.filter(d=>(d.type_demande||'').includes('7')).reduce((t,d)=>t+mon(d.valeur_demande),0);
+    const nb=ss.reduce((t,d)=>t+(d.nb_dossiers||0),0);
+    const act=0; // info "dont actions" non fournie par l'Excel VGF
+    const caAct=0;
     const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
     const caP=ss.reduce((t,d)=>t+mon(d.valeur_payee),0);
     const rNb=ctrlNb(ctrl,s,'rattrapage'),rCA=ctrlStat(ctrl,s,'rattrapage');
@@ -603,45 +653,46 @@ function renderTblMarque(saga){
     <th class="grp-site">Site / Marque</th><th class="grp-incomplet">Total DG</th><th class="grp-incomplet">% DG</th><th class="grp-fact">CA facturé</th><th class="grp-fact">% CA</th>
   </tr>`;
   const totF=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
-  const totN=saga.length;
+  const totN=saga.reduce((t,d)=>t+(d.nb_dossiers||0),0);
   let rows='';
   SITES.forEach(s=>{
     const ss=saga.filter(d=>d._site===s);
     if(!ss.length)return;
     const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
+    const nb=ss.reduce((t,d)=>t+(d.nb_dossiers||0),0);
     rows+=`<tr>
       <td class="site" style="border-left:4px solid ${SITE_COLOR[s]};">${SITE_SHORT[s]}</td>
-      <td>${ss.length}</td><td>${pct(ss.length,totN)}</td><td>${fmt(caF)}</td><td>${pct(caF,totF)}</td>
+      <td>${nb}</td><td>${pct(nb,totN)}</td><td>${fmt(caF)}</td><td>${pct(caF,totF)}</td>
     </tr>`;
   });
   rows+=`<tr class="total"><td class="site">TOTAL</td><td>${totN}</td><td>100%</td><td>${fmt(totF)}</td><td>100%</td></tr>`;
-  tbl.querySelector('tbody').innerHTML=rows;
+  tbl.querySelector('tbody').innerHTML=rows||'<tr><td colspan="5" style="padding:20px;color:var(--ink3);">Aucune donnée — importez un fichier Excel</td></tr>';
 }
 
-// ── TABLEAU CESSION (par mois × marque) ──
-function renderTblCession(saga,annee){
+// ── TABLEAU CESSION (par site × compte) ──
+function renderTblCession(cess,annee){
   const tbl=document.getElementById('tbl-cession');
-  const marques=['AUDI','SKODA','VW','SEAT'];
-  // cession = type_demande contient cession ? On approxime via niveau ou type. Ici on prend valeur par marque/mois (placeholder réaliste depuis saga)
+  const comptes=['93120','93130','93140','93500'];
   tbl.querySelector('thead').innerHTML=`<tr>
-    <th class="grp-site">Mois ${annee}</th>${marques.map(m=>`<th class="grp-fact">${m}</th>`).join('')}<th class="grp-incomplet">Total</th>
+    <th class="grp-site">Site</th>${comptes.map(co=>`<th class="grp-fact" style="font-size:9px;">${CESSION_COMPTES[co]}</th>`).join('')}<th class="grp-incomplet">Total</th>
   </tr>`;
   let rows='';
-  const totByM={};marques.forEach(m=>totByM[m]=0);let grand=0;
-  MOIS.slice(0,6).forEach((mo,i)=>{
-    const moisSaga=saga.filter(d=>d._mois===mo);
-    if(!moisSaga.length)return;
-    let rowTot=0;
-    const cells=marques.map(m=>{
-      const v=moisSaga.filter(d=>MARQUE_OF[d._site]===m).reduce((t,d)=>t+mon(d.valeur_demande),0);
-      totByM[m]+=v;rowTot+=v;
-      return `<td>${fmtn(Math.round(v))}</td>`;
-    }).join('');
-    grand+=rowTot;
-    rows+=`<tr><td class="site">${MOIS_N[i]}</td>${cells}<td><strong>${fmtn(Math.round(rowTot))}</strong></td></tr>`;
+  const totByC={};comptes.forEach(co=>totByC[co]=0);let grand=0;
+  SITES.forEach(s=>{
+    const sc=cess.filter(c=>c.site===s);
+    if(!sc.length)return;
+    // Agréger les comptes de toutes les périodes du site
+    const agg={};let siteTot=0;
+    sc.forEach(c=>{
+      if(c.comptes)Object.entries(c.comptes).forEach(([co,v])=>{agg[co]=(agg[co]||0)+v;});
+      siteTot+=c.total||0;
+    });
+    const cells=comptes.map(co=>{const v=agg[co]||0;totByC[co]+=v;return `<td>${v>0?fmt(v):'—'}</td>`;}).join('');
+    grand+=siteTot;
+    rows+=`<tr><td class="site" style="border-left:4px solid ${SITE_COLOR[s]};">${SITE_SHORT[s]}</td>${cells}<td><strong>${fmt(siteTot)}</strong></td></tr>`;
   });
-  rows+=`<tr class="total"><td class="site">Total</td>${marques.map(m=>`<td>${fmtn(Math.round(totByM[m]))}</td>`).join('')}<td>${fmtn(Math.round(grand))}</td></tr>`;
-  tbl.querySelector('tbody').innerHTML=rows||'<tr><td colspan="6" style="padding:20px;color:var(--ink3);">Aucune donnée</td></tr>';
+  rows+=`<tr class="total"><td class="site">Total</td>${comptes.map(co=>`<td>${fmt(totByC[co])}</td>`).join('')}<td>${fmt(grand)}</td></tr>`;
+  tbl.querySelector('tbody').innerHTML=rows||'<tr><td colspan="6" style="padding:20px;color:var(--ink3);">Aucune cession — importez un fichier Excel</td></tr>';
 }
 
 // ── TABLEAU EN-COURS ──
@@ -660,7 +711,7 @@ function renderTblEncours(ctrl){
 }
 
 // ── CHARTS ──
-function renderCharts(sagaMois,sagaAll,ctrl){
+function renderCharts(sagaMois,sagaAll,ctrl,cess){
   const dc=id=>{if(_ch[id]){_ch[id].destroy();delete _ch[id];}};
   const FONT={family:'IBM Plex Sans',size:10};
   const BASE={responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fffdf8',titleColor:'#3d3526',bodyColor:'#6b5f48',borderColor:'#e0d5bf',borderWidth:1,titleFont:FONT,bodyFont:{family:'IBM Plex Mono',size:11}}},scales:{x:{ticks:{color:'#9a8c6f',font:FONT},grid:{color:'#e0d5bf40'},border:{display:false}},y:{ticks:{color:'#9a8c6f',font:FONT},grid:{color:'#e0d5bf60'},border:{display:false}}}};
@@ -689,15 +740,19 @@ function renderCharts(sagaMois,sagaAll,ctrl){
   const mData=marques.map(m=>Math.round(sagaMois.filter(d=>MARQUE_OF[d._site]===m).reduce((t,d)=>t+mon(d.valeur_demande),0)));
   _ch['ch-marque']=new Chart(document.getElementById('ch-marque'),{type:'doughnut',data:{labels:marques,datasets:[{data:mData,backgroundColor:marques.map(m=>mColors[m]),borderColor:'#fffdf8',borderWidth:2}]},options:{...BASE,scales:{},plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,padding:8,boxWidth:10}}}}});
 
-  // Mensuel
+  // Mensuel (CA facturé par mois depuis toutes les périodes importées)
   dc('ch-mensuel');
   const mensuel=MOIS.map(mo=>Math.round(sagaAll.filter(d=>d._mois===mo).reduce((t,d)=>t+mon(d.valeur_demande),0)));
   _ch['ch-mensuel']=new Chart(document.getElementById('ch-mensuel'),{type:'bar',data:{labels:MOIS_N,datasets:[{data:mensuel,backgroundColor:'#5b9bd540',borderColor:'#5b9bd5',borderWidth:1.5,borderRadius:4}]},options:BASE});
 
-  // Cession (barres groupées par mois)
+  // Cession par site (barres)
   dc('ch-cession');
-  const cMarques=['AUDI','SKODA','VW','SEAT'];
-  _ch['ch-cession']=new Chart(document.getElementById('ch-cession'),{type:'bar',data:{labels:MOIS_N.slice(0,6),datasets:cMarques.map(m=>({label:m,data:MOIS.slice(0,6).map(mo=>Math.round(sagaAll.filter(d=>d._mois===mo&&MARQUE_OF[d._site]===m).reduce((t,d)=>t+mon(d.valeur_demande),0))),backgroundColor:mColors[m],borderColor:mColors[m],borderWidth:1,borderRadius:3}))},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'top',labels:{color:'#6b5f48',font:FONT,padding:8,boxWidth:10}}}}});
+  const cessParSite=SITES.map(s=>{
+    const sc=cess.filter(c=>c.site===s);
+    return Math.round(sc.reduce((t,c)=>t+(c.total||0),0));
+  });
+  const cessActifs=SITES.map((s,i)=>({s,v:cessParSite[i]})).filter(x=>x.v>0);
+  _ch['ch-cession']=new Chart(document.getElementById('ch-cession'),{type:'bar',data:{labels:cessActifs.map(x=>SITE_SHORT[x.s]),datasets:[{data:cessActifs.map(x=>x.v),backgroundColor:cessActifs.map(x=>SITE_COLOR[x.s]),borderColor:cessActifs.map(x=>SITE_COLOR[x.s]),borderWidth:1,borderRadius:4}]},options:BASE});
 
   // En-cours camembert
   dc('ch-encours');
@@ -711,23 +766,26 @@ window.exportExcel=function(){
   const wb=XLSX.utils.book_new();
   const annee=document.getElementById('f-annee').value;
   const mois=document.getElementById('f-mois').value;
-  let saga=Object.values(window._saga).map(s=>({...s,_site:s._site||KVPS_MAP[s.partenaire]||''}));
-  if(annee)saga=saga.filter(d=>d._annee===annee||(d.date_reception||'').includes(annee));
-  const sagaMois=mois?saga.filter(d=>d._mois===mois):saga;
+  let gar=Object.values(window._vgfGar);
+  if(annee)gar=gar.filter(g=>g.annee===annee);
+  const garMois=mois?gar.filter(g=>g.mois===mois):gar;
+  let cess=Object.values(window._vgfCess);
+  if(annee)cess=cess.filter(c=>c.annee===annee);
   const ctrl=Object.values(window._ctrl);
+
+  const toSaga=arr=>arr.map(g=>({_site:g.site,valeur_demande:g.ca_facture,valeur_payee:g.ca_facture,nb_dossiers:g.nb_dossiers}));
+  const sagaMois=toSaga(garMois);
 
   // Feuille 1 : Répartition coûts
   const aoa=[['Répartition des coûts garantie — '+(mois?MOIS_FULL[parseInt(mois)-1]+' ':'Cumul ')+annee],[],
-    ['Site','Nb DG','Dont actions','CA actions','% facturé','CA facturé','CA payé','% payé','Rattrap. Nb','Rattrap. CA','Incompl. Nb','Incompl. CA','NonFact Nb','NonFact CA','Annul Nb','Annul CA','Sauv Nb','Sauv CA']];
+    ['Site','Nb DG','CA facturé','% facturé','Rattrap. Nb','Rattrap. CA','Incompl. Nb','Incompl. CA','NonFact Nb','NonFact CA','Annul Nb','Annul CA','Sauv Nb','Sauv CA']];
   const totF=sagaMois.reduce((t,d)=>t+mon(d.valeur_demande),0);
   SITES.forEach(s=>{
     const ss=sagaMois.filter(d=>d._site===s);
     if(!ss.length&&!ctrl.some(c=>c.site===s))return;
     const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
-    const caP=ss.reduce((t,d)=>t+mon(d.valeur_payee),0);
-    aoa.push([SITE_SHORT[s],ss.length,ss.filter(d=>(d.type_demande||'').includes('7')).length,
-      Math.round(ss.filter(d=>(d.type_demande||'').includes('7')).reduce((t,d)=>t+mon(d.valeur_demande),0)),
-      pctN(caF,totF)+'%',Math.round(caF),Math.round(caP),pctN(caP,caF)+'%',
+    const nb=ss.reduce((t,d)=>t+(d.nb_dossiers||0),0);
+    aoa.push([SITE_SHORT[s],nb,Math.round(caF),pctN(caF,totF)+'%',
       ctrlNb(ctrl,s,'rattrapage'),Math.round(ctrlStat(ctrl,s,'rattrapage')),
       ctrlNb(ctrl,s,'incomplet'),Math.round(ctrlStat(ctrl,s,'incomplet')),
       ctrlNb(ctrl,s,'nonfact'),Math.round(ctrlStat(ctrl,s,'nonfact')),
@@ -735,18 +793,25 @@ window.exportExcel=function(){
       ctrlNb(ctrl,s,'sauvee'),Math.round(ctrlStat(ctrl,s,'sauvee'))]);
   });
   const ws1=XLSX.utils.aoa_to_sheet(aoa);
-  ws1['!cols']=Array(18).fill({wch:12});
+  ws1['!cols']=Array(14).fill({wch:13});
   XLSX.utils.book_append_sheet(wb,ws1,'Coûts garantie');
 
-  // Feuille 2 : Données SAGA brutes
-  const sagaAoa=[['VIN','N°Demande','Date récep.','Date soum.','Valeur demande','Valeur payée','Code dommage','Type','Niveau','KVPs','Site']];
-  saga.forEach(d=>sagaAoa.push([d.vin,d.nor,d.date_reception,d.date_soumission,mon(d.valeur_demande),mon(d.valeur_payee),d.code_dommage,d.type_demande,d.niveau_traitement,d.partenaire,SITE_SHORT[d._site]||'']));
-  const ws2=XLSX.utils.aoa_to_sheet(sagaAoa);
-  XLSX.utils.book_append_sheet(wb,ws2,'Données SAGA');
+  // Feuille 2 : Cessions par site/compte
+  const cessAoa=[['Cessions internes — '+annee],[],['Site','Malfaçon méca (93120)','Malfaçon gar. APV (93130)','Annulation (93140)','Concession comm. (93500)','Total']];
+  SITES.forEach(s=>{
+    const sc=cess.filter(c=>c.site===s);
+    if(!sc.length)return;
+    const agg={};let tot=0;
+    sc.forEach(c=>{if(c.comptes)Object.entries(c.comptes).forEach(([co,v])=>agg[co]=(agg[co]||0)+v);tot+=c.total||0;});
+    cessAoa.push([SITE_SHORT[s],Math.round(agg['93120']||0),Math.round(agg['93130']||0),Math.round(agg['93140']||0),Math.round(agg['93500']||0),Math.round(tot)]);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(cessAoa);
+  ws2['!cols']=Array(6).fill({wch:18});
+  XLSX.utils.book_append_sheet(wb,ws2,'Cessions');
 
   // Feuille 3 : Dossiers contrôle
-  const ctrlAoa=[['N°OR','Site','VIN','CCS','Montant','Rattrapage','Risque','Annulé','Sauvée','Incomplet','Non fact.','Défaut 1','Créé par']];
-  ctrl.forEach(c=>ctrlAoa.push([c.nor,SITE_SHORT[c.site]||c.site,c.vin,c.ccs,mon(c.montant),c.rattrapage?'X':'',c.risque?'X':'',c.annul?'X':'',c.sauvee?'X':'',c.incomplet?'X':'',c.nonfact?'X':'',c.defaut1,c._createdBy]));
+  const ctrlAoa=[['N°OR','Site','VIN','CCS','Montant','Type garantie','Rattrapage','Risque','Annulé','Sauvée','Incomplet','Non fact.','Défaut 1','Créé par']];
+  ctrl.forEach(c=>ctrlAoa.push([c.nor,SITE_SHORT[c.site]||c.site,c.vin,c.ccs,mon(c.montant),c.typegar||'',c.rattrapage?'X':'',c.risque?'X':'',c.annul?'X':'',c.sauvee?'X':'',c.incomplet?'X':'',c.nonfact?'X':'',c.defaut1,c._createdBy]));
   const ws3=XLSX.utils.aoa_to_sheet(ctrlAoa);
   XLSX.utils.book_append_sheet(wb,ws3,'Dossiers contrôle');
 
@@ -766,6 +831,50 @@ window.copyExecSummary=function(){
   const sujet=`Résumé garantie ${period} — TeamGarantie GEA`;
   window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(body)}`;
   toast('Email résumé direction préparé','success');
+};
+
+// ── EFFACER LES DONNÉES SAGA (protégé par PIN) ──
+const DASH_PINS={'Omar':'1472','Nico':'2583','Tahir':'3694','Marion':'4715','Céline':'5826'};
+window.purgeData=function(){
+  if(!window._db){toast('Firebase non connecté','error');return;}
+  // Vérification PIN
+  const pin=prompt('🔒 Action protégée.\nEntrez votre code PIN à 4 chiffres pour effacer des données :');
+  if(pin===null)return;
+  const user=Object.keys(DASH_PINS).find(u=>DASH_PINS[u]===pin.trim());
+  if(!user){toast('Code PIN incorrect','error');return;}
+
+  const garArr=Object.values(window._vgfGar);
+  const cessArr=Object.values(window._vgfCess);
+  const sites=[...new Set([...garArr,...cessArr].map(d=>d.site).filter(Boolean))];
+  let menu='Que voulez-vous effacer ?\n\n';
+  menu+='Tapez :\n';
+  menu+='  • TOUT  → effacer toutes les données importées\n';
+  sites.forEach((s)=>{menu+='  • '+SITE_SHORT[s]+'\n';});
+  menu+='\n(ou Annuler)';
+  const rep=prompt(menu,'TOUT');
+  if(rep===null)return;
+  const choix=rep.trim().toUpperCase();
+
+  let aSupprimer=[];
+  if(choix==='TOUT'){
+    aSupprimer=[...garArr.map(d=>['vgf_garanties',d._id]),...cessArr.map(d=>['vgf_cessions',d._id])];
+  } else {
+    const site=sites.find(s=>SITE_SHORT[s].toUpperCase()===choix||s.toUpperCase()===choix||s.toUpperCase().replace('_',' ')===choix);
+    if(!site){toast('Site non reconnu : '+rep,'error');return;}
+    aSupprimer=[
+      ...garArr.filter(d=>d.site===site).map(d=>['vgf_garanties',d._id]),
+      ...cessArr.filter(d=>d.site===site).map(d=>['vgf_cessions',d._id])
+    ];
+  }
+
+  if(!aSupprimer.length){toast('Aucune donnée à effacer','info');return;}
+
+  const label=choix==='TOUT'?'TOUTES les données importées':'les données de '+choix;
+  if(!confirm(`⚠ ${user}, confirmer la suppression de ${aSupprimer.length} entrée(s) (${label}) ?\n\nCette action est définitive.`))return;
+
+  Promise.all(aSupprimer.map(([coll,id])=>window._remove(window._ref(window._db,coll+'/'+id))))
+    .then(()=>{toast(`${aSupprimer.length} entrée(s) supprimée(s) par ${user}`,'success');})
+    .catch(err=>{toast('Erreur : '+err.message,'error');});
 };
 
 window.toast=function(msg,type='info'){
