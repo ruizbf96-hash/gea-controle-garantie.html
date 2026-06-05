@@ -606,7 +606,7 @@ function buildCoutsTable(saga,ctrl,tblId,withActions){
   const tot={nb:0,act:0,caAct:0,caF:0,caP:0,rNb:0,rCA:0,iNb:0,iCA:0,nNb:0,nCA:0,aNb:0,aCA:0,sNb:0,sCA:0};
   SITES.forEach(s=>{
     const ss=saga.filter(d=>d._site===s);
-    if(!ss.length&&!ctrl.some(c=>c.site===s))return;
+    if(!ss.length)return;
     const nb=ss.reduce((t,d)=>t+(d.nb_dossiers||0),0);
     const act=0; // info "dont actions" non fournie par l'Excel VGF
     const caAct=0;
@@ -782,7 +782,7 @@ window.exportExcel=function(){
   const totF=sagaMois.reduce((t,d)=>t+mon(d.valeur_demande),0);
   SITES.forEach(s=>{
     const ss=sagaMois.filter(d=>d._site===s);
-    if(!ss.length&&!ctrl.some(c=>c.site===s))return;
+    if(!ss.length)return;
     const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
     const nb=ss.reduce((t,d)=>t+(d.nb_dossiers||0),0);
     aoa.push([SITE_SHORT[s],nb,Math.round(caF),pctN(caF,totF)+'%',
