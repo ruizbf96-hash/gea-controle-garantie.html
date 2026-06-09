@@ -700,17 +700,30 @@ window.confirmCapture=function(){
   }
 };
 
-function compressImage(file,maxW=1400){
+function compressImage(file,maxW=1600,minW=1100){
   return new Promise(resolve=>{
     const r=new FileReader();
     r.onload=e=>{
       const img=new Image();
       img.onload=()=>{
-        const scale=Math.min(1,maxW/img.width);
+        let scale=1;
+        if(img.width>maxW){
+          scale=maxW/img.width;        // réduire si trop grande
+        } else if(img.width<minW){
+          scale=Math.min(2,minW/img.width); // agrandir si trop petite (max x2)
+        }
         const cv=document.createElement('canvas');
-        cv.width=Math.round(img.width*scale);cv.height=Math.round(img.height*scale);
-        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-        resolve({b64:cv.toDataURL('image/jpeg',0.82).split(',')[1],mime:'image/jpeg'});
+        cv.width=Math.round(img.width*scale);
+        cv.height=Math.round(img.height*scale);
+        const ctx=cv.getContext('2d');
+        // Fond blanc (évite fond noir si transparence)
+        ctx.fillStyle='#ffffff';
+        ctx.fillRect(0,0,cv.width,cv.height);
+        // Lissage de qualité pour le texte agrandi
+        ctx.imageSmoothingEnabled=true;
+        ctx.imageSmoothingQuality='high';
+        ctx.drawImage(img,0,0,cv.width,cv.height);
+        resolve({b64:cv.toDataURL('image/jpeg',0.92).split(',')[1],mime:'image/jpeg'});
       };
       img.src=e.target.result;
     };
