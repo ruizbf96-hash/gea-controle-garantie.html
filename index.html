@@ -727,6 +727,65 @@ window.confirmCapture=function(){
   }
 };
 
+// ── CONSENSUS VIN : compare 2 lectures et choisit le meilleur caractère par position ──
+function vinConsensus(vin1,vin2){
+  if(vin1.length!==17||vin2.length!==17) return vin2.length===17?vin2:vin1;
+
+  // Préfixes VW Group connus (positions 1-3)
+  const VALID_WMI=['WVW','WV1','WV2','WV3','WAU','WAG','TMB','VSS','TRU','3VW','AAV','WUA'];
+  // Codes année position 10 (2010-2030)
+  const YEAR_CODES='ABCDEFGHJKLMNPRSTVWXY123456789';
+  // Lettres interdites dans un VIN
+  const FORBIDDEN='OIQ';
+  // Substitutions courantes : si un caractère interdit est lu, remplacer par le chiffre probable
+  const FIX={'O':'0','I':'1','Q':'9'};
+
+  let result='';
+  for(let i=0;i<17;i++){
+    let c1=vin1[i], c2=vin2[i];
+    // Corriger les caractères interdits
+    if(FORBIDDEN.includes(c1)) c1=FIX[c1];
+    if(FORBIDDEN.includes(c2)) c2=FIX[c2];
+
+    if(c1===c2){
+      result+=c1; // Accord → on prend
+    } else {
+      // Désaccord → appliquer les règles VIN par position
+      let best=c2; // par défaut, préférer la 2e lecture (image zoomée)
+
+      // Position 1-3 (WMI) : vérifier quel caractère donne un préfixe valide
+      if(i<3){
+        const try1=result+c1, try2=result+c2;
+        if(i===2){
+          const wmi1=try1.slice(0,3), wmi2=try2.slice(0,3);
+          const ok1=VALID_WMI.includes(wmi1), ok2=VALID_WMI.includes(wmi2);
+          if(ok2&&!ok1) best=c2;
+          else if(ok1&&!ok2) best=c1;
+          else best=c2; // les deux valides ou invalides → préférer lecture 2
+        }
+      }
+
+      // Position 10 (code année) : préférer celui qui est un code année valide
+      if(i===9){
+        const ok1=YEAR_CODES.includes(c1), ok2=YEAR_CODES.includes(c2);
+        if(ok2&&!ok1) best=c2;
+        else if(ok1&&!ok2) best=c1;
+      }
+
+      // Positions 12-17 (numéro séquentiel) : souvent des chiffres
+      if(i>=11){
+        const d1=/\d/.test(c1), d2=/\d/.test(c2);
+        if(d2&&!d1) best=c2;
+        else if(d1&&!d2) best=c1;
+      }
+
+      result+=best;
+      console.log(`  VIN pos ${i+1}: "${c1}" vs "${c2}" → "${best}"`);
+    }
+  }
+  return result;
+}
+
 // ── CROP + ZOOM AUTOMATIQUE ZONE VIN ──
 // Sur DCSnet : bandeau turquoise + ligne véhicule = entre 5% et 28% de la hauteur
 // Sur OR papier : en-tête + ligne véhicule = entre 10% et 35%
@@ -834,47 +893,76 @@ window.handleOcrFile=async function(file){
     if(!match)throw new Error('Pas de JSON');
     _ocrData=JSON.parse(match[0]);
 
-    // ── DOUBLE VÉRIFICATION DU VIN (crop + zoom ×3 de la zone véhicule) ──
+    // ── VÉRIFICATION AVANCÉE DU VIN (crop+zoom ×4, lecture char-by-char, consensus) ──
     if(_ocrData.vin&&_ocrData.vin.length>=10){
-      status.innerHTML='<div class="spinner"></div> Zoom + vérification du VIN...';
+      status.innerHTML='<div class="spinner"></div> Zoom ×4 + vérification du VIN caractère par caractère...';
       try{
-        // Recadrer la partie haute de l'image (10%-40% hauteur) où le VIN est toujours situé, et zoomer ×3
         const vinCropB64=await cropAndZoomVIN(b64,mime);
+        const vin1=_ocrData.vin.toUpperCase();
+
+        // 2e lecture : caractère par caractère sur l'image zoomée, température 0
         const vinCheck=await fetch('https://api.anthropic.com/v1/messages',{
           method:'POST',
           headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-          body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:200,messages:[{role:'user',content:[
+          body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:300,temperature:0,messages:[{role:'user',content:[
             {type:'image',source:{type:'base64',media_type:'image/png',data:vinCropB64}},
-            {type:'text',text:`Cette image est un ZOOM sur la zone du VIN/Châssis d'un document de garantie automobile.
-Lis TRÈS ATTENTIVEMENT les 17 caractères du numéro de châssis (VIN).
+            {type:'text',text:`TÂCHE CRITIQUE : lire le numéro de châssis (VIN) dans cette image zoomée.
+Le VIN est le code de 17 caractères affiché après le mot "Châssis" ou "VIN".
 
-PREMIÈRE LECTURE suggérée : "${_ocrData.vin}"
-Mais cette lecture peut contenir des erreurs. Relis l'image indépendamment, caractère par caractère.
+Lis CHAQUE caractère UN PAR UN, de gauche à droite. Numérote chaque position.
+Réponds EXACTEMENT dans ce format (17 lignes) :
+1:X
+2:X
+3:X
+...
+17:X
 
-RÈGLES VIN :
-- Exactement 17 caractères alphanumériques
-- Les lettres O, I, Q n'existent JAMAIS dans un VIN
-- Si tu vois O → c'est 0 (zéro). Si tu vois I → c'est 1 (un). Si tu vois Q → c'est 9.
-- Confusions courantes : 8↔B, 5↔S, 2↔Z, W↔VV (deux V), D↔0, U↔V
-- Préfixes VW Group : WVW, WV1, WV2 (VW), WAU (Audi), TMB (Skoda), VSS (SEAT)
+RÈGLES ABSOLUES :
+- Un VIN ne contient JAMAIS les lettres O, I ou Q
+- Si le caractère ressemble à O → c'est 0 (zéro)
+- Si le caractère ressemble à I → c'est 1 (un)
+- Si le caractère ressemble à Q → c'est 9 (neuf)
+- Attention : 8↔B, 5↔S, 2↔Z, D↔0, U↔V, W↔VV
+- Préfixes connus : WVW, WV1, WV2, WAU, TMB, VSS, TRU, 3VW
 
-Réponds UNIQUEMENT les 17 caractères du VIN. Rien d'autre.`}
+Rien d'autre que les 17 lignes numérotées.`}
           ]}]})
         });
         const vinData=await vinCheck.json();
         if(!vinData.error){
-          const corrected=(vinData.content[0].text||'').trim().replace(/[^A-Z0-9]/gi,'').toUpperCase();
-          if(corrected.length===17){
-            if(corrected!==_ocrData.vin){
-              console.log('VIN corrigé par zoom: '+_ocrData.vin+' → '+corrected);
-              _ocrData.vin_original=_ocrData.vin;
-              _ocrData.vin=corrected;
+          const txt=(vinData.content[0].text||'');
+          // Parser la réponse structurée "1:X\n2:X\n..."
+          const chars={};
+          txt.split('\n').forEach(line=>{
+            const m=line.trim().match(/^(\d{1,2})\s*[:=\-–]\s*([A-Z0-9])/i);
+            if(m) chars[parseInt(m[1])]=m[2].toUpperCase();
+          });
+          // Construire le VIN depuis la lecture structurée
+          let vin2='';
+          for(let i=1;i<=17;i++) vin2+=(chars[i]||'?');
+
+          // Si la lecture structurée a 17 chars valides, faire le consensus
+          if(vin2.length===17&&!vin2.includes('?')){
+            const final=vinConsensus(vin1,vin2);
+            console.log('VIN lecture 1: '+vin1);
+            console.log('VIN lecture 2: '+vin2);
+            console.log('VIN consensus: '+final);
+            if(final!==vin1){
+              _ocrData.vin_original=vin1;
+              _ocrData.vin_read2=vin2;
+              _ocrData.vin=final;
+            }
+          } else {
+            // Fallback : prendre la lecture brute nettoyée
+            const brut=txt.replace(/[^A-Z0-9]/gi,'').toUpperCase();
+            if(brut.length===17&&brut!==vin1){
+              _ocrData.vin_original=vin1;
+              _ocrData.vin=brut;
             }
           }
         }
       }catch(vinErr){console.warn('Vérification VIN échouée (non bloquant):',vinErr);}
     }
-    // Stocker l'image pour le recadrage manuel si nécessaire
     window._lastOcrB64=b64; window._lastOcrMime=mime;
 
     status.className='ocr-status success';
@@ -1038,7 +1126,7 @@ function showVerifyPopup(d){
       </div>
     </div>
     <div class="verify-field"><label></label><span id="vf-vin-warn" class="warn" style="${(vinWarn||vinCorrected)?'':'display:none;'}">⚠ Le VIN est souvent mal lu par l'OCR — vérifiez chaque caractère. ${vinWarn}</span></div>
-    ${vinCorrected?'<div class="verify-field"><label></label><span style="font-size:10px;color:var(--warn);">OCR initial : <s>'+d.vin_original+'</s> → corrigé automatiquement</span></div>':''}
+    ${vinCorrected?`<div class="verify-field"><label></label><span style="font-size:10px;color:var(--warn);">Lecture 1 : <s style="font-family:monospace;">${d.vin_original}</s><br>Lecture 2 : <span style="font-family:monospace;">${d.vin_read2||d.vin}</span><br>→ Consensus appliqué automatiquement</span></div>`:''}
     ${vinPrefix?'<div class="verify-field"><label></label><span style="font-size:10px;color:var(--accent);">Préfixe '+vin.slice(0,3)+' → '+vinPrefix+'</span></div>':''}
     <div class="verify-field"><label>Modèle</label><input id="vf-modele" value="${(d.modele||'').replace(/"/g,'&quot;')}"></div>
     <div class="verify-field"><label>CCS</label><input id="vf-ccs" value="${ccs.replace(/"/g,'&quot;')}"></div>
