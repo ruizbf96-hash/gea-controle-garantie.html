@@ -358,48 +358,54 @@ window.importExcel=async function(file){
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array',cellDates:true});
     const periode=periodeFromName(file.name);
-    let totalImported=0, feuillesLues=[];
+    let totalImported=0, feuillesLues=[], typesVus=[];
 
     for(const sheetName of wb.SheetNames){
       const ws=wb.Sheets[sheetName];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
       const type=detectSheetType(sheetName,rows);
-      if(type==='garanties'){
-        const n=await parseGaranties(rows,periode);
-        if(n){feuillesLues.push('Suivi garanties ('+n+')');totalImported+=n;}
-      } else if(type==='cessions'){
-        const n=await parseCessions(rows,periode);
-        if(n){feuillesLues.push('Cessions ('+n+')');totalImported+=n;}
+      typesVus.push(sheetName+'→'+type);
+      try{
+        if(type==='garanties'){
+          const n=await parseGaranties(rows,periode);
+          if(n){feuillesLues.push('Garanties ('+n+' sites)');totalImported+=n;}
+        } else if(type==='cessions'){
+          const n=await parseCessions(rows,periode);
+          if(n){feuillesLues.push('Cessions ('+n+' sites)');totalImported+=n;}
+        }
+      }catch(e){
+        console.error('Erreur parsing '+sheetName+':',e);
+        toast('Erreur écriture Firebase : '+e.message+' — vérifiez les règles','error');
+        throw e;
       }
     }
+    console.log('Feuilles détectées :',typesVus);
 
     if(totalImported){
       lbl.textContent='✓ Importé : '+feuillesLues.join(', ');
       document.getElementById('last-sync').textContent='Période '+periode.mois+'/'+periode.annee;
-      // Positionner les filtres sur la période importée
       document.getElementById('f-annee').value=periode.annee;
       document.getElementById('f-mois').value=periode.mois;
-      toast(totalImported+' lignes importées ('+periode.mois+'/'+periode.annee+')','success');
+      toast(totalImported+' entrées importées ('+periode.mois+'/'+periode.annee+')','success');
     } else {
-      lbl.textContent='Aucune donnée reconnue dans ce fichier';
-      toast('Aucune feuille VGF reconnue','info');
+      lbl.textContent='Feuilles vues : '+typesVus.join(' · ')+' — aucune donnée extraite';
+      toast('Aucune donnée extraite (voir console F12)','info');
     }
-  }catch(err){lbl.textContent='Erreur de lecture';toast('Erreur : '+err.message,'error');console.error(err);}
+  }catch(err){lbl.textContent='Erreur : '+err.message;toast('Erreur : '+err.message,'error');console.error(err);}
   finally{spn.style.display='none';}
 };
 
 // Détecter le type de feuille via son nom + en-têtes
 function detectSheetType(name,rows){
   const n=(name||'').toUpperCase();
-  // Chercher la ligne d'en-tête (contient "Nom Affaire")
+  // Les feuilles DETAILS (lignes brutes) sont ignorées pour la synthèse
+  if(n.includes('DETAIL')) return 'ignore';
   const headerRow=rows.find(r=>r&&r.some(c=>(c||'').toString().includes('Nom Affaire')));
   const hdr=(headerRow||[]).map(c=>(c||'').toString().toLowerCase());
   const hasCol=(txt)=>hdr.some(h=>h.includes(txt));
 
-  if(n.includes('CESSION')||hasCol('cession')||hasCol('nb dossiers cessions')) return 'cessions';
-  if(n.includes('SUIVI DES GARANTIES')||hasCol('nb dossiers garanties')) return 'garanties';
-  // DETAILS : on ignore pour le dashboard synthèse (trop volumineux)
-  if(n.includes('DETAILS')) return 'ignore';
+  if(n.includes('SUIVI DES CESSION')||hasCol('nb dossiers cessions')) return 'cessions';
+  if(n.includes('SUIVI DES GARANTIE')||hasCol('nb dossiers garanties')) return 'garanties';
   return 'unknown';
 }
 
@@ -425,7 +431,13 @@ async function parseGaranties(rows,periode){
       count++;
     }
   }
-  await Promise.all(updates);
+  try{
+    await Promise.all(updates);
+  }catch(e){
+    console.error('Erreur écriture Firebase (garanties):',e);
+    toast('Firebase a refusé l\'écriture — vérifiez les règles de la base','error');
+    throw e;
+  }
   return count;
 }
 
@@ -834,7 +846,7 @@ window.copyExecSummary=function(){
 };
 
 // ── EFFACER LES DONNÉES SAGA (protégé par PIN) ──
-const DASH_PINS={'Omar':'1472','Nico':'2583','Tahir':'3694','Marion':'4715','Céline':'5826'};
+const DASH_PINS={'Omar':'1472','Nico':'3682','Tahir':'3694','Marion':'4715','Céline':'5826'};
 window.purgeData=function(){
   if(!window._db){toast('Firebase non connecté','error');return;}
   // Vérification PIN

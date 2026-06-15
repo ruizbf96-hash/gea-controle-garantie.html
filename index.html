@@ -569,7 +569,7 @@ let _currentSource='dcsnet';
 let _statuts={rattrapage:false,risque:false,malgre:false,annul:false,sauvee:false,incomplet:false,nonfact:false,temps:false};
 let _detailId=null;
 
-const USERS={'Omar':'1472','Nico':'2583','Tahir':'3694','Marion':'4715','Céline':'5826'};
+const USERS={'Omar':'1472','Nico':'3682','Tahir':'3694','Marion':'4715','Céline':'5826'};
 const SITE_SHORT={'VW_Illkirch':'VW Illkirch','VW_Bischheim':'VW Bischheim','Audi_Hoenheim':'Audi Hoenheim','Seat_Hoenheim':'SEAT Hoenheim','Skoda_Hoenheim':'Skoda Hoenheim','Audi_Obernai':'Audi Obernai','VW_Obernai':'VW Obernai'};
 // Format date JJ/MM/AAAA (depuis AAAA-MM-JJ ou autre)
 function dateFR(s){if(!s||s==='—')return s||'—';const m=s.toString().match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:s;}
@@ -727,30 +727,40 @@ window.confirmCapture=function(){
   }
 };
 
-function compressImage(file,maxW=2000,minW=1700){
+function compressImage(file,maxW=2000,minW=1200){
   return new Promise(resolve=>{
     const r=new FileReader();
     r.onload=e=>{
+      // Si le fichier est déjà petit (<4Mo) et PNG, envoyer tel quel (lossless, meilleur pour l'OCR)
+      const rawB64=e.target.result.split(',')[1];
+      const sizeBytes=rawB64.length*0.75;
+      if(sizeBytes<4*1024*1024 && (file.type==='image/png'||file.name?.endsWith('.png'))){
+        resolve({b64:rawB64,mime:'image/png'});
+        return;
+      }
+      // Sinon, redimensionner avec fond blanc et envoyer en PNG si possible
       const img=new Image();
       img.onload=()=>{
         let scale=1;
-        if(img.width>maxW){
-          scale=maxW/img.width;        // réduire si trop grande
-        } else if(img.width<minW){
-          scale=Math.min(2,minW/img.width); // agrandir si trop petite (max x2)
-        }
+        if(img.width>maxW) scale=maxW/img.width;
+        else if(img.width<minW) scale=Math.min(2,minW/img.width);
         const cv=document.createElement('canvas');
         cv.width=Math.round(img.width*scale);
         cv.height=Math.round(img.height*scale);
         const ctx=cv.getContext('2d');
-        // Fond blanc (évite fond noir si transparence)
         ctx.fillStyle='#ffffff';
         ctx.fillRect(0,0,cv.width,cv.height);
-        // Lissage de qualité pour le texte agrandi
         ctx.imageSmoothingEnabled=true;
         ctx.imageSmoothingQuality='high';
         ctx.drawImage(img,0,0,cv.width,cv.height);
-        resolve({b64:cv.toDataURL('image/jpeg',0.92).split(',')[1],mime:'image/jpeg'});
+        // Essayer PNG d'abord (lossless, meilleur pour le texte)
+        const pngB64=cv.toDataURL('image/png').split(',')[1];
+        if(pngB64.length*0.75<4.5*1024*1024){
+          resolve({b64:pngB64,mime:'image/png'});
+        } else {
+          // Trop gros → JPEG haute qualité
+          resolve({b64:cv.toDataURL('image/jpeg',0.95).split(',')[1],mime:'image/jpeg'});
+        }
       };
       img.src=e.target.result;
     };
@@ -791,8 +801,52 @@ window.handleOcrFile=async function(file){
     const match=txt.match(/\{[\s\S]*\}/);
     if(!match)throw new Error('Pas de JSON');
     _ocrData=JSON.parse(match[0]);
+
+    // ── DOUBLE VÉRIFICATION DU VIN ──
+    if(_ocrData.vin&&_ocrData.vin.length>=10){
+      status.innerHTML='<div class="spinner"></div> Vérification du VIN...';
+      try{
+        const vinCheck=await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+          body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:200,messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:mime,data:b64}},
+            {type:'text',text:`VÉRIFICATION CRITIQUE DU VIN.
+J'ai lu ce VIN dans l'image : "${_ocrData.vin}"
+Regarde à nouveau TRÈS ATTENTIVEMENT le champ VIN/Châssis dans l'image.
+Le VIN fait EXACTEMENT 17 caractères. Vérifie CHAQUE caractère un par un.
+
+CONFUSIONS FRÉQUENTES à vérifier :
+- 0 (zéro) ↔ O (lettre) → un VIN ne contient JAMAIS les lettres O, I, Q
+- 1 (un) ↔ I (lettre) → si tu vois I, c'est probablement 1
+- 8 ↔ B
+- 5 ↔ S
+- 2 ↔ Z (attention au contexte)
+- W ↔ VV (deux V collés peuvent ressembler à W)
+- 0 ↔ D
+
+Préfixes VW Group connus : WVW, WV1, WV2 (VW), WAU (Audi), TMB (Skoda), VSS (SEAT), TRU, 3VW.
+
+Réponds UNIQUEMENT les 17 caractères du VIN corrigé, RIEN d'autre. Pas de guillemets, pas d'explication.`}
+          ]}]})
+        });
+        const vinData=await vinCheck.json();
+        if(!vinData.error){
+          const corrected=(vinData.content[0].text||'').trim().replace(/[^A-Z0-9]/gi,'').toUpperCase();
+          if(corrected.length===17){
+            if(corrected!==_ocrData.vin){
+              console.log('VIN corrigé: '+_ocrData.vin+' → '+corrected);
+              _ocrData.vin_original=_ocrData.vin;
+              _ocrData.vin=corrected;
+            }
+          }
+        }
+      }catch(vinErr){console.warn('Vérification VIN échouée (non bloquant):',vinErr);}
+    }
+
     status.className='ocr-status success';
-    status.textContent='✓ Extraction réussie — '+Object.keys(_ocrData).filter(k=>_ocrData[k]).length+' champs extraits';
+    const vinMsg=_ocrData.vin_original?' (VIN corrigé ✓)':'';
+    status.textContent='✓ Extraction réussie — '+Object.keys(_ocrData).filter(k=>_ocrData[k]&&!k.startsWith('_')).length+' champs extraits'+vinMsg;
     document.getElementById('btn-create').style.display='block';
     toast('Extraction réussie','success');
   }catch(err){
@@ -931,8 +985,11 @@ function showVerifyPopup(d){
   let ccs=(d.ccs||'').trim().replace(/^\d+\s+/,'');
   // VIN
   const vin=(d.vin||'').toUpperCase().trim();
-  const vinWarn=vin&&vin.length!==17?`⚠ Le VIN fait ${vin.length} caractères (attendu : 17)`:'';
-  // Date
+  const vinWarn=vin&&vin.length!==17?`Le VIN fait ${vin.length} caractères (attendu : 17)`:'';
+  const vinCorrected=d.vin_original&&d.vin_original!==vin;
+  // Préfixe VIN → marque connue
+  const VIN_PREFIXES={'WVW':'VW','WV1':'VW Utilitaire','WV2':'VW Utilitaire','WAU':'Audi','TMB':'Skoda','VSS':'SEAT','3VW':'VW (Mexique)','TRU':'Audi (Hongrie)'};
+  const vinPrefix=vin?VIN_PREFIXES[vin.slice(0,3)]||'':'';
   const dateOr=d.date_or?convDate(d.date_or):'';
   // Interventions
   const intervs=Array.isArray(d.interventions)?d.interventions:[];
@@ -941,8 +998,15 @@ function showVerifyPopup(d){
     <div class="verify-sep">Identification</div>
     <div class="verify-field"><label>Site</label><input id="vf-site" value="${siteName.replace(/"/g,'&quot;')}" readonly style="background:var(--bg2);"></div>
     <div class="verify-field"><label>N° OR</label><input id="vf-nor" value="${(d.nor||'').replace(/"/g,'&quot;')}"></div>
-    <div class="verify-field"><label>VIN (17 car.)</label><input id="vf-vin" value="${vin.replace(/"/g,'&quot;')}" maxlength="17" style="${vinWarn?'border-color:var(--warn);':''}"></div>
-    ${vinWarn?'<div class="verify-field"><label></label><span class="warn">'+vinWarn+'</span></div>':''}
+    <div class="verify-field"><label>VIN (17 car.)</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="vf-vin" value="${vin.replace(/"/g,'&quot;')}" maxlength="17" style="font-size:15px;font-weight:700;letter-spacing:1.5px;flex:1;${vinWarn?'border-color:var(--warn);background:#2a1f0d;':'border-color:#00c89640;'}" oninput="checkVfVin()">
+        <button type="button" onclick="pasteVin()" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:11px;white-space:nowrap;" title="Coller depuis le presse-papier">📋 Coller</button>
+      </div>
+    </div>
+    <div class="verify-field"><label></label><span id="vf-vin-warn" class="warn" style="${(vinWarn||vinCorrected)?'':'display:none;'}">⚠ Le VIN est souvent mal lu par l'OCR — vérifiez chaque caractère. ${vinWarn}</span></div>
+    ${vinCorrected?'<div class="verify-field"><label></label><span style="font-size:10px;color:var(--warn);">OCR initial : <s>'+d.vin_original+'</s> → corrigé automatiquement</span></div>':''}
+    ${vinPrefix?'<div class="verify-field"><label></label><span style="font-size:10px;color:var(--accent);">Préfixe '+vin.slice(0,3)+' → '+vinPrefix+'</span></div>':''}
     <div class="verify-field"><label>Modèle</label><input id="vf-modele" value="${(d.modele||'').replace(/"/g,'&quot;')}"></div>
     <div class="verify-field"><label>CCS</label><input id="vf-ccs" value="${ccs.replace(/"/g,'&quot;')}"></div>
     <div class="verify-field"><label>KM</label><input id="vf-km" value="${(d.kilometrage||'').toString().replace(/"/g,'&quot;')}"></div>
@@ -999,6 +1063,42 @@ window.confirmOcrData=function(){
 };
 
 window.goToStep1=function(){
+
+// Coller le VIN depuis le presse-papier
+window.pasteVin=async function(){
+  try{
+    const txt=await navigator.clipboard.readText();
+    const clean=txt.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(clean.length>=15&&clean.length<=17){
+      document.getElementById('vf-vin').value=clean;
+      checkVfVin();
+      toast('VIN collé : '+clean,'success');
+    } else {
+      toast('Le texte copié ne ressemble pas à un VIN ('+clean.length+' car.)','error');
+    }
+  }catch(e){toast('Impossible de lire le presse-papier','error');}
+};
+
+// Vérifier le VIN dans la popup en temps réel
+window.checkVfVin=function(){
+  const vin=document.getElementById('vf-vin').value.trim().toUpperCase();
+  const warn=document.getElementById('vf-vin-warn');
+  if(!warn)return;
+  const msgs=[];
+  if(vin&&vin.length!==17)msgs.push(`Le VIN fait ${vin.length} caractères (attendu : 17)`);
+  if(vin&&/[OIQ]/.test(vin))msgs.push('Le VIN contient O, I ou Q (interdit — probablement 0, 1 ou 9)');
+  const VIN_PREFIXES={'WVW':'VW','WV1':'VW Utilitaire','WV2':'VW Utilitaire','WAU':'Audi','TMB':'Skoda','VSS':'SEAT','3VW':'VW (Mexique)','TRU':'Audi (Hongrie)'};
+  const pref=vin?VIN_PREFIXES[vin.slice(0,3)]:'';
+  if(vin.length>=3&&!pref)msgs.push('Préfixe '+vin.slice(0,3)+' non reconnu (VW=WVW/WV2, Audi=WAU, Skoda=TMB, SEAT=VSS)');
+  if(msgs.length){
+    warn.style.display='block';
+    warn.innerHTML='⚠ '+msgs.join('<br>⚠ ');
+  } else {
+    warn.style.display=vin?'block':'none';
+    warn.innerHTML=vin?'✓ VIN valide'+(pref?' — '+pref:''):'';
+    warn.style.color=vin?'var(--accent)':'';
+  }
+};
   document.getElementById('step1').style.display='block';
   document.getElementById('step2').style.display='none';
   document.getElementById('step1-ind').className='step active';
