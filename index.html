@@ -86,6 +86,13 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 
 .btn-create{width:100%;padding:14px;border-radius:var(--r);border:none;background:var(--accent);color:#000;font-size:14px;font-weight:600;cursor:pointer;margin-top:14px;font-family:'IBM Plex Sans',sans-serif;display:none;transition:background .15s;}
 .btn-create:hover{background:#00efc0;}
+.verify-field{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center;margin-bottom:8px;}
+.verify-field label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;}
+.verify-field input,.verify-field textarea{padding:7px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:'IBM Plex Mono',monospace;}
+.verify-field textarea{font-family:'IBM Plex Sans',sans-serif;font-size:12px;}
+.verify-field input:focus,.verify-field textarea:focus{border-color:var(--accent);outline:none;}
+.verify-field .warn{color:var(--warn);font-size:10px;grid-column:2;}
+.verify-sep{font-size:10px;color:var(--accent2);font-weight:600;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);padding:10px 0 4px;margin:6px 0;grid-column:1/-1;}
 
 /* ── FORMULAIRE ── */
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -190,7 +197,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
     <div class="login-sub">Contrôle qualité garantie — TeamGarantie</div>
     <div class="user-grid">
       <button class="user-btn" onclick="selectUser('Omar','1472')">Omar</button>
-      <button class="user-btn" onclick="selectUser('Nico','3682')">Nico</button>
+      <button class="user-btn" onclick="selectUser('Nico','2583')">Nico</button>
       <button class="user-btn" onclick="selectUser('Tahir','3694')">Tahir</button>
       <button class="user-btn" onclick="selectUser('Marion','4715')">Marion</button>
       <button class="user-btn" onclick="selectUser('Céline','5826')" style="grid-column:1/-1;">Céline</button>
@@ -216,6 +223,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
     </nav>
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="daily-count" style="font-size:11px;color:var(--text3);padding:4px 10px;background:var(--bg3);border-radius:20px;">—</span>
+      <span id="api-status" onclick="configureApiKey()" style="font-size:10px;cursor:pointer;padding:4px 8px;border-radius:12px;" title="Cliquer pour configurer la clé API"></span>
       <div class="user-badge"><div class="user-dot"></div><span id="current-user-name">—</span></div>
       <button class="logout-btn" onclick="logout()">Déconnexion</button>
     </div>
@@ -269,6 +277,24 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
         <div class="modal-foot" style="justify-content:center;">
           <button class="btn primary" id="cap-confirm" onclick="confirmCapture()" style="display:none;">✓ Utiliser cette capture</button>
           <button class="btn" onclick="document.getElementById('cap-modal').classList.remove('open')">Annuler</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de vérification OCR -->
+    <div class="modal-bg" id="ocr-verify-modal" style="z-index:650;">
+      <div class="modal" style="max-width:600px;padding:0;">
+        <div class="modal-head" style="background:var(--bg2);">
+          <h3>🔍 Vérification des données extraites</h3>
+          <button class="modal-close" onclick="document.getElementById('ocr-verify-modal').classList.remove('open')">×</button>
+        </div>
+        <div class="modal-body" style="max-height:65vh;overflow-y:auto;padding:16px;">
+          <p style="font-size:12px;color:var(--text3);margin-bottom:12px;">Vérifiez et corrigez les champs avant de créer le formulaire. Les champs vides ou incorrects peuvent être modifiés.</p>
+          <div id="ocr-verify-fields"></div>
+        </div>
+        <div class="modal-foot" style="justify-content:space-between;">
+          <button class="btn" onclick="document.getElementById('ocr-verify-modal').classList.remove('open')">Annuler</button>
+          <button class="btn primary" onclick="confirmOcrData()">✓ Confirmer et créer le formulaire</button>
         </div>
       </div>
     </div>
@@ -599,6 +625,7 @@ function doLogin(user){
   // Charger un éventuel brouillon
   setTimeout(checkDraft,300);
   updateConnDot();
+  updateApiStatus();
 }
 
 // Reconnexion auto si session valide
@@ -700,7 +727,7 @@ window.confirmCapture=function(){
   }
 };
 
-function compressImage(file,maxW=1600,minW=1100){
+function compressImage(file,maxW=1800,minW=1300){
   return new Promise(resolve=>{
     const r=new FileReader();
     r.onload=e=>{
@@ -733,12 +760,11 @@ function compressImage(file,maxW=1600,minW=1100){
 
 window.handleOcrFile=async function(file){
   if(!file)return;
-  const key=localStorage.getItem('gea_anthropic_key');
+  let key=localStorage.getItem('gea_anthropic_key');
   if(!key){
-    // Afficher champ clé API
-    const k=prompt('Clé API Anthropic (sk-ant-...)');
-    if(k&&k.startsWith('sk-ant')){localStorage.setItem('gea_anthropic_key',k);}
-    else{toast('Clé API invalide','error');return;}
+    const k=prompt('Clé API Anthropic non configurée.\nEntrez votre clé (sk-ant-...) :');
+    if(k&&k.startsWith('sk-ant')){localStorage.setItem('gea_anthropic_key',k);key=k;updateApiStatus();}
+    else{toast('Clé API requise pour l\'OCR — cliquez sur "⚠ Clé API" en haut','error');return;}
   }
   // Aperçu
   const prev=document.getElementById('ocr-preview');
@@ -794,10 +820,10 @@ ZONES DE L'ÉCRAN :
      Le CCS est toujours un NOM + PRÉNOM de conseiller précédé d'un numéro.
 
 3. LIGNE VÉHICULE : "VIN | IMMAT | N°FABR | MODELE/VERSION | DATE LIV | KILOM"
-   - vin = 17 caractères
+   - vin = exactement 17 caractères alphanumériques (lettres majuscules + chiffres). Si un caractère est ambigu (0/O, 1/I, 8/B), préférer le chiffre. Jamais de lettre O, I ou Q dans un VIN.
    - modele = contenu MODELE/VERSION
-   - date_livraison = DATE LIV format JJ/MM/AAAA
    - kilometrage = KILOM chiffres
+   ⚠ DATE LIV = date de livraison du véhicule, PAS la date de l'OR. Ne PAS l'extraire.
 
 4. BLOC NOM/PRENOM/ADRESSE = CLIENT → IGNORER
 
@@ -825,7 +851,7 @@ ZONES DE L'ÉCRAN :
 6. SECTION IMPUTATIONS (bas, fond gris) : contient SEULEMENT le N° compte (ex: 90010 G), le site (ex: GARANTIE BISCHHEIM) et un statut. AUCUN montant ici.
 
 Retourne UNIQUEMENT ce JSON sans markdown :
-{"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"date_livraison":null,"interventions":[{"plainte":null,"piece":null,"montant":null}]}
+{"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"interventions":[{"plainte":null,"piece":null,"montant":null}]}
 montant = nombre décimal de la VRAIE colonne Montant (ex: 269.90), ou null si pas de pièce facturée. JAMAIS un code compte type 90000G.`;
 
 const PROMPT_SAGA=`Analyse cette capture SAGA/2 (demandes de garantie VW Group).
@@ -873,12 +899,103 @@ date_or au format JJ/MM/AAAA. montant = null si pas de prix TTC visible.`;
 
 // ── ÉTAPES ──
 window.goToStep2=function(){
-  fillFormFromOcr(_ocrData);
+  // Si données OCR, afficher la popup de vérification d'abord
+  if(_ocrData&&(_ocrData.nor||_ocrData.vin||_ocrData.ccs)){
+    showVerifyPopup(_ocrData);
+    return;
+  }
+  // Sinon (saisie manuelle ou pas de données), aller directement au formulaire
+  proceedToStep2();
+};
+
+function proceedToStep2(){
+  fillFormFromOcr(_ocrData||{});
   document.getElementById('step1').style.display='none';
   document.getElementById('step2').style.display='block';
   document.getElementById('step1-ind').className='step done';
   document.getElementById('step2-ind').className='step active';
   document.getElementById('step3-ind').className='step';
+}
+
+// ── POPUP DE VÉRIFICATION OCR ──
+function showVerifyPopup(d){
+  const SITE_MAP_REV={};
+  Object.entries(SITE_MAP).forEach(([k,v])=>{if(!SITE_MAP_REV[v])SITE_MAP_REV[v]=k;});
+  // Trouver le site
+  let siteVal='';
+  if(d.code_site){const code=(d.code_site||'').toUpperCase().replace(/[^A-Z]/g,'');siteVal=SITE_MAP[code]||'';}
+  if(!siteVal&&d.site)siteVal=SITE_MAP[(d.site||'').toUpperCase().trim()]||'';
+  if(!siteVal&&(d.marque||d.ville))siteVal=siteFromMarqueVille(d.marque,d.ville);
+  const siteName=SITE_SHORT[siteVal]||siteVal||'';
+  // CCS nettoyé
+  let ccs=(d.ccs||'').trim().replace(/^\d+\s+/,'');
+  // VIN
+  const vin=(d.vin||'').toUpperCase().trim();
+  const vinWarn=vin&&vin.length!==17?`⚠ Le VIN fait ${vin.length} caractères (attendu : 17)`:'';
+  // Date
+  const dateOr=d.date_or?convDate(d.date_or):'';
+  // Interventions
+  const intervs=Array.isArray(d.interventions)?d.interventions:[];
+
+  let html=`
+    <div class="verify-sep">Identification</div>
+    <div class="verify-field"><label>Site</label><input id="vf-site" value="${siteName.replace(/"/g,'&quot;')}" readonly style="background:var(--bg2);"></div>
+    <div class="verify-field"><label>N° OR</label><input id="vf-nor" value="${(d.nor||'').replace(/"/g,'&quot;')}"></div>
+    <div class="verify-field"><label>VIN (17 car.)</label><input id="vf-vin" value="${vin.replace(/"/g,'&quot;')}" maxlength="17" style="${vinWarn?'border-color:var(--warn);':''}"></div>
+    ${vinWarn?'<div class="verify-field"><label></label><span class="warn">'+vinWarn+'</span></div>':''}
+    <div class="verify-field"><label>Modèle</label><input id="vf-modele" value="${(d.modele||'').replace(/"/g,'&quot;')}"></div>
+    <div class="verify-field"><label>CCS</label><input id="vf-ccs" value="${ccs.replace(/"/g,'&quot;')}"></div>
+    <div class="verify-field"><label>KM</label><input id="vf-km" value="${(d.kilometrage||'').toString().replace(/"/g,'&quot;')}"></div>
+    <div class="verify-field"><label>Date OR</label><input id="vf-date" type="date" value="${dateOr}"></div>
+  `;
+  // Interventions
+  if(intervs.length){
+    html+=`<div class="verify-sep">Interventions (${intervs.length})</div>`;
+    intervs.forEach((iv,i)=>{
+      const letter=String.fromCharCode(65+i);
+      const mt=iv.montant||'';
+      // Nettoyer montant (filtre codes compte)
+      const cleanMt=(/^9\d{3,4}\s*[A-Za-z]?$/.test((mt||'').toString())||/[A-Za-z]/.test((mt||'').toString()))?'':mt;
+      html+=`
+        <div class="verify-field"><label>${letter}. Plainte</label><textarea id="vf-pl-${i}" rows="2">${(iv.plainte||'').replace(/</g,'&lt;')}</textarea></div>
+        <div class="verify-field"><label>${letter}. Réf. pièce</label><input id="vf-pc-${i}" value="${(iv.piece||'').replace(/"/g,'&quot;')}"></div>
+        <div class="verify-field"><label>${letter}. Montant</label><input id="vf-mt-${i}" value="${cleanMt}"></div>
+      `;
+    });
+  }
+  document.getElementById('ocr-verify-fields').innerHTML=html;
+  document.getElementById('ocr-verify-modal').classList.add('open');
+  // Stocker le nombre d'interventions pour la confirmation
+  window._verifyIntervCount=intervs.length;
+  window._verifySiteVal=siteVal;
+}
+
+window.confirmOcrData=function(){
+  // Récupérer les valeurs corrigées
+  const corrected={
+    nor:document.getElementById('vf-nor').value,
+    vin:document.getElementById('vf-vin').value,
+    modele:document.getElementById('vf-modele').value,
+    ccs:document.getElementById('vf-ccs').value,
+    kilometrage:document.getElementById('vf-km').value,
+    date_or:document.getElementById('vf-date').value,
+    interventions:[]
+  };
+  // Interventions
+  for(let i=0;i<(window._verifyIntervCount||0);i++){
+    corrected.interventions.push({
+      plainte:document.getElementById('vf-pl-'+i)?.value||'',
+      piece:document.getElementById('vf-pc-'+i)?.value||'',
+      montant:document.getElementById('vf-mt-'+i)?.value||''
+    });
+  }
+  // Garder le site déjà résolu
+  _ocrData=corrected;
+  _ocrData._resolvedSite=window._verifySiteVal||'';
+  // Fermer la popup
+  document.getElementById('ocr-verify-modal').classList.remove('open');
+  // Remplir le formulaire et passer à l'étape 2
+  proceedToStep2();
 };
 
 window.goToStep1=function(){
@@ -1069,7 +1186,8 @@ function fillFormFromOcr(d){
   let ccs=(d.ccs||'').trim();
   ccs=ccs.replace(/^\d+\s+/,'');
   setV('f-ccs',ccs);
-  if(d.date_livraison) setV('f-date',convDate(d.date_livraison));
+  // Date OR : uniquement depuis l'Ordre de réparation papier (date_or)
+  // DCSnet n'a PAS de date OR (DATE LIV ≠ date OR)
   if(d.date_or) setV('f-date',convDate(d.date_or));
 
   // Nettoyer un montant qui serait en fait un code compte (90000G, 90010G...)
@@ -1091,9 +1209,9 @@ function fillFormFromOcr(d){
     addIntervention(); // bloc vide
   }
 
-  // Site — 1) code GIDA (DCSnet), 2) nom GARANTIE, 3) marque+ville (OR papier)
-  let siteVal='';
-  if(d.code_site){
+  // Site — 0) site résolu depuis la popup de vérification, 1) code GIDA (DCSnet), 2) nom GARANTIE, 3) marque+ville (OR papier)
+  let siteVal=d._resolvedSite||'';
+  if(!siteVal&&d.code_site){
     const code=(d.code_site||'').toUpperCase().replace(/[^A-Z]/g,'');
     siteVal=SITE_MAP[code]||'';
   }
@@ -1304,7 +1422,31 @@ window.saveDossier=function(){
 };
 
 // ── PDF ──
-window.generatePDF=function(){
+// ── ENREGISTRER PDF (boîte "Enregistrer sous") ──
+async function savePdfAs(doc,filename){
+  const blob=doc.output('blob');
+  // Chrome/Edge : showSaveFilePicker → choix du dossier
+  if(window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker({
+        suggestedName:filename,
+        types:[{description:'PDF',accept:{'application/pdf':['.pdf']}}]
+      });
+      const writable=await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    }catch(e){
+      // L'utilisateur a annulé → ne rien faire
+      if(e.name==='AbortError')return;
+      console.warn('showSaveFilePicker échoué, fallback:',e);
+    }
+  }
+  // Fallback (Firefox ou erreur) : téléchargement classique
+  doc.save(filename);
+}
+
+window.generatePDF=async function(){
   const nor=document.getElementById('f-nor').value||'—';
   const vin=document.getElementById('f-vin').value||'—';
   const site=document.getElementById('f-site').value||'—';
@@ -1505,15 +1647,17 @@ window.generatePDF=function(){
 
   // Nom fichier
   const statutPdf=statutsActifs.length?statutsActifs[0].replace(/[^a-zA-Z0-9]/g,''):'Controle';
-  doc.save(`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`);
+  const pdfNom=`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`;
+
+  // Enregistrer sous (choix du dossier)
+  await savePdfAs(doc,pdfNom);
 
   // Mailto UNIQUEMENT si dossier incomplet ou non facturable
   if(_statuts.incomplet||_statuts.nonfact){
     const commentaires=document.getElementById('f-commentaires').value||'';
     const motif=_statuts.nonfact?'DOSSIER NON FACTURABLE':'DOSSIER INCOMPLET';
     const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
-    const pdfNom=`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`;
-    const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre depuis vos téléchargements : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUTS DE CONTRÔLE\n──────────────────────────────\n${statutsActifs.map(s=>'  • '+s).join('\n')}\n\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
+    const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUTS DE CONTRÔLE\n──────────────────────────────\n${statutsActifs.map(s=>'  • '+s).join('\n')}\n\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
     // Laisser le temps au PDF de se télécharger avant d'ouvrir le mail
     const mailtoUrl=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
     setTimeout(()=>{
@@ -1524,7 +1668,7 @@ window.generatePDF=function(){
       a.click();
       setTimeout(()=>a.remove(),500);
     },1000);
-    toast('PDF téléchargé — glissez-le dans l\'email qui s\'ouvre','info');
+    toast('PDF enregistré — glissez-le dans l\'email qui s\'ouvre','info');
   } else {
     toast('PDF généré','success');
   }
@@ -1715,7 +1859,7 @@ window.deleteDetail=function(id){
   closeDetail();toast('Supprimé','info');
 };
 
-window.generatePDFFromDetail=function(id){
+window.generatePDFFromDetail=async function(id){
   const d=window._dossiers[id];
   if(!d)return;
   // Remplir les champs temporairement pour réutiliser generatePDF
@@ -1738,7 +1882,7 @@ window.generatePDFFromDetail=function(id){
   document.getElementById('f-defaut1').value=d.defaut1||'';
   document.getElementById('f-defaut2').value=d.defaut2||'';
   Object.keys(_statuts).forEach(k=>{_statuts[k]=!!d[k];});
-  generatePDF();
+  await generatePDF();
 };
 
 // ── EXPORT CSV ──
@@ -1753,6 +1897,39 @@ window.exportCSV=function(){
   a.download='controle-garantie-'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
 };
+
+// ── CLÉ API ANTHROPIC ──
+window.configureApiKey=function(){
+  const current=localStorage.getItem('gea_anthropic_key');
+  const msg=current
+    ?`Clé API configurée (${current.slice(0,12)}...).\n\nEntrez une nouvelle clé pour la changer, ou annulez :`
+    :'Entrez votre clé API Anthropic (sk-ant-...) :';
+  const k=prompt(msg,current||'');
+  if(k===null)return; // annulé
+  if(k&&k.startsWith('sk-ant')){
+    localStorage.setItem('gea_anthropic_key',k);
+    toast('Clé API enregistrée ✓','success');
+  } else if(k===''){
+    localStorage.removeItem('gea_anthropic_key');
+    toast('Clé API effacée','info');
+  } else {
+    toast('Clé invalide (doit commencer par sk-ant-)','error');
+  }
+  updateApiStatus();
+};
+
+function updateApiStatus(){
+  const el=document.getElementById('api-status');
+  if(!el)return;
+  const key=localStorage.getItem('gea_anthropic_key');
+  if(key){
+    el.textContent='🔑 API OK';
+    el.style.background='var(--bg3)';el.style.color='var(--accent)';
+  } else {
+    el.textContent='⚠ Clé API';
+    el.style.background='#f5ecd0';el.style.color='#a07000';
+  }
+}
 
 // ════════ AMÉLIORATIONS ════════
 
