@@ -727,13 +727,15 @@ window.confirmCapture=function(){
   }
 };
 
-// ── CROP + ZOOM AUTOMATIQUE ZONE VIN (partie haute 8%-42% de l'image, zoom ×3) ──
+// ── CROP + ZOOM AUTOMATIQUE ZONE VIN ──
+// Sur DCSnet : bandeau turquoise + ligne véhicule = entre 5% et 28% de la hauteur
+// Sur OR papier : en-tête + ligne véhicule = entre 10% et 35%
+// On prend large : 5%-35%, zoom ×4 en PNG lossless
 function cropAndZoomVIN(b64,mime){
   return new Promise(resolve=>{
     const img=new Image();
     img.onload=()=>{
-      // Zone du VIN : sur DCSnet/OR, c'est entre 8% et 42% de la hauteur
-      const topPct=0.08, bottomPct=0.42, zoom=3;
+      const topPct=0.05, bottomPct=0.35, zoom=4;
       const cropY=Math.round(img.height*topPct);
       const cropH=Math.round(img.height*(bottomPct-topPct));
       const cv=document.createElement('canvas');
@@ -742,108 +744,20 @@ function cropAndZoomVIN(b64,mime){
       const ctx=cv.getContext('2d');
       ctx.fillStyle='#ffffff';
       ctx.fillRect(0,0,cv.width,cv.height);
-      // Désactiver le lissage pour garder le texte net (pixel-perfect upscale)
-      ctx.imageSmoothingEnabled=false;
+      // Lissage haute qualité pour l'agrandissement du texte
+      ctx.imageSmoothingEnabled=true;
+      ctx.imageSmoothingQuality='high';
       ctx.drawImage(img,0,cropY,img.width,cropH,0,0,cv.width,cv.height);
-      resolve(cv.toDataURL('image/png').split(',')[1]);
+      // Si l'image résultante est trop grosse (>5Mo), réduire légèrement
+      let result=cv.toDataURL('image/png').split(',')[1];
+      if(result.length*0.75>5*1024*1024){
+        result=cv.toDataURL('image/jpeg',0.95).split(',')[1];
+      }
+      resolve(result);
     };
     img.src='data:'+mime+';base64,'+b64;
   });
 }
-
-// ── RECADRAGE MANUEL DU VIN (l'utilisateur dessine un rectangle) ──
-window.manualVinCrop=async function(){
-  const b64=window._lastOcrB64;
-  const mime=window._lastOcrMime;
-  if(!b64){toast('Pas d\'image disponible','error');return;}
-  const apiKey=localStorage.getItem('gea_anthropic_key');
-  if(!apiKey){toast('Clé API requise','error');return;}
-
-  // Créer une modal avec l'image et un canvas de sélection
-  const modal=document.createElement('div');
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;';
-  modal.innerHTML=`
-    <p style="color:#fff;font-size:14px;font-weight:600;">🔍 Dessinez un rectangle autour du VIN dans l'image</p>
-    <p style="color:#aaa;font-size:12px;">Cliquez et glissez pour sélectionner la zone du châssis</p>
-    <div style="position:relative;max-width:90vw;max-height:65vh;overflow:hidden;cursor:crosshair;" id="vin-crop-wrap">
-      <img id="vin-crop-img" src="data:${mime};base64,${b64}" style="max-width:90vw;max-height:65vh;display:block;">
-      <canvas id="vin-crop-cv" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
-    </div>
-    <div style="display:flex;gap:10px;">
-      <button id="vin-crop-go" class="btn primary" style="display:none;" onclick="">✓ Analyser cette zone</button>
-      <button class="btn" style="background:#fff;" onclick="this.closest('div[style]').remove()">Annuler</button>
-    </div>
-  `;
-  document.body.appendChild(modal);
-
-  // Attendre le chargement de l'image
-  await new Promise(r=>setTimeout(r,100));
-  const img=document.getElementById('vin-crop-img');
-  const cvEl=document.getElementById('vin-crop-cv');
-  cvEl.width=img.clientWidth;cvEl.height=img.clientHeight;
-  const ctx=cvEl.getContext('2d');
-  let sx=0,sy=0,ex=0,ey=0,drawing=false;
-
-  cvEl.onmousedown=e=>{const r=cvEl.getBoundingClientRect();sx=e.clientX-r.left;sy=e.clientY-r.top;drawing=true;};
-  cvEl.onmousemove=e=>{
-    if(!drawing)return;
-    const r=cvEl.getBoundingClientRect();ex=e.clientX-r.left;ey=e.clientY-r.top;
-    ctx.clearRect(0,0,cvEl.width,cvEl.height);
-    ctx.strokeStyle='#00d4a8';ctx.lineWidth=2;ctx.setLineDash([6,3]);
-    ctx.strokeRect(sx,sy,ex-sx,ey-sy);
-    ctx.fillStyle='rgba(0,212,168,0.15)';ctx.fillRect(sx,sy,ex-sx,ey-sy);
-  };
-  cvEl.onmouseup=()=>{
-    drawing=false;
-    if(Math.abs(ex-sx)>20&&Math.abs(ey-sy)>10){
-      document.getElementById('vin-crop-go').style.display='inline-flex';
-    }
-  };
-
-  document.getElementById('vin-crop-go').onclick=async function(){
-    // Recalculer les coordonnées en pixels réels de l'image
-    const scaleX=img.naturalWidth/img.clientWidth;
-    const scaleY=img.naturalHeight/img.clientHeight;
-    const rx=Math.min(sx,ex)*scaleX, ry=Math.min(sy,ey)*scaleY;
-    const rw=Math.abs(ex-sx)*scaleX, rh=Math.abs(ey-sy)*scaleY;
-    // Crop + zoom ×4
-    const zoom=4;
-    const cv2=document.createElement('canvas');
-    cv2.width=Math.round(rw*zoom);cv2.height=Math.round(rh*zoom);
-    const ctx2=cv2.getContext('2d');
-    ctx2.fillStyle='#ffffff';ctx2.fillRect(0,0,cv2.width,cv2.height);
-    ctx2.imageSmoothingEnabled=false;
-    const srcImg=new Image();
-    srcImg.onload=async()=>{
-      ctx2.drawImage(srcImg,rx,ry,rw,rh,0,0,cv2.width,cv2.height);
-      const cropB64=cv2.toDataURL('image/png').split(',')[1];
-      modal.innerHTML='<div class="spinner" style="border-color:#fff;border-top-color:#00d4a8;width:24px;height:24px;"></div><p style="color:#fff;">Analyse du VIN zoomé...</p>';
-      try{
-        const res=await fetch('https://api.anthropic.com/v1/messages',{
-          method:'POST',
-          headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-          body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:200,messages:[{role:'user',content:[
-            {type:'image',source:{type:'base64',media_type:'image/png',data:cropB64}},
-            {type:'text',text:'Cette image est un GROS PLAN sur un numéro de châssis (VIN). Lis les 17 caractères EXACTEMENT. Un VIN ne contient JAMAIS O, I ou Q (remplacer par 0, 1, 9). Réponds UNIQUEMENT les 17 caractères, rien d\'autre.'}
-          ]}]})
-        });
-        const d=await res.json();
-        const vin=(d.content[0].text||'').trim().replace(/[^A-Z0-9]/gi,'').toUpperCase();
-        if(vin.length===17){
-          document.getElementById('vf-vin').value=vin;
-          checkVfVin();
-          toast('VIN lu depuis le zoom : '+vin,'success');
-        } else {
-          toast('VIN lu ('+vin.length+' car.) : '+vin+' — vérifiez','info');
-          if(vin.length>0) document.getElementById('vf-vin').value=vin;
-          checkVfVin();
-        }
-      }catch(e){toast('Erreur : '+e.message,'error');}
-      modal.remove();
-    };
-    srcImg.src='data:'+mime+';base64,'+b64;
-  };
-};
 
 function compressImage(file,maxW=2000,minW=1200){
   return new Promise(resolve=>{
@@ -1121,7 +1035,6 @@ function showVerifyPopup(d){
       <div style="display:flex;gap:6px;align-items:center;">
         <input id="vf-vin" value="${vin.replace(/"/g,'&quot;')}" maxlength="17" style="font-size:15px;font-weight:700;letter-spacing:1.5px;flex:1;${vinWarn?'border-color:var(--warn);background:#2a1f0d;':'border-color:#00c89640;'}" oninput="checkVfVin()">
         <button type="button" onclick="pasteVin()" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:11px;white-space:nowrap;" title="Coller depuis le presse-papier">📋 Coller</button>
-        <button type="button" onclick="manualVinCrop()" style="padding:5px 10px;border-radius:6px;border:1px solid var(--accent);background:var(--bg);color:var(--accent);cursor:pointer;font-size:11px;white-space:nowrap;" title="Dessiner un rectangle autour du VIN">🔍 Recadrer</button>
       </div>
     </div>
     <div class="verify-field"><label></label><span id="vf-vin-warn" class="warn" style="${(vinWarn||vinCorrected)?'':'display:none;'}">⚠ Le VIN est souvent mal lu par l'OCR — vérifiez chaque caractère. ${vinWarn}</span></div>
