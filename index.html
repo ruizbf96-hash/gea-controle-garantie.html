@@ -727,7 +727,7 @@ window.confirmCapture=function(){
   }
 };
 
-function compressImage(file,maxW=1800,minW=1300){
+function compressImage(file,maxW=2000,minW=1700){
   return new Promise(resolve=>{
     const r=new FileReader();
     r.onload=e=>{
