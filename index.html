@@ -222,6 +222,8 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
       <a href="tuto.html">Mode d'emploi</a>
     </nav>
     <div style="display:flex;align-items:center;gap:8px;">
+      <span id="queue-badge" onclick="" style="display:none;cursor:pointer;font-size:11px;color:#a07000;background:#f5ecd0;padding:4px 10px;border-radius:20px;" title="Cliquer pour synchroniser maintenant"></span>
+      <span id="draft-indicator" style="font-size:11px;color:var(--accent);opacity:0;transition:opacity .3s;">✓ Brouillon sauvegardé</span>
       <span id="daily-count" style="font-size:11px;color:var(--text3);padding:4px 10px;background:var(--bg3);border-radius:20px;">—</span>
       <span id="api-status" onclick="configureApiKey()" style="font-size:10px;cursor:pointer;padding:4px 8px;border-radius:12px;" title="Cliquer pour configurer la clé API"></span>
       <div class="user-badge"><div class="user-dot"></div><span id="current-user-name">—</span></div>
@@ -362,6 +364,10 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             </select>
           </div>
           <div class="field">
+            <label>Code dommage</label>
+            <input type="text" id="f-codedommage" placeholder="ex: 69R7, 93OE..." style="font-family:'IBM Plex Mono',monospace;text-transform:uppercase;">
+          </div>
+          <div class="field">
             <label>Montant total (€) — auto</label>
             <input type="text" id="f-montant" readonly style="background:var(--bg2);color:var(--accent);font-weight:600;">
           </div>
@@ -454,10 +460,13 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
         </div>
 
         <div class="form-actions">
-          <button class="btn primary" onclick="saveDossier()">💾 Enregistrer</button>
-          <button class="btn pdf" onclick="generatePDF()">📄 Générer PDF</button>
+          <button class="btn primary" id="btn-save" onclick="saveDossier()" title="Ctrl+S">💾 Enregistrer</button>
+          <button class="btn" onclick="printPDF()" style="background:#1a3a5a;color:#7ec8e3;border-color:#7ec8e340;" title="Imprimer">🖨 Imprimer</button>
+          <button class="btn pdf" onclick="savePDF()" title="Ctrl+P">💾 Sauvegarder PDF</button>
+          <button class="btn" onclick="nextDossier()" style="background:#0d3a2a;color:#5ee8b0;border-color:#5ee8b040;" title="Nouveau dossier">➕ Dossier suivant</button>
           <button class="btn" onclick="resetForm()">Réinitialiser</button>
         </div>
+        <div style="font-size:10px;color:var(--text3);text-align:center;margin-top:6px;">Raccourcis : Ctrl+S enregistrer · Ctrl+P PDF · Échap fermer</div>
       </div>
     </div>
 
@@ -477,6 +486,8 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
     <div class="panel">
       <div class="panel-head"><h2>Dossiers de contrôle</h2><span id="list-count" style="font-size:11px;color:var(--text3);"></span></div>
       <div class="panel-body">
+        <!-- Stats personnelles -->
+        <div id="my-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;"></div>
         <div class="toolbar">
           <select id="lf-site" onchange="renderList()">
             <option value="">Tous les sites</option>
@@ -497,7 +508,22 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <option value="incomplet">Incomplets</option>
             <option value="nonfact">Non facturable</option>
           </select>
-          <input type="text" id="lf-search" placeholder="N°OR, châssis, CCS, modèle, date, conseiller..." oninput="renderList()" style="min-width:240px;">
+          <select id="lf-periode" onchange="renderList()">
+            <option value="">Toute période</option>
+            <option value="today">Aujourd'hui</option>
+            <option value="week">7 derniers jours</option>
+            <option value="month">30 derniers jours</option>
+          </select>
+          <select id="lf-author" onchange="renderList()">
+            <option value="">Tous les contrôleurs</option>
+            <option value="__me__">Mes dossiers</option>
+            <option value="Omar">Omar</option>
+            <option value="Nico">Nico</option>
+            <option value="Tahir">Tahir</option>
+            <option value="Marion">Marion</option>
+            <option value="Céline">Céline</option>
+          </select>
+          <input type="text" id="lf-search" placeholder="N°OR, châssis, CCS, modèle, date, conseiller..." oninput="renderList()" style="min-width:200px;">
           <button class="btn" onclick="exportCSV()" style="margin-left:auto;">↓ CSV</button>
         </div>
         <div style="overflow-x:auto;">
@@ -574,6 +600,7 @@ let _detailId=null;
 
 const USERS={'Omar':'1472','Nico':'3682','Tahir':'3694','Marion':'4715','Céline':'5826'};
 const SITE_SHORT={'VW_Illkirch':'VW Illkirch','VW_Bischheim':'VW Bischheim','Audi_Hoenheim':'Audi Hoenheim','Seat_Hoenheim':'SEAT Hoenheim','Skoda_Hoenheim':'Skoda Hoenheim','Audi_Obernai':'Audi Obernai','VW_Obernai':'VW Obernai'};
+const SITE_KVPS={'VW_Illkirch':'02153','VW_Bischheim':'02154','Audi_Hoenheim':'02155','Seat_Hoenheim':'63930','Skoda_Hoenheim':'02376','Audi_Obernai':'02486','VW_Obernai':'02485'};
 // Format date JJ/MM/AAAA (depuis AAAA-MM-JJ ou autre)
 function dateFR(s){if(!s||s==='—')return s||'—';const m=s.toString().match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:s;}
 const SITE_MAP={
@@ -629,6 +656,8 @@ function doLogin(user){
   setTimeout(checkDraft,300);
   updateConnDot();
   updateApiStatus();
+  updateQueueBadge();
+  setTimeout(syncQueue,2000); // tenter de synchroniser la file au démarrage
 }
 
 // Reconnexion auto si session valide
@@ -1274,6 +1303,7 @@ window.manualForm=function(){
   document.getElementById('f-site').value='';
   document.getElementById('f-service').value='';
   document.getElementById('f-typegar').value='';
+  document.getElementById('f-codedommage').value='';
   document.getElementById('f-relances').value='0';
   document.getElementById('f-defaut1').value='';
   document.getElementById('f-defaut2').value='';
@@ -1583,7 +1613,6 @@ let _saving=false;
 let _editingDossierId=null; // id Firebase si on édite un dossier existant
 
 window.saveDossier=function(){
-  if(!window._db){toast('Firebase non connecté','error');return;}
   if(_saving){return;} // anti double-clic
 
   // ── Validation champs obligatoires ──
@@ -1640,12 +1669,14 @@ window.saveDossier=function(){
     kilometrage:document.getElementById('f-km').value,
     tech1:document.getElementById('f-tech1').value,
     typegar:document.getElementById('f-typegar').value,
+    codedommage:document.getElementById('f-codedommage').value,
     montant:montantTotal>0?montantTotal.toFixed(2):'',
     delai:document.getElementById('f-delai').value,
     commentaires:document.getElementById('f-commentaires').value,
     date:document.getElementById('f-date').value,
     service:document.getElementById('f-service').value,
     typegar:document.getElementById('f-typegar').value,
+    codedommage:document.getElementById('f-codedommage').value,
     interventions:interventionsList,
     correspondant:document.getElementById('f-correspondant').value,
     relances:document.getElementById('f-relances').value,
@@ -1662,21 +1693,87 @@ window.saveDossier=function(){
     obj._modifiedTs=Date.now();
   }
 
-  window._set(window._ref(window._db,'controle_garantie/OR_'+norKey),obj)
-    .then(()=>{
-      toast(existant?'Dossier mis à jour ✓':'Dossier enregistré ✓','success');
-      clearDraft();
-      document.getElementById('step2-ind').className='step done';
-      document.getElementById('step3-ind').className='step active';
-      _saving=false;
-      if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='💾 Enregistrer';}
-    })
-    .catch(err=>{
-      toast('Erreur : '+err.message,'error');
-      _saving=false;
-      if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='💾 Enregistrer';}
-    });
+  const fbKey='controle_garantie/OR_'+norKey;
+  // Sauvegarde avec fallback file d'attente hors-ligne
+  saveWithQueue(fbKey,obj,existant);
 };
+
+// ── FILE D'ATTENTE HORS-LIGNE ──
+function getQueue(){try{return JSON.parse(localStorage.getItem('gea_sync_queue')||'[]');}catch(e){return[];}}
+function setQueue(q){localStorage.setItem('gea_sync_queue',JSON.stringify(q));updateQueueBadge();}
+
+function saveWithQueue(fbKey,obj,existant){
+  const btn=document.getElementById('btn-save');
+  const onOk=()=>{
+    toast(existant?'Dossier mis à jour ✓':'Dossier enregistré ✓','success');
+    clearDraft();
+    document.getElementById('step2-ind').className='step done';
+    document.getElementById('step3-ind').className='step active';
+    _saving=false;
+    if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='💾 Enregistrer';}
+  };
+  const onQueue=(reason)=>{
+    // Ajouter à la file d'attente locale
+    const q=getQueue();
+    q.push({fbKey,obj,ts:Date.now()});
+    setQueue(q);
+    toast('⚠ Hors-ligne — dossier sauvé localement, sync auto dès reconnexion','info');
+    clearDraft();
+    document.getElementById('step2-ind').className='step done';
+    document.getElementById('step3-ind').className='step active';
+    _saving=false;
+    if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='💾 Enregistrer';}
+    console.warn('Mise en file:',reason);
+  };
+
+  if(!window._db||!navigator.onLine){onQueue('pas de connexion');return;}
+
+  // Timeout de sécurité : si Firebase ne répond pas en 8s → file d'attente
+  let done=false;
+  const timer=setTimeout(()=>{if(!done){done=true;onQueue('timeout Firebase');}},8000);
+
+  window._set(window._ref(window._db,fbKey),obj)
+    .then(()=>{if(!done){done=true;clearTimeout(timer);onOk();}})
+    .catch(err=>{if(!done){done=true;clearTimeout(timer);onQueue(err.message);}});
+}
+
+// Synchroniser la file d'attente
+function syncQueue(){
+  if(!window._db||!navigator.onLine)return;
+  const q=getQueue();
+  if(!q.length)return;
+  let remaining=[...q];
+  const next=()=>{
+    if(!remaining.length){
+      setQueue([]);
+      toast(q.length+' dossier(s) synchronisé(s) ✓','success');
+      if(typeof renderList==='function')renderList();
+      return;
+    }
+    const item=remaining[0];
+    window._set(window._ref(window._db,item.fbKey),item.obj)
+      .then(()=>{remaining.shift();setQueue(remaining);next();})
+      .catch(()=>{/* on réessaiera plus tard */});
+  };
+  next();
+}
+
+function updateQueueBadge(){
+  const badge=document.getElementById('queue-badge');
+  if(!badge)return;
+  const n=getQueue().length;
+  if(n>0){
+    badge.style.display='inline-block';
+    badge.textContent='⏳ '+n+' en attente de sync';
+    badge.onclick=syncQueue;
+  } else {
+    badge.style.display='none';
+  }
+}
+
+// Sync auto quand la connexion revient
+window.addEventListener('online',()=>{toast('Connexion rétablie — synchronisation...','info');setTimeout(syncQueue,1000);});
+window.addEventListener('offline',()=>{toast('⚠ Connexion perdue — mode hors-ligne actif','info');});
 
 // ── PDF ──
 // ── ENREGISTRER PDF (boîte "Enregistrer sous") ──
@@ -1762,7 +1859,8 @@ window.generatePDF=async function(){
   };
 
   // Cadre fin autour de l'identification (hauteur adaptée au contenu)
-  const cardH=typegar?69:62;
+  const extraLines=(typegar?1:0)+((document.getElementById('f-codedommage').value||'').trim()?1:0);
+  const cardH=62+extraLines*7;
   doc.setDrawColor(220,225,232);doc.setLineWidth(0.3);
   doc.roundedRect(13,y-3,184,cardH,2,2,'S');
   y+=4;
@@ -1806,6 +1904,13 @@ window.generatePDF=async function(){
     doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);doc.text('Type de garantie :',18,y);
     doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,110,200);
     doc.text(typegar,70,y);y+=7;
+  }
+  // Code dommage en monospace
+  const codedommage=(document.getElementById('f-codedommage').value||'').trim().toUpperCase();
+  if(codedommage){
+    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);doc.text('Code dommage :',18,y);
+    doc.setFontSize(10);doc.setFont('courier','bold');doc.setTextColor(40,45,60);
+    doc.text(codedommage,70,y);y+=7;
   }
   y+=6;
 
@@ -1902,34 +2007,132 @@ window.generatePDF=async function(){
   doc.setFontSize(8);doc.setTextColor(150,155,170);doc.setFont('helvetica','italic');
   doc.text('Créé par '+(_currentUser||'—')+' · '+new Date().toLocaleString('fr-FR'),15,y);
 
-  // Nom fichier
-  const statutPdf=statutsActifs.length?statutsActifs[0].replace(/[^a-zA-Z0-9]/g,''):'Controle';
-  const pdfNom=`ControleGarantie_${(SITE_SHORT[site]||site).replace(/[^a-zA-Z0-9]/g,'')}_${nor}_${vin}_${statutPdf}.pdf`;
+  // Nom fichier : Controle_Garantie_KVPS_OR_chassis.pdf
+  const kvps=SITE_KVPS[site]||'00000';
+  const pdfNom=`Controle_Garantie_${kvps}_${nor}_${vin}.pdf`;
 
-  // Enregistrer sous (choix du dossier)
-  await savePdfAs(doc,pdfNom);
-
-  // Mailto UNIQUEMENT si dossier incomplet ou non facturable
-  if(_statuts.incomplet||_statuts.nonfact){
-    const commentaires=document.getElementById('f-commentaires').value||'';
-    const motif=_statuts.nonfact?'DOSSIER NON FACTURABLE':'DOSSIER INCOMPLET';
-    const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
-    const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUTS DE CONTRÔLE\n──────────────────────────────\n${statutsActifs.map(s=>'  • '+s).join('\n')}\n\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
-    // Laisser le temps au PDF de se télécharger avant d'ouvrir le mail
-    const mailtoUrl=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
-    setTimeout(()=>{
-      const a=document.createElement('a');
-      a.href=mailtoUrl;
-      a.style.display='none';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>a.remove(),500);
-    },1000);
-    toast('PDF enregistré — glissez-le dans l\'email qui s\'ouvre','info');
-  } else {
-    toast('PDF généré','success');
-  }
+  return {doc,pdfNom,site,nor,vin,modele,montant,delai,typegar,def1,def2,statutsActifs};
 };
+
+// Ouvrir le mailto si incomplet/non facturable
+function openMailtoIfNeeded(ctx){
+  if(!_statuts.incomplet&&!_statuts.nonfact)return;
+  const {pdfNom,site,nor,vin,modele,montant,delai,typegar,def1,def2,statutsActifs}=ctx;
+  const fmtDateSlash=dateFR;
+  const commentaires=document.getElementById('f-commentaires').value||'';
+  const motif=_statuts.nonfact?'DOSSIER NON FACTURABLE':'DOSSIER INCOMPLET';
+  const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
+  const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUTS DE CONTRÔLE\n──────────────────────────────\n${statutsActifs.map(s=>'  • '+s).join('\n')}\n\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
+  const mailtoUrl=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+  setTimeout(()=>{
+    const a=document.createElement('a');a.href=mailtoUrl;a.style.display='none';
+    document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500);
+  },1000);
+}
+
+// ── SAUVEGARDER PDF (choix du dossier) ──
+window.savePDF=async function(){
+  const ctx=await generatePDF();
+  if(!ctx)return;
+  await savePdfAs(ctx.doc,ctx.pdfNom);
+  openMailtoIfNeeded(ctx);
+  toast(_statuts.incomplet||_statuts.nonfact?'PDF enregistré — glissez-le dans l\'email':'PDF enregistré ✓','success');
+};
+
+// ── IMPRIMER PDF (ouvrir la fenêtre d'impression) ──
+window.printPDF=async function(){
+  const ctx=await generatePDF();
+  if(!ctx)return;
+  const blob=ctx.doc.output('blob');
+  const url=URL.createObjectURL(blob);
+  const win=window.open(url,'_blank');
+  if(win){
+    win.onload=()=>{
+      setTimeout(()=>{
+        win.focus();
+        win.print();
+      },400);
+    };
+  } else {
+    // Popup bloquée → fallback iframe caché
+    const iframe=document.createElement('iframe');
+    iframe.style.cssText='position:fixed;top:-9999px;width:0;height:0;';
+    iframe.src=url;
+    document.body.appendChild(iframe);
+    iframe.onload=()=>{
+      setTimeout(()=>{iframe.contentWindow.print();setTimeout(()=>iframe.remove(),2000);},400);
+    };
+  }
+  openMailtoIfNeeded(ctx);
+  toast('Impression en cours...','info');
+};
+
+// ── Alias pour generatePDFFromDetail ──
+window.printPDFFromDetail=async function(id){
+  const d=window._dossiers[id];
+  if(!d)return;
+  loadDossierIntoForm(d);
+  await printPDF();
+};
+
+// ── OPTION 3 : RACCOURCIS CLAVIER ──
+document.addEventListener('keydown',e=>{
+  if(!_currentUser)return;
+  const step2=document.getElementById('step2');
+  const inStep2=step2&&step2.style.display!=='none';
+  // Ctrl+S = Enregistrer
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){
+    e.preventDefault();
+    if(inStep2)saveDossier();
+  }
+  // Ctrl+P = PDF (sauvegarder)
+  if((e.ctrlKey||e.metaKey)&&e.key==='p'){
+    e.preventDefault();
+    if(inStep2)savePDF();
+  }
+  // Échap = fermer modal ouverte
+  if(e.key==='Escape'){
+    document.querySelectorAll('.modal-bg.open').forEach(m=>m.classList.remove('open'));
+  }
+  // Ctrl+Entrée dans la popup VIN = confirmer
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){
+    const vm=document.getElementById('ocr-verify-modal');
+    if(vm&&vm.classList.contains('open')){e.preventDefault();confirmOcrData();}
+  }
+});
+
+// Dossier suivant : enregistrer puis nouveau formulaire vierge
+window.nextDossier=function(){
+  resetForm();
+  _ocrData=null;_editingDossierId=null;
+  // Revenir à l'étape 1 (OCR)
+  document.getElementById('step1').style.display='block';
+  document.getElementById('step2').style.display='none';
+  document.getElementById('step3')&&(document.getElementById('step3').style.display='none');
+  document.getElementById('step1-ind').className='step active';
+  document.getElementById('step2-ind').className='step';
+  document.getElementById('step3-ind').className='step';
+  const ocrZone=document.getElementById('ocr-preview');if(ocrZone)ocrZone.style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast('Prêt pour un nouveau dossier','info');
+};
+
+// ── OPTION 3 : AUTO-COMPLÉTION CCS / MODÈLES déjà saisis ──
+function buildAutocomplete(){
+  const dossiers=Object.values(window._dossiers||{});
+  // CCS
+  const ccsList=[...new Set(dossiers.map(d=>d.ccs).filter(Boolean))].sort();
+  let dl=document.getElementById('ccs-list');
+  if(!dl){dl=document.createElement('datalist');dl.id='ccs-list';document.body.appendChild(dl);}
+  dl.innerHTML=ccsList.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">`).join('');
+  const ccsEl=document.getElementById('f-ccs');if(ccsEl)ccsEl.setAttribute('list','ccs-list');
+  // Modèles
+  const modList=[...new Set(dossiers.map(d=>d.modele).filter(Boolean))].sort();
+  let dl2=document.getElementById('modele-list');
+  if(!dl2){dl2=document.createElement('datalist');dl2.id='modele-list';document.body.appendChild(dl2);}
+  dl2.innerHTML=modList.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">`).join('');
+  const modEl=document.getElementById('f-modele');if(modEl)modEl.setAttribute('list','modele-list');
+}
 
 // ── RESET ──
 window.resetForm=function(){
@@ -1941,6 +2144,7 @@ window.resetForm=function(){
   document.getElementById('f-site').value='';
   document.getElementById('f-service').value='';
   document.getElementById('f-typegar').value='';
+  document.getElementById('f-codedommage').value='';
   document.getElementById('f-relances').value='0';
   document.getElementById('f-defaut1').value='';
   document.getElementById('f-defaut2').value='';
@@ -1969,14 +2173,58 @@ window.sortList=function(col){
   renderList();
 };
 
+// ── OPTION 2 : STATS PERSONNELLES (semaine en cours) ──
+function renderMyStats(){
+  const box=document.getElementById('my-stats');
+  if(!box||!_currentUser)return;
+  const all=Object.values(window._dossiers||{});
+  const weekAgo=Date.now()-7*864e5;
+  const mine=all.filter(d=>d._createdBy===_currentUser&&(d._ts||0)>=weekAgo);
+  const mineMontant=mine.reduce((s,d)=>s+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
+  const incomplets=mine.filter(d=>d.incomplet).length;
+  const nonfact=mine.filter(d=>d.nonfact).length;
+  const rattrap=mine.filter(d=>d.rattrapage);
+  const rattrapMontant=rattrap.reduce((s,d)=>s+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
+
+  const card=(label,val,color)=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;border-left:3px solid ${color};">
+    <div style="font-size:20px;font-weight:700;color:${color};">${val}</div>
+    <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;">${label}</div>
+  </div>`;
+
+  box.innerHTML=
+    card('Mes contrôles (7j)',mine.length,'#5b9bd5')+
+    card('Montant contrôlé',Math.round(mineMontant).toLocaleString('fr-FR')+' €','#00c896')+
+    card('Rattrapés',rattrap.length+' · '+Math.round(rattrapMontant).toLocaleString('fr-FR')+'€','#f5c842')+
+    card('Incomplets',incomplets,'#ffe066')+
+    card('Non facturables',nonfact,'#ff4d6a');
+}
+
 window.renderList=function(){
   const fSite=document.getElementById('lf-site')?.value||'';
   const fStat=document.getElementById('lf-statut')?.value||'';
   const fSearch=(document.getElementById('lf-search')?.value||'').toLowerCase();
+  const fPeriode=document.getElementById('lf-periode')?.value||'';
+  const fAuthor=document.getElementById('lf-author')?.value||'';
 
   let data=Object.values(window._dossiers);
   if(fSite) data=data.filter(d=>d.site===fSite);
   if(fStat) data=data.filter(d=>d[fStat]);
+  // Filtre période
+  if(fPeriode){
+    const now=Date.now();
+    const ranges={today:864e5,week:7*864e5,month:30*864e5};
+    if(fPeriode==='today'){
+      const t=new Date();t.setHours(0,0,0,0);
+      data=data.filter(d=>(d._ts||0)>=t.getTime());
+    } else {
+      data=data.filter(d=>(d._ts||0)>=now-ranges[fPeriode]);
+    }
+  }
+  // Filtre auteur
+  if(fAuthor){
+    const author=fAuthor==='__me__'?_currentUser:fAuthor;
+    data=data.filter(d=>d._createdBy===author);
+  }
   if(fSearch) data=data.filter(d=>
     (d.nor||'').toLowerCase().includes(fSearch)||
     (d.vin||'').toLowerCase().includes(fSearch)||
@@ -2005,6 +2253,8 @@ window.renderList=function(){
   document.getElementById('kl-rattrap').textContent=data.filter(d=>d.rattrapage).length;
   document.getElementById('list-count').textContent=data.length+' dossiers';
   updateDailyCount();
+  buildAutocomplete();
+  renderMyStats();
   updateConnDot();
 
   const tbody=document.getElementById('list-tbody');
@@ -2046,6 +2296,7 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">CCS</div><div class="detail-val">${d.ccs||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Montant</div><div class="detail-val">${d.montant||'—'} €</div></div>
     ${d.typegar?`<div class="detail-row"><div class="detail-label">Type garantie</div><div class="detail-val" style="color:#0a6ec8;font-weight:600;">${d.typegar}</div></div>`:''}
+    ${d.codedommage?`<div class="detail-row"><div class="detail-label">Code dommage</div><div class="detail-val" style="font-family:'IBM Plex Mono',monospace;font-weight:600;">${d.codedommage}</div></div>`:''}
     <div class="detail-row"><div class="detail-label">Interventions</div><div class="detail-val">${(Array.isArray(d.interventions)&&d.interventions.length)?d.interventions.map(iv=>{const fl={possible:'Facturation possible',nonfacturable:'Non facturable',cession:'Cession'};const fc={possible:'#00c896',nonfacturable:'#ff4d6a',cession:'#f5a623'};return `<div style="margin-bottom:8px;"><strong style="color:var(--accent2);">${iv.letter||'•'}.</strong> ${iv.plainte||''}${iv.piece?' — '+iv.piece:''}${iv.montant?' ('+iv.montant+' €)':''}${iv.factu?` <span class="sbadge" style="background:${fc[iv.factu]}20;color:${fc[iv.factu]};border:1px solid ${fc[iv.factu]}40;">${fl[iv.factu]}</span>`:''}</div>`;}).join(''):(d.intervention||d.plainte||'—')}</div></div>
     <div class="detail-row"><div class="detail-label">Statuts actifs</div><div class="detail-val">${statActifs.length?statActifs.map(([k,l])=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;margin:2px;">${l}</span>`).join(''):'Aucun'}</div></div>
     <div class="detail-row"><div class="detail-label">Défaut 1</div><div class="detail-val">${d.defaut1||'—'}</div></div>
@@ -2058,7 +2309,8 @@ window.showDetail=function(id){
   `;
   document.getElementById('detail-foot').innerHTML=`
     <button class="btn primary" onclick="editFromDetail('${id}')">✏ Modifier</button>
-    <button class="btn pdf" onclick="generatePDFFromDetail('${id}')">📄 PDF</button>
+    <button class="btn" onclick="printPDFFromDetail('${id}')" style="background:#1a3a5a;color:#7ec8e3;border-color:#7ec8e340;">🖨 Imprimer</button>
+    <button class="btn pdf" onclick="generatePDFFromDetail('${id}')">💾 PDF</button>
     <button class="btn" onclick="deleteDetail('${id}')" style="color:var(--danger);border-color:var(--danger)40;">Supprimer</button>
     <button class="btn" onclick="closeDetail()">Fermer</button>
   `;
@@ -2084,7 +2336,7 @@ window.editFromDetail=function(id){
   setV('f-km',d.kilometrage); setV('f-ccs',d.ccs); setV('f-tech1',d.tech1);
   setV('f-date',d.date); setV('f-site',d.site);
   setV('f-service',d.service); setV('f-correspondant',d.correspondant);
-  setV('f-typegar',d.typegar); setV('f-delai',d.delai);
+  setV('f-typegar',d.typegar); setV('f-codedommage',d.codedommage); setV('f-delai',d.delai);
   setV('f-commentaires',d.commentaires);
   // Interventions
   clearInterventions();
@@ -2116,10 +2368,8 @@ window.deleteDetail=function(id){
   closeDetail();toast('Supprimé','info');
 };
 
-window.generatePDFFromDetail=async function(id){
-  const d=window._dossiers[id];
-  if(!d)return;
-  // Remplir les champs temporairement pour réutiliser generatePDF
+// Charger un dossier dans le formulaire (pour PDF/impression depuis le détail)
+function loadDossierIntoForm(d){
   document.getElementById('f-nor').value=d.nor||'';
   document.getElementById('f-vin').value=d.vin||'';
   document.getElementById('f-site').value=d.site||'';
@@ -2128,8 +2378,8 @@ window.generatePDFFromDetail=async function(id){
   document.getElementById('f-modele').value=d.modele||'';
   document.getElementById('f-delai').value=d.delai||'';
   document.getElementById('f-typegar').value=d.typegar||'';
+  document.getElementById('f-codedommage').value=d.codedommage||'';
   document.getElementById('f-commentaires').value=d.commentaires||'';
-  // Interventions
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
     d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||'',iv.factu||''));
@@ -2139,7 +2389,13 @@ window.generatePDFFromDetail=async function(id){
   document.getElementById('f-defaut1').value=d.defaut1||'';
   document.getElementById('f-defaut2').value=d.defaut2||'';
   Object.keys(_statuts).forEach(k=>{_statuts[k]=!!d[k];});
-  await generatePDF();
+}
+
+window.generatePDFFromDetail=async function(id){
+  const d=window._dossiers[id];
+  if(!d)return;
+  loadDossierIntoForm(d);
+  await savePDF();
 };
 
 // ── EXPORT CSV ──
@@ -2195,7 +2451,7 @@ let _draftTimer=null;
 function collectFormState(){
   return {
     nor:val('f-nor'),site:val('f-site'),vin:val('f-vin'),modele:val('f-modele'),
-    km:val('f-km'),ccs:val('f-ccs'),tech1:val('f-tech1'),typegar:val('f-typegar'),date:val('f-date'),
+    km:val('f-km'),ccs:val('f-ccs'),tech1:val('f-tech1'),typegar:val('f-typegar'),codedommage:val('f-codedommage'),date:val('f-date'),
     service:val('f-service'),correspondant:val('f-correspondant'),relances:val('f-relances'),
     defaut1:val('f-defaut1'),defaut2:val('f-defaut2'),heures:val('f-heures'),
     delai:val('f-delai'),commentaires:val('f-commentaires'),
@@ -2236,7 +2492,7 @@ function checkDraft(){
 function restoreDraft(d){
   const setV=(id,v)=>{const e=document.getElementById(id);if(e&&v){e.value=v;e.classList.add('filled');}};
   setV('f-nor',d.nor);setV('f-site',d.site);setV('f-vin',d.vin);setV('f-modele',d.modele);
-  setV('f-km',d.km);setV('f-ccs',d.ccs);setV('f-tech1',d.tech1);setV('f-typegar',d.typegar);setV('f-date',d.date);
+  setV('f-km',d.km);setV('f-ccs',d.ccs);setV('f-tech1',d.tech1);setV('f-typegar',d.typegar);setV('f-codedommage',d.codedommage);setV('f-date',d.date);
   setV('f-service',d.service);setV('f-correspondant',d.correspondant);setV('f-relances',d.relances);
   setV('f-defaut1',d.defaut1);setV('f-defaut2',d.defaut2);setV('f-heures',d.heures);
   setV('f-delai',d.delai);setV('f-commentaires',d.commentaires);
