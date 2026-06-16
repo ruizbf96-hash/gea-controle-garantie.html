@@ -253,11 +253,18 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <button onclick="startCapture()" class="btn" style="margin-left:auto;background:#1e1535;color:#a78bfa;border-color:#a78bfa50;">📸 Capturer la fenêtre</button>
         </div>
         <div class="ocr-zone" id="ocr-zone">
-          <input type="file" id="ocr-file" accept="image/*" onchange="handleOcrFile(this.files[0])">
+          <input type="file" id="ocr-file" accept="image/*" multiple onchange="handleOcrFiles(this.files)">
           <div class="ocr-icon">📸</div>
-          <p><strong>📸 Capturer la fenêtre</strong> (sélecteur), <strong>Cliquer</strong>, glisser ou <strong>Ctrl+V</strong><br>Sélectionne la fenêtre DCSnet ou SAGA</p>
+          <p><strong>📸 Capturer la fenêtre</strong> (sélecteur), <strong>Cliquer</strong>, glisser ou <strong>Ctrl+V</strong><br>Sélectionne la fenêtre DCSnet ou SAGA<br><span style="font-size:11px;color:var(--accent);">Astuce : ajoute plusieurs captures si l'OR est long (interventions/pièces sur plusieurs écrans)</span></p>
         </div>
-        <img id="ocr-preview" class="preview-img" src="" alt="">
+        <!-- Galerie des captures ajoutées -->
+        <div id="ocr-gallery" style="display:none;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
+        <div id="ocr-multi-actions" style="display:none;gap:8px;margin-top:10px;align-items:center;">
+          <button class="btn" onclick="document.getElementById('ocr-file').click()" style="background:#0d3a2a;color:#5ee8b0;border-color:#5ee8b040;">➕ Ajouter une capture</button>
+          <button class="btn primary" onclick="analyzeAllCaptures()">🔍 Analyser <span id="capture-count">0</span> capture(s)</button>
+          <button class="btn" onclick="clearCaptures()">🗑 Vider</button>
+        </div>
+        <img id="ocr-preview" class="preview-img" src="" alt="" style="display:none;">
         <div class="ocr-status" id="ocr-status"></div>
         <button class="btn-create" id="btn-create" onclick="goToStep2()">
           ✓ Créer le formulaire →
@@ -924,117 +931,126 @@ function compressImage(file,maxW=2000,minW=1200){
   });
 }
 
-window.handleOcrFile=async function(file){
-  if(!file)return;
+// ── MULTI-CAPTURES ──
+window._ocrImages=[]; // {b64, mime, dataUrl}
+
+window.handleOcrFiles=async function(files){
+  if(!files||!files.length)return;
   let key=getApiKey();
   if(!key){
     const k=prompt('Clé API Anthropic non configurée.\nEntrez votre clé (sk-ant-...) :');
     if(k&&k.startsWith('sk-ant')){localStorage.setItem('gea_anthropic_key',k);key=k;updateApiStatus();}
     else{toast('Clé API requise pour l\'OCR — cliquez sur "⚠ Clé API" en haut','error');return;}
   }
-  // Aperçu
-  const prev=document.getElementById('ocr-preview');
-  prev.src=URL.createObjectURL(file);prev.style.display='block';
+  for(const file of files){
+    const {b64,mime}=await compressImage(file);
+    _ocrImages.push({b64,mime,dataUrl:'data:'+mime+';base64,'+b64});
+  }
+  renderGallery();
+  document.getElementById('ocr-file').value=''; // permettre de re-sélectionner
+};
+
+// Compat : ancien appel single-file (drag/paste)
+window.handleOcrFile=function(file){if(file)handleOcrFiles([file]);};
+
+function renderGallery(){
+  const g=document.getElementById('ocr-gallery');
+  const actions=document.getElementById('ocr-multi-actions');
+  if(!_ocrImages.length){
+    g.style.display='none';actions.style.display='none';return;
+  }
+  g.style.display='flex';actions.style.display='flex';
+  document.getElementById('capture-count').textContent=_ocrImages.length;
+  g.innerHTML=_ocrImages.map((img,i)=>`
+    <div style="position:relative;border:2px solid var(--border);border-radius:8px;overflow:hidden;width:120px;">
+      <img src="${img.dataUrl}" style="width:120px;height:80px;object-fit:cover;display:block;">
+      <div style="position:absolute;top:2px;left:4px;background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;">${i+1}</div>
+      <button onclick="removeCapture(${i})" style="position:absolute;top:2px;right:2px;background:rgba(220,40,60,.9);color:#fff;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:11px;line-height:1;">×</button>
+    </div>
+  `).join('');
+}
+
+window.removeCapture=function(i){_ocrImages.splice(i,1);renderGallery();};
+window.clearCaptures=function(){_ocrImages=[];renderGallery();document.getElementById('ocr-status').textContent='';};
+
+// ── ANALYSE DE TOUTES LES CAPTURES ENSEMBLE ──
+window.analyzeAllCaptures=async function(){
+  if(!_ocrImages.length){toast('Ajoutez au moins une capture','error');return;}
+  const apiKey=getApiKey();
+  if(!apiKey){toast('Clé API requise','error');return;}
+
   const status=document.getElementById('ocr-status');
   status.className='ocr-status loading';
-  status.innerHTML='<div class="spinner"></div> Analyse en cours...';
+  status.innerHTML='<div class="spinner"></div> Analyse de '+_ocrImages.length+' capture(s)...';
 
   try{
-    const {b64,mime}=await compressImage(file);
-    const apiKey=getApiKey();
-    const prompt=_currentSource==='dcsnet'?PROMPT_DCS:(_currentSource==='or'?PROMPT_OR:PROMPT_SAGA);
+    const basePrompt=_currentSource==='dcsnet'?PROMPT_DCS:(_currentSource==='or'?PROMPT_OR:PROMPT_SAGA);
+    // Instruction multi-images
+    const multiNote=_ocrImages.length>1?`\n\n⚠ IMPORTANT : Il y a ${_ocrImages.length} captures qui sont les PARTIES SUCCESSIVES d'un MÊME document défilé (scroll). 
+- Les informations d'en-tête (site, N°OR, VIN, CCS) sont identiques sur toutes — extrais-les une seule fois.
+- Les INTERVENTIONS (A, B, C...) et leurs lignes de pièces peuvent être réparties sur plusieurs captures. RASSEMBLE toutes les lignes d'une même intervention (même lettre A/B/C) même si elles apparaissent sur des captures différentes.
+- Une intervention peut commencer sur une capture et continuer sur la suivante : fusionne-la en UNE SEULE intervention.
+- Additionne les montants de TOUTES les pièces de chaque intervention.\n`:'';
+
+    // Construire le contenu : toutes les images puis le prompt
+    const content=_ocrImages.map(img=>({type:'image',source:{type:'base64',media_type:img.mime,data:img.b64}}));
+    content.push({type:'text',text:basePrompt+multiNote});
+
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1500,messages:[{role:'user',content:[
-        {type:'image',source:{type:'base64',media_type:mime,data:b64}},
-        {type:'text',text:prompt}
-      ]}]})
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:2500,messages:[{role:'user',content}]})
     });
     const data=await res.json();
     if(data.error)throw new Error(data.error.message);
     let txt=data.content[0].text.trim().replace(/```json|```/g,'').trim();
-    const match=txt.match(/\{[\s\S]*\}/);
-    if(!match)throw new Error('Pas de JSON');
-    _ocrData=JSON.parse(match[0]);
+    const m=txt.match(/\{[\s\S]*\}/);
+    if(!m)throw new Error('Pas de JSON');
+    _ocrData=JSON.parse(m[0]);
 
-    // ── VÉRIFICATION AVANCÉE DU VIN (crop+zoom ×4, lecture char-by-char, consensus) ──
+    // Vérification VIN sur la 1re image (en-tête)
+    const first=_ocrImages[0];
+    window._lastOcrB64=first.b64; window._lastOcrMime=first.mime;
     if(_ocrData.vin&&_ocrData.vin.length>=10){
-      status.innerHTML='<div class="spinner"></div> Zoom ×4 + vérification du VIN caractère par caractère...';
+      status.innerHTML='<div class="spinner"></div> Vérification du VIN (zoom ×4)...';
       try{
-        const vinCropB64=await cropAndZoomVIN(b64,mime);
+        const vinCropB64=await cropAndZoomVIN(first.b64,first.mime);
         const vin1=_ocrData.vin.toUpperCase();
-
-        // 2e lecture : caractère par caractère sur l'image zoomée, température 0
         const vinCheck=await fetch('https://api.anthropic.com/v1/messages',{
           method:'POST',
           headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
           body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:300,temperature:0,messages:[{role:'user',content:[
             {type:'image',source:{type:'base64',media_type:'image/png',data:vinCropB64}},
-            {type:'text',text:`TÂCHE CRITIQUE : lire le numéro de châssis (VIN) dans cette image zoomée.
-Le VIN est le code de 17 caractères affiché après le mot "Châssis" ou "VIN".
-
-Lis CHAQUE caractère UN PAR UN, de gauche à droite. Numérote chaque position.
-Réponds EXACTEMENT dans ce format (17 lignes) :
+            {type:'text',text:`TÂCHE : lire le numéro de châssis (VIN) dans cette image zoomée (17 caractères après "Châssis" ou "VIN").
+Lis CHAQUE caractère un par un. Format exact (17 lignes) :
 1:X
 2:X
-3:X
 ...
 17:X
-
-RÈGLES ABSOLUES :
-- Un VIN ne contient JAMAIS les lettres O, I ou Q
-- Si le caractère ressemble à O → c'est 0 (zéro)
-- Si le caractère ressemble à I → c'est 1 (un)
-- Si le caractère ressemble à Q → c'est 9 (neuf)
-- Attention : 8↔B, 5↔S, 2↔Z, D↔0, U↔V, W↔VV
-- Préfixes connus : WVW, WV1, WV2, WAU, TMB, VSS, TRU, 3VW
-
-Rien d'autre que les 17 lignes numérotées.`}
+RÈGLES : un VIN ne contient JAMAIS O, I, Q (→ 0, 1, 9). Attention 8↔B, 5↔S, 2↔Z, D↔0, W↔VV. Préfixes : WVW,WV1,WV2,WAU,TMB,VSS,TRU,3VW.
+Rien d'autre que les 17 lignes.`}
           ]}]})
         });
         const vinData=await vinCheck.json();
         if(!vinData.error){
-          const txt=(vinData.content[0].text||'');
-          // Parser la réponse structurée "1:X\n2:X\n..."
+          const vtxt=(vinData.content[0].text||'');
           const chars={};
-          txt.split('\n').forEach(line=>{
-            const m=line.trim().match(/^(\d{1,2})\s*[:=\-–]\s*([A-Z0-9])/i);
-            if(m) chars[parseInt(m[1])]=m[2].toUpperCase();
-          });
-          // Construire le VIN depuis la lecture structurée
-          let vin2='';
-          for(let i=1;i<=17;i++) vin2+=(chars[i]||'?');
-
-          // Si la lecture structurée a 17 chars valides, faire le consensus
+          vtxt.split('\n').forEach(line=>{const mm=line.trim().match(/^(\d{1,2})\s*[:=\-–]\s*([A-Z0-9])/i);if(mm)chars[parseInt(mm[1])]=mm[2].toUpperCase();});
+          let vin2='';for(let i=1;i<=17;i++)vin2+=(chars[i]||'?');
           if(vin2.length===17&&!vin2.includes('?')){
             const final=vinConsensus(vin1,vin2);
-            console.log('VIN lecture 1: '+vin1);
-            console.log('VIN lecture 2: '+vin2);
-            console.log('VIN consensus: '+final);
-            if(final!==vin1){
-              _ocrData.vin_original=vin1;
-              _ocrData.vin_read2=vin2;
-              _ocrData.vin=final;
-            }
-          } else {
-            // Fallback : prendre la lecture brute nettoyée
-            const brut=txt.replace(/[^A-Z0-9]/gi,'').toUpperCase();
-            if(brut.length===17&&brut!==vin1){
-              _ocrData.vin_original=vin1;
-              _ocrData.vin=brut;
-            }
+            if(final!==vin1){_ocrData.vin_original=vin1;_ocrData.vin_read2=vin2;_ocrData.vin=final;}
           }
         }
-      }catch(vinErr){console.warn('Vérification VIN échouée (non bloquant):',vinErr);}
+      }catch(e){console.warn('VIN check:',e);}
     }
-    window._lastOcrB64=b64; window._lastOcrMime=mime;
 
+    const nbInterv=Array.isArray(_ocrData.interventions)?_ocrData.interventions.length:0;
     status.className='ocr-status success';
-    const vinMsg=_ocrData.vin_original?' (VIN corrigé ✓)':'';
-    status.textContent='✓ Extraction réussie — '+Object.keys(_ocrData).filter(k=>_ocrData[k]&&!k.startsWith('_')).length+' champs extraits'+vinMsg;
+    const vinMsg=_ocrData.vin_original?' · VIN corrigé ✓':'';
+    status.textContent=`✓ Extraction réussie — ${nbInterv} intervention(s)${vinMsg}`;
     document.getElementById('btn-create').style.display='block';
-    toast('Extraction réussie','success');
+    toast('Extraction réussie ('+_ocrImages.length+' capture(s))','success');
   }catch(err){
     status.className='ocr-status error';
     status.textContent='Erreur : '+err.message;
@@ -2105,6 +2121,8 @@ document.addEventListener('keydown',e=>{
 window.nextDossier=function(){
   resetForm();
   _ocrData=null;_editingDossierId=null;
+  if(typeof clearCaptures==='function')clearCaptures();
+  document.getElementById('btn-create').style.display='none';
   // Revenir à l'étape 1 (OCR)
   document.getElementById('step1').style.display='block';
   document.getElementById('step2').style.display='none';
