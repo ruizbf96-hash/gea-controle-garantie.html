@@ -562,6 +562,9 @@ onValue(ref(db,'controle_garantie'), snap => {
 <script>
 window._dossiers={};
 let _currentUser=null;
+// ══ CLÉ API ANTHROPIC (coller votre clé ici pour ne plus jamais la saisir) ══
+const API_KEY_HARDCODED=''; // ← Collez votre clé ici entre les quotes : 'sk-ant-api03-...'
+function getApiKey(){return API_KEY_HARDCODED||localStorage.getItem('gea_anthropic_key')||'';}
 let _selectedUser=null;
 let _selectedPin=null;
 let _ocrData={};
@@ -894,7 +897,7 @@ function compressImage(file,maxW=2000,minW=1200){
 
 window.handleOcrFile=async function(file){
   if(!file)return;
-  let key=localStorage.getItem('gea_anthropic_key');
+  let key=getApiKey();
   if(!key){
     const k=prompt('Clé API Anthropic non configurée.\nEntrez votre clé (sk-ant-...) :');
     if(k&&k.startsWith('sk-ant')){localStorage.setItem('gea_anthropic_key',k);key=k;updateApiStatus();}
@@ -909,7 +912,7 @@ window.handleOcrFile=async function(file){
 
   try{
     const {b64,mime}=await compressImage(file);
-    const apiKey=localStorage.getItem('gea_anthropic_key');
+    const apiKey=getApiKey();
     const prompt=_currentSource==='dcsnet'?PROMPT_DCS:(_currentSource==='or'?PROMPT_OR:PROMPT_SAGA);
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -2154,7 +2157,7 @@ window.exportCSV=function(){
 
 // ── CLÉ API ANTHROPIC ──
 window.configureApiKey=function(){
-  const current=localStorage.getItem('gea_anthropic_key');
+  const current=getApiKey();
   const msg=current
     ?`Clé API configurée (${current.slice(0,12)}...).\n\nEntrez une nouvelle clé pour la changer, ou annulez :`
     :'Entrez votre clé API Anthropic (sk-ant-...) :';
@@ -2175,7 +2178,7 @@ window.configureApiKey=function(){
 function updateApiStatus(){
   const el=document.getElementById('api-status');
   if(!el)return;
-  const key=localStorage.getItem('gea_anthropic_key');
+  const key=getApiKey();
   if(key){
     el.textContent='🔑 API OK';
     el.style.background='var(--bg3)';el.style.color='var(--accent)';
