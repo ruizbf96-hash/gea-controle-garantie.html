@@ -260,7 +260,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
         <!-- Galerie des captures ajoutées -->
         <div id="ocr-gallery" style="display:none;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
         <div id="ocr-multi-actions" style="display:none;gap:8px;margin-top:10px;align-items:center;">
-          <button class="btn" onclick="document.getElementById('ocr-file').click()" style="background:#0d3a2a;color:#5ee8b0;border-color:#5ee8b040;">➕ Ajouter une capture</button>
+          <button class="btn" onclick="startCapture()" style="background:#1e1535;color:#a78bfa;border-color:#a78bfa50;">➕ Ajouter une capture</button>
           <button class="btn primary" onclick="analyzeAllCaptures()">🔍 Analyser <span id="capture-count">0</span> capture(s)</button>
           <button class="btn" onclick="clearCaptures()">🗑 Vider</button>
         </div>
@@ -589,15 +589,20 @@ onValue(ref(db,'controle_garantie'), snap => {
     if(typeof window.renderList==='function') window.renderList();
   },50);
 },{onlyOnce:false});
+// Clé API partagée (configurée par Omar, lue par tous)
+onValue(ref(db,'config/anthropic_key'), snap => {
+  window._sharedApiKey=snap.val()||'';
+  if(typeof window.updateApiStatus==='function') window.updateApiStatus();
+},{onlyOnce:false});
 </script>
 
 <!-- ══ SCRIPT ══ -->
 <script>
 window._dossiers={};
 let _currentUser=null;
-// ══ CLÉ API ANTHROPIC (coller votre clé ici pour ne plus jamais la saisir) ══
-const API_KEY_HARDCODED=''; // ← Collez votre clé ici entre les quotes : 'sk-ant-api03-...'
-function getApiKey(){return API_KEY_HARDCODED||localStorage.getItem('gea_anthropic_key')||'';}
+window._sharedApiKey=''; // clé partagée depuis Firebase
+// Priorité : clé hardcodée → clé partagée Firebase → localStorage local
+function getApiKey(){return (window._sharedApiKey||'')||localStorage.getItem('gea_anthropic_key')||'';}
 let _selectedUser=null;
 let _selectedPin=null;
 let _ocrData={};
@@ -936,12 +941,6 @@ window._ocrImages=[]; // {b64, mime, dataUrl}
 
 window.handleOcrFiles=async function(files){
   if(!files||!files.length)return;
-  let key=getApiKey();
-  if(!key){
-    const k=prompt('Clé API Anthropic non configurée.\nEntrez votre clé (sk-ant-...) :');
-    if(k&&k.startsWith('sk-ant')){localStorage.setItem('gea_anthropic_key',k);key=k;updateApiStatus();}
-    else{toast('Clé API requise pour l\'OCR — cliquez sur "⚠ Clé API" en haut','error');return;}
-  }
   for(const file of files){
     const {b64,mime}=await compressImage(file);
     _ocrImages.push({b64,mime,dataUrl:'data:'+mime+';base64,'+b64});
@@ -951,6 +950,27 @@ window.handleOcrFiles=async function(files){
 };
 
 // Compat : ancien appel single-file (drag/paste)
+// Réduire une image pour le mode multi-capture (tenir sous la limite API)
+function reduceForMulti(b64,mime){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=1500;
+      const scale=Math.min(1,maxW/img.width);
+      const cv=document.createElement('canvas');
+      cv.width=Math.round(img.width*scale);
+      cv.height=Math.round(img.height*scale);
+      const ctx=cv.getContext('2d');
+      ctx.fillStyle='#ffffff';ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+      ctx.drawImage(img,0,0,cv.width,cv.height);
+      // JPEG qualité 0.88 pour réduire le poids (texte reste lisible)
+      resolve({b64:cv.toDataURL('image/jpeg',0.88).split(',')[1],mime:'image/jpeg'});
+    };
+    img.src='data:'+mime+';base64,'+b64;
+  });
+}
+
 window.handleOcrFile=function(file){if(file)handleOcrFiles([file]);};
 
 function renderGallery(){
@@ -977,7 +997,7 @@ window.clearCaptures=function(){_ocrImages=[];renderGallery();document.getElemen
 window.analyzeAllCaptures=async function(){
   if(!_ocrImages.length){toast('Ajoutez au moins une capture','error');return;}
   const apiKey=getApiKey();
-  if(!apiKey){toast('Clé API requise','error');return;}
+  if(!apiKey){toast(_currentUser==='Omar'?'Configurez la clé API (badge ⚠ en haut)':'Clé API non configurée — demandez à Omar','error');return;}
 
   const status=document.getElementById('ocr-status');
   status.className='ocr-status loading';
@@ -985,17 +1005,33 @@ window.analyzeAllCaptures=async function(){
 
   try{
     const basePrompt=_currentSource==='dcsnet'?PROMPT_DCS:(_currentSource==='or'?PROMPT_OR:PROMPT_SAGA);
+    const multi=_ocrImages.length>1;
     // Instruction multi-images
-    const multiNote=_ocrImages.length>1?`\n\n⚠ IMPORTANT : Il y a ${_ocrImages.length} captures qui sont les PARTIES SUCCESSIVES d'un MÊME document défilé (scroll). 
-- Les informations d'en-tête (site, N°OR, VIN, CCS) sont identiques sur toutes — extrais-les une seule fois.
-- Les INTERVENTIONS (A, B, C...) et leurs lignes de pièces peuvent être réparties sur plusieurs captures. RASSEMBLE toutes les lignes d'une même intervention (même lettre A/B/C) même si elles apparaissent sur des captures différentes.
-- Une intervention peut commencer sur une capture et continuer sur la suivante : fusionne-la en UNE SEULE intervention.
-- Additionne les montants de TOUTES les pièces de chaque intervention.\n`:'';
+    const multiNote=multi?`\n\n⚠ TRÈS IMPORTANT — LECTURE DE ${_ocrImages.length} IMAGES :
+Ces ${_ocrImages.length} images sont les PARTIES SUCCESSIVES d'un MÊME écran défilé (scroll vertical), dans l'ordre (image 1 = haut, image ${_ocrImages.length} = bas).
+- TU DOIS examiner et lire TOUTES les ${_ocrImages.length} images, pas seulement la première.
+- L'en-tête (site, N°OR, VIN, CCS, modèle) n'apparaît que sur l'image 1 — extrais-le de là.
+- Les lignes de pièces (Référence, Désignation, Montant) continuent à travers les images 2, 3... Lis-les TOUTES.
+- RASSEMBLE les lignes d'une même intervention (même lettre A/B/C) même réparties sur plusieurs images.
+- Si une intervention déborde d'une image à la suivante, fusionne-la en UNE seule intervention.
+- Additionne les montants de TOUTES les pièces lues sur TOUTES les images.\n`:'';
 
-    // Construire le contenu : toutes les images puis le prompt
-    const content=_ocrImages.map(img=>({type:'image',source:{type:'base64',media_type:img.mime,data:img.b64}}));
+    status.innerHTML='<div class="spinner"></div> Préparation des '+_ocrImages.length+' image(s)...';
+    // Recompresser pour tenir sous la limite API quand plusieurs images
+    const content=[];
+    for(let i=0;i<_ocrImages.length;i++){
+      let {b64,mime}=_ocrImages[i];
+      // En multi, réduire chaque image pour éviter de dépasser la limite API
+      if(multi){
+        const reduced=await reduceForMulti(b64,mime);
+        b64=reduced.b64;mime=reduced.mime;
+      }
+      if(multi){content.push({type:'text',text:`--- IMAGE ${i+1} sur ${_ocrImages.length} ---`});}
+      content.push({type:'image',source:{type:'base64',media_type:mime,data:b64}});
+    }
     content.push({type:'text',text:basePrompt+multiNote});
 
+    status.innerHTML='<div class="spinner"></div> Analyse de '+_ocrImages.length+' capture(s)...';
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -2061,26 +2097,29 @@ window.printPDF=async function(){
   if(!ctx)return;
   const blob=ctx.doc.output('blob');
   const url=URL.createObjectURL(blob);
-  const win=window.open(url,'_blank');
+  // Ouvrir dans une vraie FENÊTRE séparée (pas un onglet)
+  const w=900,h=700;
+  const left=(screen.width-w)/2, top=(screen.height-h)/2;
+  const features=`width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=yes`;
+  const win=window.open(url,'impression_pdf',features);
   if(win){
+    win.focus();
     win.onload=()=>{
-      setTimeout(()=>{
-        win.focus();
-        win.print();
-      },400);
+      setTimeout(()=>{win.focus();win.print();},500);
     };
+    // Fallback si onload ne se déclenche pas
+    setTimeout(()=>{try{win.focus();win.print();}catch(e){}},1200);
   } else {
     // Popup bloquée → fallback iframe caché
     const iframe=document.createElement('iframe');
     iframe.style.cssText='position:fixed;top:-9999px;width:0;height:0;';
     iframe.src=url;
     document.body.appendChild(iframe);
-    iframe.onload=()=>{
-      setTimeout(()=>{iframe.contentWindow.print();setTimeout(()=>iframe.remove(),2000);},400);
-    };
+    iframe.onload=()=>{setTimeout(()=>{iframe.contentWindow.print();setTimeout(()=>iframe.remove(),2000);},400);};
+    toast('Autorisez les pop-ups pour ouvrir la fenêtre d\'impression','info');
   }
   openMailtoIfNeeded(ctx);
-  toast('Impression en cours...','info');
+  toast('Fenêtre d\'impression ouverte...','info');
 };
 
 // ── Alias pour generatePDFFromDetail ──
@@ -2429,24 +2468,35 @@ window.exportCSV=function(){
   a.click();
 };
 
-// ── CLÉ API ANTHROPIC ──
+// ── CLÉ API ANTHROPIC (partagée via Firebase, configurable par Omar uniquement) ──
 window.configureApiKey=function(){
+  // Seul Omar peut modifier la clé partagée
+  if(_currentUser!=='Omar'){
+    if(window._sharedApiKey){
+      toast('La clé API est gérée par Omar — déjà configurée ✓','info');
+    } else {
+      toast('La clé API doit être configurée par Omar','info');
+    }
+    return;
+  }
   const current=getApiKey();
   const msg=current
-    ?`Clé API configurée (${current.slice(0,12)}...).\n\nEntrez une nouvelle clé pour la changer, ou annulez :`
-    :'Entrez votre clé API Anthropic (sk-ant-...) :';
+    ?`Clé API partagée configurée (${current.slice(0,12)}...).\n\nElle est utilisée par toute l'équipe.\nEntrez une nouvelle clé pour la changer, ou laissez vide pour annuler :`
+    :'Entrez la clé API Anthropic (sk-ant-...).\nElle sera partagée avec toute l\'équipe TeamGarantie :';
   const k=prompt(msg,current||'');
-  if(k===null)return; // annulé
+  if(k===null)return;
   if(k&&k.startsWith('sk-ant')){
-    localStorage.setItem('gea_anthropic_key',k);
-    toast('Clé API enregistrée ✓','success');
+    // Sauvegarder dans Firebase (partagée)
+    window._set(window._ref(window._db,'config/anthropic_key'),k)
+      .then(()=>{toast('Clé API enregistrée pour toute l\'équipe ✓','success');})
+      .catch(err=>{toast('Erreur : '+err.message,'error');});
   } else if(k===''){
-    localStorage.removeItem('gea_anthropic_key');
-    toast('Clé API effacée','info');
+    window._set(window._ref(window._db,'config/anthropic_key'),'')
+      .then(()=>{toast('Clé API effacée','info');});
   } else {
     toast('Clé invalide (doit commencer par sk-ant-)','error');
   }
-  updateApiStatus();
+  setTimeout(updateApiStatus,500);
 };
 
 function updateApiStatus(){
@@ -2456,9 +2506,11 @@ function updateApiStatus(){
   if(key){
     el.textContent='🔑 API OK';
     el.style.background='var(--bg3)';el.style.color='var(--accent)';
+    el.title=_currentUser==='Omar'?'Clé partagée active — cliquer pour modifier':'Clé partagée active (gérée par Omar)';
   } else {
     el.textContent='⚠ Clé API';
     el.style.background='#f5ecd0';el.style.color='#a07000';
+    el.title=_currentUser==='Omar'?'Cliquer pour configurer la clé de l\'équipe':'En attente de configuration par Omar';
   }
 }
 
