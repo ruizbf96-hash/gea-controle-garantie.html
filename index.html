@@ -1035,7 +1035,7 @@ Ces ${_ocrImages.length} images sont les PARTIES SUCCESSIVES d'un MÊME écran d
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:2500,messages:[{role:'user',content}]})
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:4000,messages:[{role:'user',content}]})
     });
     const data=await res.json();
     if(data.error)throw new Error(data.error.message);
@@ -1043,6 +1043,7 @@ Ces ${_ocrImages.length} images sont les PARTIES SUCCESSIVES d'un MÊME écran d
     const m=txt.match(/\{[\s\S]*\}/);
     if(!m)throw new Error('Pas de JSON');
     _ocrData=JSON.parse(m[0]);
+    normalizeInterventions(_ocrData);
 
     // Vérification VIN sur la 1re image (en-tête)
     const first=_ocrImages[0];
@@ -1129,22 +1130,23 @@ ZONES DE L'ÉCRAN :
 
    Pour CHAQUE intervention (A, B, C...), extraire :
    - plainte = le libellé/diagnostic de l'intervention
-   - piece = le CODE RÉFÉRENCE de la colonne "Référence" (1re colonne du tableau), code alphanumérique de pièce (ex: "8P0898201A", "1EA971675BH", "04E115561H"). Si plusieurs pièces, séparer les références par " / ". Ce n'est PAS la désignation textuelle.
-   - montant = SOMME des valeurs de la DERNIÈRE colonne "Montant" à droite, pour les lignes de CETTE intervention
+   - lignes = TABLEAU de TOUTES les pièces de cette intervention, une entrée par ligne du tableau de pièces :
+       [{"ref":"code Référence (1re colonne, ex 8P0898201A)", "montant": nombre de la DERNIÈRE colonne Montant à droite (ex 269.90)}]
+     ⚠ N'OUBLIE AUCUNE LIGNE. Liste-les TOUTES, même s'il y en a 20, 30 ou 40. Chaque ligne du tableau = une entrée.
+   - NE calcule PAS la somme toi-même, donne juste chaque ligne. Le total sera calculé automatiquement.
 
-   ⚠ RÈGLE CRITIQUE sur le montant :
-   - Le montant vient UNIQUEMENT de la colonne "Montant" la plus à DROITE du tableau de pièces (ex: 269,90 ; 37,60)
-   - Le code "90000G", "90010G", "93OE" de la colonne IMPUT. n'est JAMAIS un montant. Si tu vois "90000G", ce n'est PAS 90000 euros, c'est un compte.
-   - Si l'intervention est un simple DIAGNOSTIC CLÔTURÉ sans pièce facturée (pas de ligne pièce avec colonne Montant remplie), alors montant = null
-   - N'invente JAMAIS un montant à partir du code IMPUT. En cas de doute, mets null.
-   - Si plusieurs pièces, additionner les vrais montants de la colonne Montant
+   ⚠ RÈGLE CRITIQUE sur les montants :
+   - Le montant de chaque ligne vient UNIQUEMENT de la colonne "Montant" la plus à DROITE (ex: 269,90 ; 37,60 ; 4,68)
+   - Le code "90000G", "90010G", "93OE" de la colonne IMPUT. n'est JAMAIS un montant
+   - Si une intervention est un DIAGNOSTIC sans pièce facturée, lignes = [] (tableau vide)
+   - Convertis les virgules en points (269,90 → 269.90)
    Liste TOUTES les interventions dans "interventions".
 
 6. SECTION IMPUTATIONS (bas, fond gris) : contient SEULEMENT le N° compte (ex: 90010 G), le site (ex: GARANTIE BISCHHEIM) et un statut. AUCUN montant ici.
 
 Retourne UNIQUEMENT ce JSON sans markdown :
-{"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"interventions":[{"plainte":null,"piece":null,"montant":null}]}
-montant = nombre décimal de la VRAIE colonne Montant (ex: 269.90), ou null si pas de pièce facturée. JAMAIS un code compte type 90000G.`;
+{"code_site":null,"nor":null,"ccs":null,"vin":null,"modele":null,"kilometrage":null,"interventions":[{"plainte":null,"lignes":[{"ref":null,"montant":null}]}]}
+Les montants sont des nombres décimaux (ex: 269.90). N'oublie AUCUNE ligne de pièce.`;
 
 const PROMPT_SAGA=`Analyse cette capture SAGA/2 (demandes de garantie VW Group).
 Colonnes: Fabricant|VIN|N Demande|N TPI|Date reception|Date reparation|Date soumission|Justifie|Valeur demande|Valeur note credit|Type demande|Code dommage|Code avarie|Code reparation|Numero cas|Code-barres|Niveau traitement
@@ -1210,6 +1212,31 @@ function proceedToStep2(){
 }
 
 // ── POPUP DE VÉRIFICATION OCR ──
+// Convertir le format lignes[] en piece+montant, avec addition fiable côté code
+function normalizeInterventions(data){
+  if(!data||!Array.isArray(data.interventions))return;
+  data.interventions.forEach(iv=>{
+    // Nouveau format : lignes[] avec {ref, montant}
+    if(Array.isArray(iv.lignes)&&iv.lignes.length){
+      // Références jointes
+      const refs=iv.lignes.map(l=>(l.ref||'').toString().trim()).filter(Boolean);
+      iv.piece=refs.join(' / ');
+      // Somme des montants (côté code = fiable)
+      let total=0;
+      iv.lignes.forEach(l=>{
+        let m=l.montant;
+        if(m===null||m===undefined||m==='')return;
+        // Convertir "269,90" → 269.90
+        m=parseFloat(m.toString().replace(/\s/g,'').replace(',','.'));
+        if(!isNaN(m))total+=m;
+      });
+      iv.montant=total>0?total.toFixed(2):'';
+      iv._nbLignes=iv.lignes.length;
+    }
+    // Ancien format (piece+montant direct) : laisser tel quel
+  });
+}
+
 function showVerifyPopup(d){
   const SITE_MAP_REV={};
   Object.entries(SITE_MAP).forEach(([k,v])=>{if(!SITE_MAP_REV[v])SITE_MAP_REV[v]=k;});
@@ -1258,10 +1285,11 @@ function showVerifyPopup(d){
       const mt=iv.montant||'';
       // Nettoyer montant (filtre codes compte)
       const cleanMt=(/^9\d{3,4}\s*[A-Za-z]?$/.test((mt||'').toString())||/[A-Za-z]/.test((mt||'').toString()))?'':mt;
+      const nbInfo=iv._nbLignes?` <span style="color:var(--accent);font-size:10px;">(${iv._nbLignes} pièce${iv._nbLignes>1?'s':''} additionnée${iv._nbLignes>1?'s':''})</span>`:'';
       html+=`
         <div class="verify-field"><label>${letter}. Plainte</label><textarea id="vf-pl-${i}" rows="2">${(iv.plainte||'').replace(/</g,'&lt;')}</textarea></div>
         <div class="verify-field"><label>${letter}. Réf. pièce</label><input id="vf-pc-${i}" value="${(iv.piece||'').replace(/"/g,'&quot;')}"></div>
-        <div class="verify-field"><label>${letter}. Montant</label><input id="vf-mt-${i}" value="${cleanMt}"></div>
+        <div class="verify-field"><label>${letter}. Montant${nbInfo}</label><input id="vf-mt-${i}" value="${cleanMt}"></div>
       `;
     });
   }
