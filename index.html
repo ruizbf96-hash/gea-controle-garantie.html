@@ -2350,8 +2350,8 @@ function renderMyStats(){
 }
 
 // ── COMPTEURS WORKFLOW (en attente garantie / retournés) ──
-// ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +4 jours ──
-const RELANCE_DELAI_JOURS=0;
+// ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +3 jours ──
+const RELANCE_DELAI_JOURS=3;
 function getDossiersARelancer(){
   const all=Object.values(window._dossiers||{});
   const seuil=Date.now()-RELANCE_DELAI_JOURS*864e5;
