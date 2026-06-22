@@ -397,32 +397,32 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
 
         <!-- STATUTS TOGGLE -->
         <div style="margin-top:20px;">
-          <div class="section-sep" style="border:none;margin-bottom:12px;">Statuts de contrôle — cliquer pour activer</div>
+          <div class="section-sep" style="border:none;margin-bottom:12px;">Statut du dossier — état à l'issue du contrôle</div>
           <div class="statuts-grid">
-            <button class="statut-toggle" style="--kc:#f5c842" id="tog-rattrapage" onclick="toggleStatut('rattrapage')">
-              <span class="tog-dot"></span>Rattrapage
-            </button>
-            <button class="statut-toggle" style="--kc:#f5a623" id="tog-risque" onclick="toggleStatut('risque')">
-              <span class="tog-dot"></span>Risque d'annulation
-            </button>
-            <button class="statut-toggle" style="--kc:#f5c842" id="tog-malgre" onclick="toggleStatut('malgre')">
-              <span class="tog-dot"></span>DG passée malgré risque
-            </button>
-            <button class="statut-toggle" style="--kc:#ff4d6a" id="tog-annul" onclick="toggleStatut('annul')">
-              <span class="tog-dot"></span>Annulation définitive
-            </button>
-            <button class="statut-toggle" style="--kc:#00c896" id="tog-sauvee" onclick="toggleStatut('sauvee')">
-              <span class="tog-dot"></span>DG sauvée suite annulation
-            </button>
             <button class="statut-toggle" style="--kc:#ffe066" id="tog-incomplet" onclick="toggleStatut('incomplet')">
-              <span class="tog-dot"></span>Dossier incomplet / inutile
+              <span class="tog-dot"></span>Dossier incomplet
             </button>
             <button class="statut-toggle" style="--kc:#ff4d6a" id="tog-nonfact" onclick="toggleStatut('nonfact')">
               <span class="tog-dot"></span>Dossier non facturable
             </button>
-            <button class="statut-toggle" style="--kc:#2ecc71" id="tog-temps" onclick="toggleStatut('temps')">
-              <span class="tog-dot"></span>Temps traitement supp.
-            </button>
+          </div>
+          <!-- Issues (apparaissent selon le statut dossier) -->
+          <div id="issues-zone" style="display:none;margin-top:12px;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;">Que devient le dossier ? <span style="text-transform:none;color:var(--text3);">(optionnel)</span></div>
+            <div class="statuts-grid">
+              <button class="statut-toggle" style="--kc:#e67e22" id="tog-retourconc" onclick="toggleStatut('retourconc')">
+                <span class="tog-dot"></span>Retour en concession
+              </button>
+              <button class="statut-toggle" style="--kc:#3498db" id="tog-agarantie" onclick="toggleStatut('agarantie')">
+                <span class="tog-dot"></span>À la garantie (2e contrôle)
+              </button>
+              <button class="statut-toggle" style="--kc:#f5a623" id="tog-fcession_issue" onclick="toggleStatut('fcession_issue')">
+                <span class="tog-dot"></span>Facturé en cession
+              </button>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:10px;padding:8px;background:var(--bg3);border-radius:6px;">
+            💡 Le statut <strong>facturation</strong> (rattrapage, facturé garantie/cession, annulation...) se renseigne plus tard depuis le détail du dossier, après le 2e contrôle.
           </div>
         </div>
 
@@ -492,6 +492,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
 
     <div class="panel">
       <div class="panel-head"><h2>Dossiers de contrôle</h2><span id="list-count" style="font-size:11px;color:var(--text3);"></span></div>
+      <div id="workflow-counters" style="display:flex;gap:10px;flex-wrap:wrap;padding:0 0 12px;"></div>
       <div class="panel-body">
         <!-- Stats personnelles -->
         <div id="my-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;"></div>
@@ -508,12 +509,21 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           </select>
           <select id="lf-statut" onchange="renderList()">
             <option value="">Tous statuts</option>
-            <option value="risque">Risque annulation</option>
-            <option value="annul">Annulés</option>
-            <option value="sauvee">DG sauvées</option>
-            <option value="rattrapage">Rattrapage</option>
-            <option value="incomplet">Incomplets</option>
-            <option value="nonfact">Non facturable</option>
+            <optgroup label="Statut dossier">
+              <option value="incomplet">Incomplet</option>
+              <option value="nonfact">Non facturable</option>
+              <option value="retourconc">Retour concession</option>
+              <option value="agarantie">À la garantie</option>
+            </optgroup>
+            <optgroup label="Statut facturation">
+              <option value="rattrapage">Rattrapage</option>
+              <option value="risque">Risque annulation</option>
+              <option value="sauvee">DG sauvée</option>
+              <option value="annul">Annulation définitive</option>
+              <option value="facturegar">Facturé garantie</option>
+              <option value="fcession">Facturé cession</option>
+              <option value="temps">Temps supp.</option>
+            </optgroup>
           </select>
           <select id="lf-periode" onchange="renderList()">
             <option value="">Toute période</option>
@@ -538,7 +548,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <thead>
             <tr style="cursor:pointer;">
               <th onclick="sortList('site')">Site ⇅</th><th onclick="sortList('nor')">N°OR ⇅</th><th onclick="sortList('vin')">Châssis ⇅</th><th onclick="sortList('ccs')">CCS ⇅</th>
-              <th onclick="sortList('modele')">Modèle ⇅</th><th onclick="sortList('montant')">Montant ⇅</th><th>Statuts actifs</th>
+              <th onclick="sortList('modele')">Modèle ⇅</th><th onclick="sortList('montant')">Montant ⇅</th><th>Statut dossier</th><th>Statut facturation</th>
               <th onclick="sortList('defaut1')">Défaut ⇅</th><th onclick="sortList('correspondant')">Correspondant ⇅</th><th onclick="sortList('_ts')">Date ⇅</th><th onclick="sortList('_createdBy')">Créé par ⇅</th>
             </tr>
           </thead>
@@ -607,7 +617,10 @@ let _selectedUser=null;
 let _selectedPin=null;
 let _ocrData={};
 let _currentSource='dcsnet';
-let _statuts={rattrapage:false,risque:false,malgre:false,annul:false,sauvee:false,incomplet:false,nonfact:false,temps:false};
+// Groupe 1 (statut dossier, à la création) : incomplet, nonfact + issues retourconc/agarantie/fcession_issue
+// Groupe 2 (statut facturation, plus tard) : rattrapage, risque, sauvee, annul, facturegar, fcession, temps
+let _statuts={incomplet:false,nonfact:false,retourconc:false,agarantie:false,fcession_issue:false,
+  rattrapage:false,risque:false,malgre:false,sauvee:false,annul:false,facturegar:false,fcession:false,temps:false};
 let _detailId=null;
 
 const USERS={'Omar':'1472','Nico':'3682','Tahir':'3694','Marion':'4715','Céline':'5826'};
@@ -620,8 +633,11 @@ const SITE_MAP={
   'GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai',
   'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim'
 };
-const STATUT_LABELS={rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG malgré risque',annul:'Annulation déf.',sauvee:'DG sauvée',incomplet:'Incomplet',nonfact:'Non facturable',temps:'Temps supp.'};
-const STATUT_COLORS={rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',annul:'#ff4d6a',sauvee:'#00c896',incomplet:'#ffe066',nonfact:'#ff4d6a',temps:'#2ecc71'};
+const STATUT_LABELS={incomplet:'Incomplet',nonfact:'Non facturable',retourconc:'Retour concession',agarantie:'À la garantie',fcession_issue:'Facturé cession',rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG malgré risque',sauvee:'DG sauvée',annul:'Annulation déf.',facturegar:'Facturé garantie',fcession:'Facturé cession',temps:'Temps supp.'};
+const STATUT_COLORS={incomplet:'#ffe066',nonfact:'#ff4d6a',retourconc:'#e67e22',agarantie:'#3498db',fcession_issue:'#f5a623',rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',sauvee:'#00c896',annul:'#ff4d6a',facturegar:'#2ecc71',fcession:'#f5a623',temps:'#2ecc71'};
+// Groupes pour l'affichage séparé
+const GROUPE_DOSSIER=['incomplet','nonfact','retourconc','agarantie','fcession_issue'];
+const GROUPE_FACTURATION=['rattrapage','risque','sauvee','annul','facturegar','fcession','temps'];
 const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet','Directive action non respectée','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non éxécutée','Garantie échue','Immat sur vidéo','IQ cloturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non cloturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur OR manuscrit sans contre-signature','Liste PPSO non utilisée','Manque dernier entretien participation AUDI','Photo ou vidéo manquante ou non conforme','Protocole non conforme ou manquant','Mise hors tension manquante','TPI non appliquée','Ticket clim absent ou non conforme'];
 
 // Init défauts — remplir la datalist (choix + saisie manuelle possible)
@@ -1437,6 +1453,7 @@ window.addIntervention=function(plainte='',piece='',montant='',factu=''){
         <select id="iv-factu-${id}" onchange="colorFactu(this)">
           <option value="">— Sélectionner —</option>
           <option value="possible"${factu==='possible'?' selected':''}>Facturation possible</option>
+          <option value="facturegar"${factu==='facturegar'?' selected':''}>Facturé en garantie</option>
           <option value="nonfacturable"${factu==='nonfacturable'?' selected':''}>Non facturable</option>
           <option value="cession"${factu==='cession'?' selected':''}>Cession</option>
         </select>
@@ -1454,6 +1471,7 @@ window.addIntervention=function(plainte='',piece='',montant='',factu=''){
 window.colorFactu=function(el){
   el.style.borderColor=''; el.style.color=''; el.style.background='';
   if(el.value==='possible'){el.style.borderColor='#00c896';el.style.color='#00c896';el.style.background='#0d2a22';}
+  else if(el.value==='facturegar'){el.style.borderColor='#3498db';el.style.color='#5dade2';el.style.background='#0d1f2a';}
   else if(el.value==='nonfacturable'){el.style.borderColor='#ff4d6a';el.style.color='#ff4d6a';el.style.background='#2a0d14';}
   else if(el.value==='cession'){el.style.borderColor='#f5a623';el.style.color='#f5a623';el.style.background='#2a1f0d';}
 };
@@ -1629,56 +1647,75 @@ function siteFromMarqueVille(marque,ville){
 }
 
 // ── STATUTS TOGGLE ──
-// Règles d'exclusion : pour chaque statut "meneur", la liste des statuts qui restent autorisés (en plus de lui-même)
-// Si un statut actif n'est pas dans cette table, il n'impose aucune restriction.
-const EXCLUSION_RULES={
-  rattrapage:['temps','risque'],   // rattrapage → tout grisé sauf temps + risque
-  malgre:['temps'],                // DG passée malgré → tout grisé sauf temps
-  sauvee:['temps'],                // DG sauvée suite → tout grisé sauf temps
-  nonfact:['temps'],               // dossier non facturable → tout grisé sauf temps
-  risque:['temps'],                // risque d'annulation → tout grisé sauf temps
-  annul:[],                        // annulation définitive → tout grisé
-  incomplet:['temps'],             // dossier incomplet → tout grisé sauf temps
-  // temps : n'impose aucune restriction (absent de la table)
-};
+// Règles d'exclusion pour le GROUPE 1 (statut dossier) : incomplet et nonfact sont mutuellement exclusifs
+// Les issues (retourconc/agarantie/fcession_issue) sont mutuellement exclusives entre elles
+const ISSUES_INCOMPLET=['retourconc','agarantie'];       // incomplet → retour concession ou à la garantie
+const ISSUES_NONFACT=['retourconc','fcession_issue'];    // non facturable → retour concession ou cession
 
 window.toggleStatut=function(key){
   const btn=document.getElementById('tog-'+key);
-  if(btn.classList.contains('disabled'))return;
-  _statuts[key]=!_statuts[key];
-  btn.classList.toggle('active',_statuts[key]);
-  applyExclusion();
+  if(!btn||btn.classList.contains('disabled'))return;
+
+  // GROUPE 1 principal : incomplet / nonfact sont exclusifs
+  if(key==='incomplet'||key==='nonfact'){
+    const other=key==='incomplet'?'nonfact':'incomplet';
+    _statuts[key]=!_statuts[key];
+    if(_statuts[key]){ // si on active, désactiver l'autre + ses issues
+      _statuts[other]=false;
+      // Réinitialiser les issues incompatibles
+      ['retourconc','agarantie','fcession_issue'].forEach(iss=>{_statuts[iss]=false;});
+    } else {
+      // Si on désactive le statut dossier, vider aussi les issues
+      ['retourconc','agarantie','fcession_issue'].forEach(iss=>{_statuts[iss]=false;});
+    }
+  }
+  // ISSUES : mutuellement exclusives entre elles
+  else if(['retourconc','agarantie','fcession_issue'].includes(key)){
+    const wasOn=_statuts[key];
+    ['retourconc','agarantie','fcession_issue'].forEach(iss=>{_statuts[iss]=false;});
+    _statuts[key]=!wasOn;
+  }
+  else {
+    _statuts[key]=!_statuts[key];
+  }
+  refreshStatutButtons();
 };
 
-function applyExclusion(){
-  // Trouver le statut "meneur" actif (le premier statut actif qui a une règle d'exclusion)
-  const meneur=Object.keys(EXCLUSION_RULES).find(k=>_statuts[k]);
-
+function refreshStatutButtons(){
+  // Mettre à jour l'état visuel de tous les boutons
   Object.keys(_statuts).forEach(k=>{
     const btn=document.getElementById('tog-'+k);
-    if(!btn)return;
-    if(meneur){
-      const autorises=EXCLUSION_RULES[meneur]; // statuts encore cliquables
-      if(k===meneur||autorises.includes(k)){
-        btn.classList.remove('disabled');
-      } else {
-        // Grisé + désélectionné
-        _statuts[k]=false;
-        btn.classList.remove('active');
-        btn.classList.add('disabled');
-      }
+    if(btn) btn.classList.toggle('active',_statuts[k]);
+  });
+
+  // Afficher la zone des issues si incomplet OU nonfact actif
+  const issuesZone=document.getElementById('issues-zone');
+  const showIssues=_statuts.incomplet||_statuts.nonfact;
+  if(issuesZone) issuesZone.style.display=showIssues?'block':'none';
+
+  // Logique intelligente : afficher seulement les issues cohérentes
+  const allowedIssues=_statuts.incomplet?ISSUES_INCOMPLET:(_statuts.nonfact?ISSUES_NONFACT:[]);
+  ['retourconc','agarantie','fcession_issue'].forEach(iss=>{
+    const b=document.getElementById('tog-'+iss);
+    if(!b)return;
+    if(allowedIssues.includes(iss)){
+      b.style.display='';
     } else {
-      btn.classList.remove('disabled');
+      b.style.display='none';
+      _statuts[iss]=false;b.classList.remove('active');
     }
   });
 
-  // Afficher délai + commentaires si incomplet OU non facturable
+  // Afficher délai + commentaires si un statut dossier est actif
   const show=(_statuts.incomplet||_statuts.nonfact);
   const delaiWrap=document.getElementById('delai-wrap');
   if(delaiWrap) delaiWrap.style.display=show?'flex':'none';
   const commWrap=document.getElementById('comment-wrap');
   if(commWrap) commWrap.style.display=show?'flex':'none';
 }
+
+// Compat : applyExclusion appelé ailleurs → rediriger
+function applyExclusion(){refreshStatutButtons();}
 
 function resetStatuts(){
   Object.keys(_statuts).forEach(k=>{
@@ -1995,7 +2032,7 @@ window.generatePDF=async function(){
   y+=6;
 
   // ── INTERVENTIONS ──
-  const FACTU=  {possible:{l:'Facturation possible',c:'#00c896'},nonfacturable:{l:'Non facturable',c:'#ff4d6a'},cession:{l:'Cession',c:'#f5a623'}};
+  const FACTU=  {possible:{l:'Facturation possible',c:'#00c896'},facturegar:{l:'Facturé en garantie',c:'#3498db'},nonfacturable:{l:'Non facturable',c:'#ff4d6a'},cession:{l:'Cession',c:'#f5a623'}};
   section('Interventions',[0,153,255]);
   if(interventions.length){
     interventions.forEach(iv=>{
@@ -2039,12 +2076,11 @@ window.generatePDF=async function(){
   }
   y+=4;
 
-  // ── STATUTS DE CONTRÔLE (badges colorés) ──
-  if(y>250){doc.addPage();y=20;}
-  section('Statuts de contrôle',[245,166,35]);
-  if(statutsActifsKeys.length){
+  // ── STATUTS (dossier + facturation séparés) ──
+  if(y>240){doc.addPage();y=20;}
+  const drawBadges=(keys)=>{
     let x=18;
-    statutsActifsKeys.forEach(k=>{
+    keys.forEach(k=>{
       const c=rgb(STATUT_COLORS[k]||'#8a9ab5');
       const txt=STATUT_LABELS[k];
       doc.setFontSize(9);doc.setFont('helvetica','bold');
@@ -2057,8 +2093,25 @@ window.generatePDF=async function(){
       x+=tw+4;
     });
     y+=10;
-  } else {
-    doc.setFontSize(10);doc.setTextColor(150,155,170);doc.text('Aucun statut sélectionné',22,y);y+=8;
+  };
+  const dossierKeys=statutsActifsKeys.filter(k=>GROUPE_DOSSIER.includes(k));
+  const factuKeys=statutsActifsKeys.filter(k=>GROUPE_FACTURATION.includes(k));
+
+  section('Statut du dossier',[245,166,35]);
+  if(dossierKeys.length) drawBadges(dossierKeys);
+  else {doc.setFontSize(10);doc.setTextColor(150,155,170);doc.text('Aucun',22,y);y+=8;}
+
+  if(factuKeys.length){
+    if(y>250){doc.addPage();y=20;}
+    section('Statut facturation',[52,152,219]);
+    drawBadges(factuKeys);
+    // Raison temps supp si présente
+    const raison=document.getElementById('f-raison-temps')?document.getElementById('f-raison-temps').value:'';
+    if(_statuts.temps&&raison){
+      doc.setFontSize(9);doc.setFont('helvetica','italic');doc.setTextColor(110,120,140);
+      const rl=doc.splitTextToSize('Raison temps supp. : '+raison,175);
+      doc.text(rl,18,y);y+=rl.length*5+2;
+    }
   }
 
   // ── DÉFAUTS ──
@@ -2096,13 +2149,19 @@ window.generatePDF=async function(){
 
 // Ouvrir le mailto si incomplet/non facturable
 function openMailtoIfNeeded(ctx){
-  if(!_statuts.incomplet&&!_statuts.nonfact)return;
+  if(!_statuts.incomplet&&!_statuts.nonfact&&!_statuts.retourconc&&!_statuts.agarantie)return;
   const {pdfNom,site,nor,vin,modele,montant,delai,typegar,def1,def2,statutsActifs}=ctx;
   const fmtDateSlash=dateFR;
   const commentaires=document.getElementById('f-commentaires').value||'';
-  const motif=_statuts.nonfact?'DOSSIER NON FACTURABLE':'DOSSIER INCOMPLET';
+  let motif='DOSSIER INCOMPLET';
+  if(_statuts.nonfact)motif='DOSSIER NON FACTURABLE';
+  else if(_statuts.retourconc)motif='DOSSIER RETOURNÉ EN CONCESSION';
+  else if(_statuts.agarantie)motif='DOSSIER À LA GARANTIE';
+  else if(_statuts.incomplet)motif='DOSSIER INCOMPLET';
   const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
-  const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUTS DE CONTRÔLE\n──────────────────────────────\n${statutsActifs.map(s=>'  • '+s).join('\n')}\n\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
+  const dossierLabels=statutsActifsKeys.filter(k=>GROUPE_DOSSIER.includes(k)).map(k=>STATUT_LABELS[k]);
+  const factuLabels=statutsActifsKeys.filter(k=>GROUPE_FACTURATION.includes(k)).map(k=>STATUT_LABELS[k]);
+  const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUT DU DOSSIER\n──────────────────────────────\n${dossierLabels.length?dossierLabels.map(s=>'  • '+s).join('\n'):'  • —'}\n${factuLabels.length?'\n──────────────────────────────\nSTATUT FACTURATION\n──────────────────────────────\n'+factuLabels.map(s=>'  • '+s).join('\n')+'\n':''}\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
   const mailtoUrl=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
   setTimeout(()=>{
     const a=document.createElement('a');a.href=mailtoUrl;a.style.display='none';
@@ -2284,6 +2343,45 @@ function renderMyStats(){
     card('Non facturables',nonfact,'#ff4d6a');
 }
 
+// ── COMPTEURS WORKFLOW (en attente garantie / retournés) ──
+function renderWorkflowCounters(){
+  const box=document.getElementById('workflow-counters');
+  if(!box)return;
+  const all=Object.values(window._dossiers||{});
+  // En attente à la garantie : statut agarantie ET pas encore de statut facturation renseigné
+  const facturationDone=d=>GROUPE_FACTURATION.some(k=>d[k]);
+  const attenteGar=all.filter(d=>d.agarantie&&!facturationDone(d)).length;
+  // Retournés en concession (issue retour concession)
+  const retournes=all.filter(d=>d.retourconc).length;
+  // Facturés (depuis statut facturation)
+  const facturesGar=all.filter(d=>d.facturegar).length;
+  const facturesCess=all.filter(d=>d.fcession||d.fcession_issue).length;
+
+  const card=(label,val,color)=>`<div onclick="quickFilterWorkflow('${label}')" style="cursor:pointer;background:${color}15;border:1px solid ${color}40;border-left:3px solid ${color};border-radius:8px;padding:8px 14px;">
+    <span style="font-size:18px;font-weight:700;color:${color};">${val}</span>
+    <span style="font-size:11px;color:var(--text2);margin-left:6px;">${label}</span>
+  </div>`;
+
+  box.innerHTML=
+    card('En attente à la garantie',attenteGar,'#3498db')+
+    card('Retournés en concession',retournes,'#e67e22')+
+    card('Facturés garantie',facturesGar,'#2ecc71')+
+    card('Facturés cession',facturesCess,'#f5a623');
+}
+
+// Filtre rapide en cliquant sur un compteur
+window.quickFilterWorkflow=function(label){
+  const statutSel=document.getElementById('lf-statut');
+  if(!statutSel)return;
+  const map={
+    'En attente à la garantie':'agarantie',
+    'Retournés en concession':'retourconc',
+    'Facturés garantie':'facturegar',
+    'Facturés cession':'fcession'
+  };
+  if(map[label]){statutSel.value=map[label];renderList();}
+};
+
 window.renderList=function(){
   const fSite=document.getElementById('lf-site')?.value||'';
   const fStat=document.getElementById('lf-statut')?.value||'';
@@ -2340,6 +2438,7 @@ window.renderList=function(){
   updateDailyCount();
   buildAutocomplete();
   renderMyStats();
+  renderWorkflowCounters();
   updateConnDot();
 
   const tbody=document.getElementById('list-tbody');
@@ -2348,7 +2447,9 @@ window.renderList=function(){
     return;
   }
   tbody.innerHTML=data.map(d=>{
-    const statActifs=Object.entries(STATUT_LABELS).filter(([k])=>d[k]).map(([k,l])=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;">${l}</span>`).join('');
+    const badge=(k)=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;">${STATUT_LABELS[k]}</span>`;
+    const statDossier=GROUPE_DOSSIER.filter(k=>d[k]).map(badge).join('');
+    const statFactu=GROUPE_FACTURATION.filter(k=>d[k]).map(badge).join('');
     return `<tr onclick="showDetail('${d._id}')">
       <td>${SITE_SHORT[d.site]||d.site||'—'}</td>
       <td class="mono">${d.nor||'—'}</td>
@@ -2356,7 +2457,8 @@ window.renderList=function(){
       <td>${d.ccs||'—'}</td>
       <td style="font-size:11px;">${d.modele||'—'}</td>
       <td class="mono">${d.montant||'—'} €</td>
-      <td>${statActifs||'<span style="color:var(--text3);">—</span>'}</td>
+      <td>${statDossier||'<span style="color:var(--text3);">—</span>'}</td>
+      <td>${statFactu||'<span style="color:var(--text3);">—</span>'}</td>
       <td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.defaut1||''}">${d.defaut1||'—'}</td>
       <td>${d.correspondant||'—'}</td>
       <td style="font-size:11px;">${dateFR(d.date)}</td>
@@ -2366,6 +2468,40 @@ window.renderList=function(){
 };
 
 // ── DÉTAIL ──
+// ── STATUT FACTURATION (éditable depuis le détail, 2e contrôle) ──
+let _detailFactuState={};
+window.toggleDetailFactu=function(key){
+  _detailFactuState[key]=!_detailFactuState[key];
+  const btn=document.getElementById('df-'+key);
+  if(btn) btn.classList.toggle('active',_detailFactuState[key]);
+  // Afficher la raison si temps coché
+  if(key==='temps'){
+    const wrap=document.getElementById('detail-raison-wrap');
+    if(wrap) wrap.style.display=_detailFactuState.temps?'block':'none';
+  }
+};
+
+window.saveDetailFactu=function(id){
+  const d=window._dossiers[id];
+  if(!d){toast('Dossier introuvable','error');return;}
+  const raison=document.getElementById('detail-raison')?document.getElementById('detail-raison').value:'';
+  // Fusionner les statuts facturation dans le dossier
+  const obj={...d};
+  GROUPE_FACTURATION.forEach(k=>{obj[k]=!!_detailFactuState[k];});
+  obj.raison_temps=raison;
+  obj._modifiedBy=_currentUser;obj._modifiedTs=Date.now();
+  delete obj._id;
+  const fbKey='controle_garantie/'+id;
+  if(window._db&&navigator.onLine){
+    window._set(window._ref(window._db,fbKey),obj)
+      .then(()=>{toast('Statut facturation enregistré ✓','success');closeDetail();})
+      .catch(err=>{toast('Erreur : '+err.message,'error');});
+  } else {
+    const q=getQueue();q.push({fbKey,obj,ts:Date.now()});setQueue(q);
+    toast('Hors-ligne — statut sauvé localement','info');closeDetail();
+  }
+};
+
 window.showDetail=function(id){
   const d=window._dossiers[id];
   if(!d)return;
@@ -2382,8 +2518,27 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Montant</div><div class="detail-val">${d.montant||'—'} €</div></div>
     ${d.typegar?`<div class="detail-row"><div class="detail-label">Type garantie</div><div class="detail-val" style="color:#0a6ec8;font-weight:600;">${d.typegar}</div></div>`:''}
     ${d.codedommage?`<div class="detail-row"><div class="detail-label">Code dommage</div><div class="detail-val" style="font-family:'IBM Plex Mono',monospace;font-weight:600;">${d.codedommage}</div></div>`:''}
-    <div class="detail-row"><div class="detail-label">Interventions</div><div class="detail-val">${(Array.isArray(d.interventions)&&d.interventions.length)?d.interventions.map(iv=>{const fl={possible:'Facturation possible',nonfacturable:'Non facturable',cession:'Cession'};const fc={possible:'#00c896',nonfacturable:'#ff4d6a',cession:'#f5a623'};return `<div style="margin-bottom:8px;"><strong style="color:var(--accent2);">${iv.letter||'•'}.</strong> ${iv.plainte||''}${iv.piece?' — '+iv.piece:''}${iv.montant?' ('+iv.montant+' €)':''}${iv.factu?` <span class="sbadge" style="background:${fc[iv.factu]}20;color:${fc[iv.factu]};border:1px solid ${fc[iv.factu]}40;">${fl[iv.factu]}</span>`:''}</div>`;}).join(''):(d.intervention||d.plainte||'—')}</div></div>
-    <div class="detail-row"><div class="detail-label">Statuts actifs</div><div class="detail-val">${statActifs.length?statActifs.map(([k,l])=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;margin:2px;">${l}</span>`).join(''):'Aucun'}</div></div>
+    <div class="detail-row"><div class="detail-label">Interventions</div><div class="detail-val">${(Array.isArray(d.interventions)&&d.interventions.length)?d.interventions.map(iv=>{const fl={possible:'Facturation possible',facturegar:'Facturé en garantie',nonfacturable:'Non facturable',cession:'Cession'};const fc={possible:'#00c896',facturegar:'#3498db',nonfacturable:'#ff4d6a',cession:'#f5a623'};return `<div style="margin-bottom:8px;"><strong style="color:var(--accent2);">${iv.letter||'•'}.</strong> ${iv.plainte||''}${iv.piece?' — '+iv.piece:''}${iv.montant?' ('+iv.montant+' €)':''}${iv.factu?` <span class="sbadge" style="background:${fc[iv.factu]}20;color:${fc[iv.factu]};border:1px solid ${fc[iv.factu]}40;">${fl[iv.factu]}</span>`:''}</div>`;}).join(''):(d.intervention||d.plainte||'—')}</div></div>
+    <div class="detail-row"><div class="detail-label">Statut contrôle</div><div class="detail-val">${(()=>{const dossierStatuts=GROUPE_DOSSIER.filter(k=>d[k]);return dossierStatuts.length?dossierStatuts.map(k=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;margin:2px;">${STATUT_LABELS[k]}</span>`).join(''):'Aucun';})()}</div></div>
+    <div class="detail-row" style="background:var(--bg2);border-radius:8px;padding:12px;margin:6px 0;display:block;">
+      <div class="detail-label" style="margin-bottom:8px;">Statut facturation <span style="font-size:10px;color:var(--text3);text-transform:none;">(après 2e contrôle)</span></div>
+      <div id="detail-factu-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">
+        ${GROUPE_FACTURATION.filter(k=>k!=='temps').map(k=>`
+          <button type="button" id="df-${k}" onclick="toggleDetailFactu('${k}')" class="statut-toggle${d[k]?' active':''}" style="--kc:${STATUT_COLORS[k]};font-size:12px;padding:8px;">
+            <span class="tog-dot"></span>${STATUT_LABELS[k]}
+          </button>`).join('')}
+      </div>
+      <div style="margin-top:8px;">
+        <button type="button" id="df-temps" onclick="toggleDetailFactu('temps')" class="statut-toggle${d.temps?' active':''}" style="--kc:#2ecc71;font-size:12px;padding:8px;width:100%;">
+          <span class="tog-dot"></span>Temps de traitement supplémentaire
+        </button>
+      </div>
+      <div id="detail-raison-wrap" style="display:${d.temps?'block':'none'};margin-top:8px;">
+        <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Raison du temps de traitement supplémentaire</label>
+        <textarea id="detail-raison" rows="2" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;" placeholder="Expliquer la raison...">${(d.raison_temps||'').replace(/</g,'&lt;')}</textarea>
+      </div>
+      <button class="btn primary" onclick="saveDetailFactu('${id}')" style="margin-top:10px;font-size:12px;padding:7px 16px;">💾 Enregistrer le statut facturation</button>
+    </div>
     <div class="detail-row"><div class="detail-label">Défaut 1</div><div class="detail-val">${d.defaut1||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Défaut 2</div><div class="detail-val">${d.defaut2||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Correspondant</div><div class="detail-val">${d.correspondant||'—'}</div></div>
@@ -2399,6 +2554,9 @@ window.showDetail=function(id){
     <button class="btn" onclick="deleteDetail('${id}')" style="color:var(--danger);border-color:var(--danger)40;">Supprimer</button>
     <button class="btn" onclick="closeDetail()">Fermer</button>
   `;
+  // Initialiser l'état du statut facturation depuis le dossier
+  _detailFactuState={};
+  GROUPE_FACTURATION.forEach(k=>{_detailFactuState[k]=!!d[k];});
   document.getElementById('detail-modal').classList.add('open');
 };
 
