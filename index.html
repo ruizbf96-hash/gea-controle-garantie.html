@@ -2149,24 +2149,29 @@ window.generatePDF=async function(){
 
 // Ouvrir le mailto si incomplet/non facturable
 function openMailtoIfNeeded(ctx){
-  if(!_statuts.incomplet&&!_statuts.nonfact&&!_statuts.retourconc&&!_statuts.agarantie)return;
-  const {pdfNom,site,nor,vin,modele,montant,delai,typegar,def1,def2,statutsActifs}=ctx;
+  // Mail si dossier incomplet OU non facturable (avec ou sans issue)
+  if(!_statuts.incomplet&&!_statuts.nonfact)return;
+  const {pdfNom,site,nor,vin,modele,montant,delai,typegar,def1,def2}=ctx;
   const fmtDateSlash=dateFR;
   const commentaires=document.getElementById('f-commentaires').value||'';
   let motif='DOSSIER INCOMPLET';
   if(_statuts.nonfact)motif='DOSSIER NON FACTURABLE';
-  else if(_statuts.retourconc)motif='DOSSIER RETOURNÉ EN CONCESSION';
-  else if(_statuts.agarantie)motif='DOSSIER À LA GARANTIE';
   else if(_statuts.incomplet)motif='DOSSIER INCOMPLET';
+  // Ajouter l'issue au motif si présente
+  if(_statuts.retourconc)motif+=' - RETOUR CONCESSION';
+  else if(_statuts.agarantie)motif+=' - A LA GARANTIE';
+  else if(_statuts.fcession_issue)motif+=' - FACTURE CESSION';
   const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
-  const dossierLabels=statutsActifsKeys.filter(k=>GROUPE_DOSSIER.includes(k)).map(k=>STATUT_LABELS[k]);
-  const factuLabels=statutsActifsKeys.filter(k=>GROUPE_FACTURATION.includes(k)).map(k=>STATUT_LABELS[k]);
+  // Calculer les labels depuis _statuts (autonome)
+  const activeKeys=Object.keys(_statuts).filter(k=>_statuts[k]);
+  const dossierLabels=activeKeys.filter(k=>GROUPE_DOSSIER.includes(k)).map(k=>STATUT_LABELS[k]);
+  const factuLabels=activeKeys.filter(k=>GROUPE_FACTURATION.includes(k)).map(k=>STATUT_LABELS[k]);
   const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUT DU DOSSIER\n──────────────────────────────\n${dossierLabels.length?dossierLabels.map(s=>'  • '+s).join('\n'):'  • —'}\n${factuLabels.length?'\n──────────────────────────────\nSTATUT FACTURATION\n──────────────────────────────\n'+factuLabels.map(s=>'  • '+s).join('\n')+'\n':''}\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
   const mailtoUrl=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
   setTimeout(()=>{
     const a=document.createElement('a');a.href=mailtoUrl;a.style.display='none';
     document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500);
-  },1000);
+  },800);
 }
 
 // ── SAUVEGARDER PDF (choix du dossier) ──
