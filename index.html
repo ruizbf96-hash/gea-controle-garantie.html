@@ -493,6 +493,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
     <div class="panel">
       <div class="panel-head"><h2>Dossiers de contrôle</h2><span id="list-count" style="font-size:11px;color:var(--text3);"></span></div>
       <div id="workflow-counters" style="display:flex;gap:10px;flex-wrap:wrap;padding:0 0 12px;"></div>
+      <div id="relance-panel" style="display:none;"></div>
       <div class="panel-body">
         <!-- Stats personnelles -->
         <div id="my-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;"></div>
@@ -2349,6 +2350,90 @@ function renderMyStats(){
 }
 
 // ── COMPTEURS WORKFLOW (en attente garantie / retournés) ──
+// ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +4 jours ──
+const RELANCE_DELAI_JOURS=4;
+function getDossiersARelancer(){
+  const all=Object.values(window._dossiers||{});
+  const seuil=Date.now()-RELANCE_DELAI_JOURS*864e5;
+  const facturationDone=d=>GROUPE_FACTURATION.some(k=>d[k]);
+  return all.filter(d=>{
+    if(!d.retourconc)return false;
+    if(facturationDone(d))return false; // déjà revenu/traité
+    // Point de référence : la dernière relance si elle existe, sinon date de retour
+    const ref=d._lastRelanceTs||d._modifiedTs||d._ts||0;
+    return ref<seuil;
+  });
+}
+
+function renderRelancePanel(){
+  const panel=document.getElementById('relance-panel');
+  if(!panel)return;
+  const aRelancer=getDossiersARelancer();
+  if(!aRelancer.length){panel.style.display='none';return;}
+  panel.style.display='block';
+  // Grouper par site
+  const parSite={};
+  aRelancer.forEach(d=>{const s=d.site||'?';(parSite[s]=parSite[s]||[]).push(d);});
+  const sitesHtml=Object.entries(parSite).map(([s,arr])=>{
+    const kvps=SITE_KVPS[s]||'?????';
+    return `<span style="display:inline-block;background:var(--bg);border:1px solid #e67e2240;border-radius:6px;padding:3px 8px;margin:2px;font-size:11px;">
+      ${SITE_SHORT[s]||s} <span style="color:var(--text3);">(${kvps})</span> : <strong style="color:#e67e22;">${arr.length}</strong>
+    </span>`;
+  }).join('');
+  panel.innerHTML=`
+    <div style="background:#2a1f0d;border:1px solid #e67e22;border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#e67e22;">⚠ ${aRelancer.length} dossier(s) en attente de retour (+${RELANCE_DELAI_JOURS} jours)</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px;">Retournés en concession, sans retour ni statut facturation</div>
+          <div style="margin-top:8px;">${sitesHtml}</div>
+        </div>
+        <button class="btn" onclick="sendRelanceMails()" style="background:#e67e22;color:#fff;border:none;white-space:nowrap;">✉ Envoyer les rappels par site</button>
+      </div>
+    </div>`;
+}
+
+// Mail récapitulatif par site/KVPS
+window.sendRelanceMails=function(){
+  const aRelancer=getDossiersARelancer();
+  if(!aRelancer.length){toast('Aucun dossier à relancer','info');return;}
+  const parSite={};
+  aRelancer.forEach(d=>{const s=d.site||'?';(parSite[s]=parSite[s]||[]).push(d);});
+  const sites=Object.keys(parSite);
+
+  // Ouvrir un mail par site (espacés pour éviter le blocage navigateur)
+  sites.forEach((s,idx)=>{
+    const arr=parSite[s];
+    const kvps=SITE_KVPS[s]||'?????';
+    const siteName=SITE_SHORT[s]||s;
+    const sujet=`RELANCE GARANTIE - ${siteName} (${kvps}) - ${arr.length} dossier(s) en attente`;
+    const lignes=arr.map(d=>{
+      const ref=d._lastRelanceTs||d._modifiedTs||d._ts||0;
+      const jours=Math.floor((Date.now()-ref)/864e5);
+      const dejaRelance=d._lastRelanceTs?' (déjà relancé)':'';
+      return `  • N°OR ${d.nor||'—'} · VIN ${d.vin||'—'} · ${d.ccs||'—'} · en attente depuis ${jours} j${dejaRelance}`;
+    }).join('\n');
+    const corps=`Bonjour,\n\nLes dossiers suivants ont été retournés en concession (${siteName} - KVPS ${kvps}) et sont toujours en attente de retour après ${RELANCE_DELAI_JOURS} jours :\n\n──────────────────────────────\n${lignes}\n──────────────────────────────\n\nMerci de nous retourner ces dossiers complétés dans les meilleurs délais.\n\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
+    const mailtoUrl=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+    setTimeout(()=>{
+      const a=document.createElement('a');a.href=mailtoUrl;a.style.display='none';
+      document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500);
+    },idx*1500); // espacer de 1,5s par site
+  });
+  toast(sites.length+' mail(s) de relance ouvert(s) — un par site','success');
+
+  // Marquer tous les dossiers relancés dans Firebase (partagé entre tous les membres)
+  const now=Date.now();
+  const updates=aRelancer.map(d=>{
+    const obj={...d,_lastRelanceTs:now,_lastRelanceBy:_currentUser};
+    delete obj._id;
+    return window._db?window._set(window._ref(window._db,'controle_garantie/'+d._id),obj):Promise.resolve();
+  });
+  Promise.all(updates).then(()=>{
+    setTimeout(renderRelancePanel,300); // rafraîchir : le panneau se vide
+  }).catch(err=>console.warn('Marquage relance:',err));
+};
+
 function renderWorkflowCounters(){
   const box=document.getElementById('workflow-counters');
   if(!box)return;
@@ -2444,6 +2529,7 @@ window.renderList=function(){
   buildAutocomplete();
   renderMyStats();
   renderWorkflowCounters();
+  renderRelancePanel();
   updateConnDot();
 
   const tbody=document.getElementById('list-tbody');
