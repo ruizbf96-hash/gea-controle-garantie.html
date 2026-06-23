@@ -51,7 +51,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 
 /* ── APP ── */
 .app-screen{display:none;}
-.main{max-width:1200px;margin:0 auto;padding:20px;}
+.main{max-width:1600px;margin:0 auto;padding:20px;}
 
 /* ── ÉTAPES ── */
 .steps{display:flex;gap:0;margin-bottom:24px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
@@ -142,10 +142,10 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .toolbar{padding:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
 .toolbar select,.toolbar input{padding:6px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;font-family:'IBM Plex Sans',sans-serif;}
 table{width:100%;border-collapse:collapse;font-size:12px;}
-thead th{padding:9px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border-hi);border-right:1px solid var(--border);white-space:nowrap;color:var(--text2);background:var(--bg3);}
+thead th{padding:7px 5px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border-hi);border-right:1px solid var(--border);white-space:nowrap;color:var(--text2);background:var(--bg3);}
 tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
 tbody tr:hover{background:var(--bg3);}
-tbody td{padding:8px 10px;color:var(--text);border-right:1px solid var(--border);vertical-align:middle;}
+tbody td{padding:6px 5px;color:var(--text);border-right:1px solid var(--border);vertical-align:middle;}
 tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
 .empty-row td{text-align:center;padding:40px;color:var(--text3);}
 
@@ -544,13 +544,13 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <input type="text" id="lf-search" placeholder="N°OR, châssis, CCS, modèle, date, conseiller..." oninput="renderList()" style="min-width:200px;">
           <button class="btn" onclick="exportCSV()" style="margin-left:auto;">↓ CSV</button>
         </div>
-        <div style="overflow-x:auto;">
-        <table>
+        <div>
+        <table style="width:100%;table-layout:auto;font-size:11px;">
           <thead>
             <tr style="cursor:pointer;">
               <th onclick="sortList('site')">Site ⇅</th><th onclick="sortList('nor')">N°OR ⇅</th><th onclick="sortList('vin')">Châssis ⇅</th><th onclick="sortList('ccs')">CCS ⇅</th>
-              <th onclick="sortList('modele')">Modèle ⇅</th><th onclick="sortList('montant')">Montant ⇅</th><th>Statut dossier</th><th>Statut facturation</th>
-              <th onclick="sortList('defaut1')">Défaut ⇅</th><th onclick="sortList('correspondant')">Correspondant ⇅</th><th onclick="sortList('_ts')">Date ⇅</th><th onclick="sortList('_createdBy')">Créé par ⇅</th>
+              <th onclick="sortList('modele')">Modèle ⇅</th><th onclick="sortList('montant')">Montant ⇅</th><th>Statut dossier</th><th>Statut factu.</th>
+              <th onclick="sortList('defaut1')">Défaut ⇅</th><th onclick="sortList('correspondant')">Corresp. ⇅</th><th onclick="sortList('_ts')">Date ⇅</th><th onclick="sortList('_createdBy')">Créé par ⇅</th>
             </tr>
           </thead>
           <tbody id="list-tbody"></tbody>
@@ -2350,19 +2350,22 @@ function renderMyStats(){
 }
 
 // ── COMPTEURS WORKFLOW (en attente garantie / retournés) ──
-// ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +3 jours ──
-const RELANCE_DELAI_JOURS=3;
+// ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +4 jours ──
+const RELANCE_DELAI_JOURS=4;
 function getDossiersARelancer(){
   const all=Object.values(window._dossiers||{});
   const seuil=Date.now()-RELANCE_DELAI_JOURS*864e5;
   const facturationDone=d=>GROUPE_FACTURATION.some(k=>d[k]);
-  return all.filter(d=>{
+  const res=all.filter(d=>{
     if(!d.retourconc)return false;
     if(facturationDone(d))return false; // déjà revenu/traité
-    // Point de référence : la dernière relance si elle existe, sinon date de retour
     const ref=d._lastRelanceTs||d._modifiedTs||d._ts||0;
-    return ref<seuil;
+    return ref<=seuil; // <= pour que délai 0 fonctionne immédiatement
   });
+  // Diagnostic console (visible avec F12)
+  const totalRetour=all.filter(d=>d.retourconc).length;
+  console.log(`[Relance] ${all.length} dossiers, ${totalRetour} en retour concession, ${res.length} à relancer (délai ${RELANCE_DELAI_JOURS}j)`);
+  return res;
 }
 
 function renderRelancePanel(){
@@ -2534,7 +2537,7 @@ window.renderList=function(){
 
   const tbody=document.getElementById('list-tbody');
   if(!data.length){
-    tbody.innerHTML='<tr class="empty-row"><td colspan="11">Aucun dossier</td></tr>';
+    tbody.innerHTML='<tr class="empty-row"><td colspan="12">Aucun dossier</td></tr>';
     return;
   }
   tbody.innerHTML=data.map(d=>{
@@ -2542,18 +2545,18 @@ window.renderList=function(){
     const statDossier=GROUPE_DOSSIER.filter(k=>d[k]).map(badge).join('');
     const statFactu=GROUPE_FACTURATION.filter(k=>d[k]).map(badge).join('');
     return `<tr onclick="showDetail('${d._id}')">
-      <td>${SITE_SHORT[d.site]||d.site||'—'}</td>
+      <td style="white-space:nowrap;">${SITE_SHORT[d.site]||d.site||'—'}</td>
       <td class="mono">${d.nor||'—'}</td>
-      <td class="mono" style="font-size:10px;">${d.vin||'—'}</td>
-      <td>${d.ccs||'—'}</td>
-      <td style="font-size:11px;">${d.modele||'—'}</td>
-      <td class="mono">${d.montant||'—'} €</td>
+      <td class="mono" style="font-size:9px;">${d.vin||'—'}</td>
+      <td style="font-size:10px;">${d.ccs||'—'}</td>
+      <td style="font-size:10px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.modele||''}">${d.modele||'—'}</td>
+      <td class="mono" style="white-space:nowrap;">${d.montant||'—'} €</td>
       <td>${statDossier||'<span style="color:var(--text3);">—</span>'}</td>
       <td>${statFactu||'<span style="color:var(--text3);">—</span>'}</td>
-      <td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.defaut1||''}">${d.defaut1||'—'}</td>
-      <td>${d.correspondant||'—'}</td>
-      <td style="font-size:11px;">${dateFR(d.date)}</td>
-      <td style="color:var(--text3);">${d._createdBy||'—'}</td>
+      <td style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.defaut1||''}">${d.defaut1||'—'}</td>
+      <td style="font-size:10px;">${d.correspondant||'—'}</td>
+      <td style="font-size:10px;white-space:nowrap;">${dateFR(d.date)}</td>
+      <td style="color:var(--text3);white-space:nowrap;">${d._createdBy||'—'}</td>
     </tr>`;
   }).join('');
 };
