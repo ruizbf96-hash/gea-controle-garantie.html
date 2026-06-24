@@ -550,7 +550,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <tr style="cursor:pointer;">
               <th onclick="sortList('site')">Site ⇅</th><th onclick="sortList('nor')">N°OR ⇅</th><th onclick="sortList('vin')">Châssis ⇅</th><th onclick="sortList('ccs')">CCS ⇅</th>
               <th onclick="sortList('modele')">Modèle ⇅</th><th onclick="sortList('montant')">Montant ⇅</th><th>Statut dossier</th><th>Statut factu.</th>
-              <th onclick="sortList('defaut1')">Défaut ⇅</th><th onclick="sortList('correspondant')">Corresp. ⇅</th><th onclick="sortList('_ts')">Date ⇅</th><th onclick="sortList('_createdBy')">Créé par ⇅</th>
+              <th onclick="sortList('defaut1')">Défaut ⇅</th><th onclick="sortList('correspondant')">Corresp. ⇅</th><th onclick="sortList('_ts')">Date OR ⇅</th><th onclick="sortList('dateControle')">Date contrôle ⇅</th>
             </tr>
           </thead>
           <tbody id="list-tbody"></tbody>
@@ -639,7 +639,7 @@ const STATUT_COLORS={incomplet:'#ffe066',nonfact:'#ff4d6a',retourconc:'#e67e22',
 // Groupes pour l'affichage séparé
 const GROUPE_DOSSIER=['incomplet','nonfact','retourconc','agarantie','fcession_issue'];
 const GROUPE_FACTURATION=['rattrapage','risque','sauvee','annul','facturegar','fcession','temps'];
-const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet','Directive action non respectée','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non éxécutée','Garantie échue','Immat sur vidéo','IQ cloturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non cloturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur OR manuscrit sans contre-signature','Liste PPSO non utilisée','Manque dernier entretien participation AUDI','Photo ou vidéo manquante ou non conforme','Protocole non conforme ou manquant','Mise hors tension manquante','TPI non appliquée','Ticket clim absent ou non conforme'];
+const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet ou illisible','Directive action non respecté','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non exécutée','Garantie échue','Immat sur vidéo','IQ clôturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non clôturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur or manuscrit pas de contre signature client','Liste PPSO non utilisé','Manque dernier entretien participation AUDI','Manque devis','Manque facture 1er remplacement','Manque formulaire de refus',"Manque historique d'entretien",'Manque Kulanz','Manque rétro-documentation','Manuel de réparation non respecté','Mauvaise réf sur lOR','Mise hors tension manquante','MO en trop','Ne relève pas de la garantie','OR clôturé garantie clôturé',"OR non conforme selon règle d'audit",'OR non conforme pour le retour atelier','OR supprimé',"Pas de lignes ouvertes pour l'action",'Photo ou vidéo manquante ou non conforme','Pièce non rendue au magasin','Pièce remplacée non imputable en garantie','Pièce remplacée sans défaut','Pièce renvoyée hors délai','Pièces en trop sur OR','Pièces manquantes sur OR','Pièces non renvoyer','Plainte client sur OR manquante ou non conforme','Plan de contrôle non conforme,manquant ou non abouti','Plusieurs protocoles différence excessive de kilométrage','Plusieurs protocoles sans MAJ ODIS','Pointage manquant,incomplet,erroné','Protocole non conforme,manquant ou non abouti','Purge manquante ou non aboutie','Réglage / calibrage manquant','Remplacement pièce non justifiée','Retard service garantie','Scan airbag non effectué','Signature sur OR manquante','TD1','Ticket batterie non conforme','Ticket clim absent ou non conforme','TPI ne correspond pas','TPI non applicable','TPI non appliquée','TPI non insérer dans lIQ avant MAJ','TPI non jointe à lOR','TPI pas respectée','Véhicule hors garantie'];
 
 // Init défauts — remplir la datalist (choix + saisie manuelle possible)
 (function(){
@@ -1803,7 +1803,8 @@ window.saveDossier=function(){
     heures:document.getElementById('f-heures').value,
     ..._statuts,
     _createdBy:ancien._createdBy||_currentUser||'',
-    _ts:ancien._ts||Date.now()
+    _ts:ancien._ts||Date.now(),
+    dateControle:ancien.dateControle||ancien._ts||Date.now()
   };
   // Si c'est une modification, ajouter date + auteur de modif
   if(ancien._ts){
@@ -2350,8 +2351,8 @@ function renderMyStats(){
 }
 
 // ── COMPTEURS WORKFLOW (en attente garantie / retournés) ──
-// ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +3 jours ──
-const RELANCE_DELAI_JOURS=3; // ← TEST : mettre 3 pour la production
+// ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +4 jours ──
+const RELANCE_DELAI_JOURS=0; // ← TEST : mettre 4 pour la production
 function getDossiersARelancer(){
   const all=Object.values(window._dossiers||{});
   const seuil=Date.now()-RELANCE_DELAI_JOURS*864e5;
@@ -2359,7 +2360,8 @@ function getDossiersARelancer(){
   const res=all.filter(d=>{
     if(!d.retourconc)return false;
     if(facturationDone(d))return false; // déjà revenu/traité
-    const ref=d._lastRelanceTs||d._modifiedTs||d._ts||0;
+    // Point de référence : dernière relance si elle existe, sinon date de CONTRÔLE
+    const ref=d._lastRelanceTs||d.dateControle||d._ts||0;
     return ref<=seuil; // <= pour que délai 0 fonctionne immédiatement
   });
   // Diagnostic console (visible avec F12)
@@ -2400,7 +2402,7 @@ window.sendRelanceSite=function(site){
   const siteName=SITE_SHORT[site]||site;
   const sujet=`RELANCE GARANTIE - ${siteName} (${kvps}) - ${aRelancer.length} dossier(s) en attente`;
   const lignes=aRelancer.map(d=>{
-    const ref=d._lastRelanceTs||d._modifiedTs||d._ts||0;
+    const ref=d._lastRelanceTs||d.dateControle||d._ts||0;
     const jours=Math.floor((Date.now()-ref)/864e5);
     const dejaRelance=d._lastRelanceTs?' (déjà relancé)':'';
     return `  • N°OR ${d.nor||'—'} · VIN ${d.vin||'—'} · ${d.ccs||'—'} · en attente depuis ${jours} j${dejaRelance}`;
@@ -2543,7 +2545,7 @@ window.renderList=function(){
       <td style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.defaut1||''}">${d.defaut1||'—'}</td>
       <td style="font-size:10px;">${d.correspondant||'—'}</td>
       <td style="font-size:10px;white-space:nowrap;">${dateFR(d.date)}</td>
-      <td style="color:var(--text3);white-space:nowrap;">${d._createdBy||'—'}</td>
+      <td style="font-size:10px;white-space:nowrap;color:var(--text2);">${d.dateControle?new Date(d.dateControle).toLocaleDateString('fr-FR'):(d._ts?new Date(d._ts).toLocaleDateString('fr-FR'):'—')}</td>
     </tr>`;
   }).join('');
 };
@@ -2595,6 +2597,7 @@ window.showDetail=function(id){
     <div class="detail-row"><div class="detail-label">Châssis</div><div class="detail-val" style="font-family:'IBM Plex Mono',monospace;">${d.vin||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Modèle</div><div class="detail-val">${d.modele||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Date OR</div><div class="detail-val">${dateFR(d.date)}</div></div>
+    <div class="detail-row"><div class="detail-label">Date contrôle</div><div class="detail-val" style="color:var(--accent);">${d.dateControle?new Date(d.dateControle).toLocaleDateString('fr-FR'):(d._ts?new Date(d._ts).toLocaleDateString('fr-FR'):'—')}</div></div>
     <div class="detail-row"><div class="detail-label">CCS</div><div class="detail-val">${d.ccs||'—'}</div></div>
     <div class="detail-row"><div class="detail-label">Montant</div><div class="detail-val">${d.montant||'—'} €</div></div>
     ${d.typegar?`<div class="detail-row"><div class="detail-label">Type garantie</div><div class="detail-val" style="color:#0a6ec8;font-weight:600;">${d.typegar}</div></div>`:''}
