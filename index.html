@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contrôle Garantie — TeamGarantie GEA</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 :root {
@@ -542,7 +543,9 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <option value="Céline">Céline</option>
           </select>
           <input type="text" id="lf-search" placeholder="N°OR, châssis, CCS, modèle, date, conseiller..." oninput="renderList()" style="min-width:200px;">
-          <button class="btn" onclick="exportCSV()" style="margin-left:auto;">↓ CSV</button>
+          <button class="btn" onclick="document.getElementById('import-suivi-file').click()" style="margin-left:auto;background:#1a3a5c;color:#7ec8e3;border-color:#7ec8e340;" title="Importer le tableau Suivi Annulation-Rattrapage">⬆ Importer Excel</button>
+          <input type="file" id="import-suivi-file" accept=".xlsx,.xls" style="display:none" onchange="importSuiviRattrapage(this.files[0])">
+          <button class="btn" onclick="exportCSV()">↓ CSV</button>
         </div>
         <div>
         <table style="width:100%;table-layout:auto;font-size:11px;">
@@ -2351,8 +2354,8 @@ function renderMyStats(){
 }
 
 // ── COMPTEURS WORKFLOW (en attente garantie / retournés) ──
-// ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +3 jours ──
-const RELANCE_DELAI_JOURS=3; // ← TEST : mettre 4 pour la production
+// ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +4 jours ──
+const RELANCE_DELAI_JOURS=3; // délai de relance en jours
 function getDossiersARelancer(){
   const all=Object.values(window._dossiers||{});
   const seuil=Date.now()-RELANCE_DELAI_JOURS*864e5;
@@ -2736,6 +2739,94 @@ window.exportCSV=function(){
   a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
   a.download='controle-garantie-'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
+};
+
+// ── IMPORT EXCEL "Suivi Annulation-Rattrapage" ──
+// Mappe chaque ligne du tableau Excel vers un dossier de contrôle.
+window.importSuiviRattrapage=async function(file){
+  if(!file)return;
+  if(typeof XLSX==='undefined'){toast('Librairie Excel non chargée, rechargez la page','error');return;}
+  toast('Lecture du fichier Excel...','info');
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    // Trouver la feuille "Suivi Annulation-Rattrapage"
+    const sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('annulation')||n.toLowerCase().includes('rattrapage'))||wb.SheetNames[0];
+    const ws=wb.Sheets[sheetName];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+
+    // Colonnes (0-indexées) : 0=SITE,1=OR,2=DGcession,3=type,4=CCS,5=tech1,6=tech2,7=service,8=intervention,9=heures,10=montant
+    // 11=rattrapage,12=risque,13=malgre,14=annul,15=sauvee,16=incomplet,17=retourconc,18=temps
+    // 19=relance,20=date,21=correspondant,22=defaut1,23=defaut2...
+    const SITES_VALIDES=Object.keys(SITE_KVPS);
+    const has=(v)=>v!==null&&v!==undefined&&String(v).trim()!=='';
+    const isX=(v)=>has(v)&&['x','X','oui','OUI','1','true'].includes(String(v).trim());
+
+    let importes=0,ignores=0;
+    const updates=[];
+
+    for(let i=2;i<rows.length;i++){ // ligne 0=titre, 1=en-têtes, données dès ligne 2
+      const r=rows[i];
+      if(!r)continue;
+      const site=(r[0]||'').toString().trim();
+      const nor=r[1]!=null?String(r[1]).trim():'';
+      if(!SITES_VALIDES.includes(site)||!nor){ignores++;continue;}
+
+      // Date → timestamp
+      let dateControle=Date.now();
+      if(r[20]){
+        const d=r[20] instanceof Date?r[20]:new Date(r[20]);
+        if(!isNaN(d))dateControle=d.getTime();
+      }
+      // Défauts (colonnes 22 à 29)
+      const defaut1=r[22]?String(r[22]).trim():'';
+      const defaut2=r[23]?String(r[23]).trim():'';
+
+      // Montant
+      let montant='';
+      if(has(r[10])){const m=parseFloat(String(r[10]).replace(',','.').replace(/[^\d.-]/g,''));if(!isNaN(m))montant=m.toFixed(2);}
+
+      const dossier={
+        site,nor,
+        vin:'',ccs:r[4]?String(r[4]).trim():'',
+        modele:'',
+        typegar:r[3]?String(r[3]).trim():'',
+        tech1:r[5]?String(r[5]).trim():'',
+        service:r[7]?String(r[7]).trim():'',
+        montant,
+        date:'',
+        correspondant:r[21]?String(r[21]).trim():'',
+        relances:has(r[19])?String(r[19]).trim():'',
+        defaut1,defaut2,
+        // Statuts (x → true)
+        rattrapage:isX(r[11]),
+        risque:isX(r[12]),
+        malgre:isX(r[13]),
+        annul:isX(r[14]),
+        sauvee:isX(r[15]),
+        incomplet:isX(r[16]),
+        retourconc:isX(r[17]),
+        temps:isX(r[18]),
+        _createdBy:'Import Excel',
+        _ts:dateControle,
+        dateControle,
+        _importedFrom:'suivi_rattrapage'
+      };
+      // Clé : site + OR pour éviter doublons sur réimport
+      const fbKey='import_'+site+'_'+nor;
+      if(window._db){
+        updates.push(window._set(window._ref(window._db,'controle_garantie/'+fbKey),dossier));
+      }
+      importes++;
+    }
+
+    await Promise.all(updates);
+    toast(`✓ ${importes} dossier(s) importé(s)${ignores?', '+ignores+' ligne(s) ignorée(s)':''}`,'success');
+    document.getElementById('import-suivi-file').value='';
+  }catch(err){
+    console.error('Erreur import:',err);
+    toast('Erreur import : '+err.message,'error');
+  }
 };
 
 // ── CLÉ API ANTHROPIC (partagée via Firebase, configurable par Omar uniquement) ──
