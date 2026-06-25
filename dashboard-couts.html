@@ -103,6 +103,7 @@ table.xl thead th.grp-incomplet{background:#e8c33c;color:#4a3c00;}
 table.xl thead th.grp-nonfact{background:#e8533c;}
 table.xl thead th.grp-annul{background:#d9455f;}
 table.xl thead th.grp-sauvee{background:#6fbf73;color:#0d2e0d;}
+table.xl thead th.grp-temps{background:#7e9c4a;color:#fff;}
 table.xl thead th.grp-audit{background:#e8c33c;color:#4a3c00;}
 table.xl thead th.grp-sub{background:var(--bg3);color:var(--ink2);font-size:9px;}
 table.xl thead th.grp-site{background:#7e9c4a;}
@@ -274,6 +275,21 @@ table.xl tbody tr.total td{font-weight:700;color:var(--ink);}
     <div class="tbl-wrap"><table class="xl" id="tbl-couts"><thead></thead><tbody></tbody></table></div>
   </div>
 
+  <!-- Zone Analyse / Commentaires (auto + modifiable) -->
+  <div class="panel" style="margin-top:14px;">
+    <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3>📝 Analyse & commentaires</h3>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" onclick="genererAnalyse()" style="background:var(--fact);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">⟳ Générer l'analyse auto</button>
+        <button class="btn-sm" onclick="saveAnalyse()" style="background:var(--paye);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">💾 Enregistrer</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <textarea id="analyse-text" style="width:100%;min-height:200px;padding:14px;border:1px solid var(--line);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;line-height:1.6;color:var(--ink);background:#fffdf8;resize:vertical;" placeholder="Cliquez sur 'Générer l'analyse auto' pour une analyse basée sur les chiffres, puis modifiez librement le texte. Cliquez sur 'Enregistrer' pour sauvegarder."></textarea>
+      <div id="analyse-saved" style="font-size:11px;color:var(--ink3);margin-top:6px;"></div>
+    </div>
+  </div>
+
   <!-- Graphiques section 1 -->
   <div class="g21">
     <div class="panel">
@@ -346,7 +362,7 @@ table.xl tbody tr.total td{font-weight:700;color:var(--ink);}
 <!-- ══ FIREBASE ══ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, push, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 const firebaseConfig = {
   apiKey:"AIzaSyApg898LLWpWlLy8o0JEU9mTMqkbORKLQ0",
   authDomain:"controle-garantie.firebaseapp.com",
@@ -358,7 +374,7 @@ const firebaseConfig = {
 };
 const app=initializeApp(firebaseConfig);
 const db=getDatabase(app);
-window._db=db; window._ref=ref; window._push=push; window._set=set; window._remove=remove;
+window._db=db; window._ref=ref; window._push=push; window._set=set; window._remove=remove; window._get=get;
 // Données VGF garanties (CA facturé par site/activité)
 onValue(ref(db,'vgf_garanties'),snap=>{
   window._vgfGar={};
@@ -701,6 +717,10 @@ window.refresh=function(){
   renderTblEncours(ctrl);
   renderCharts(sagaMois,sagaAll,ctrl,cess);
   renderDirection(garMois,gar,ctrl,cess,annee,mois);
+  // Données pour l'analyse auto
+  const periodeKey=(annee||'')+(mois?'_'+mois:'');
+  window._analyseData={saga:sagaMois,ctrl,cess:cess.filter(c=>!mois||c.mois===mois),periode:periodTxt,periodeKey};
+  loadAnalyse(periodeKey);
 };
 
 // ── RÉSUMÉ EXÉCUTIF ──
@@ -727,7 +747,7 @@ function renderExec(saga,ctrl,period){
     if(v>worstVal){worstVal=v;worstSite=s;}
   });
 
-  const txt=`Sur la période <strong>${period}</strong>, le chiffre d'affaires garantie facturé s'élève à <strong>${fmt(caFact)}</strong> pour <strong>${saga.length} dossiers</strong>, avec un taux de paiement de <strong>${tauxP}%</strong>.
+  const txt=`Sur la période <strong>${period}</strong>, le chiffre d'affaires garantie facturé s'élève à <strong>${fmt(caFact)}</strong> pour <strong>${saga.reduce((t,d)=>t+(d.nb_dossiers||0),0)} dossiers</strong>, avec un taux de paiement de <strong>${tauxP}%</strong>.
   <div style="margin-top:10px;">
   <div class="alert-line"><span class="alert-dot" style="background:var(--annul);"></span>${nbAnnul} dossier(s) annulé(s) définitivement représentant <strong>${fmt(caAnnul)}</strong></div>
   <div class="alert-line"><span class="alert-dot" style="background:var(--nonfact);"></span>CA en risque actif : <strong>${fmt(caRisque)}</strong></div>
@@ -750,7 +770,8 @@ function renderKPIs(saga,ctrl){
   const caRatt=ctrl.filter(c=>c.rattrapage).reduce((t,c)=>t+mon(c.montant),0);
 
   document.getElementById('k-fact').textContent=fmt(caFact);
-  document.getElementById('k-fact-nb').textContent=saga.length+' dossiers';
+  const totNbDossiers=saga.reduce((t,d)=>t+(d.nb_dossiers||0),0);
+  document.getElementById('k-fact-nb').textContent=totNbDossiers+' dossiers';
   document.getElementById('k-paye').textContent=fmt(caPaye);
   const pc=document.getElementById('k-paye-pct');
   pc.textContent=tauxP+'%';
@@ -773,62 +794,75 @@ function buildCoutsTable(saga,ctrl,tblId,withActions){
       <th class="grp-site" rowspan="2">Site</th>
       <th class="grp-fact" colspan="5">1 — DG facturées</th>
       <th class="grp-paye" colspan="2">DG payées</th>
-      <th class="grp-rattrap" colspan="2">2 — Rattrapées</th>
-      <th class="grp-incomplet" colspan="2">3 — Incomplets</th>
-      <th class="grp-nonfact" colspan="2">4 — Non facturable</th>
-      <th class="grp-annul" colspan="2">5 — Annulées déf.</th>
-      <th class="grp-sauvee" colspan="2">6 — Sauvées</th>
+      <th class="grp-rattrap" colspan="4">2 — Rattrapées</th>
+      <th class="grp-incomplet" colspan="4">3 — Incomplets</th>
+      <th class="grp-nonfact" colspan="4">4 — Retour concession</th>
+      <th class="grp-annul" colspan="4">5 — Annulées déf.</th>
+      <th class="grp-sauvee" colspan="4">6 — Sauvées</th>
+      <th class="grp-temps" colspan="2">Temps supp.</th>
+      <th class="grp-audit" colspan="1">Audits</th>
     </tr>
     <tr>
       <th class="grp-sub">Nb DG</th><th class="grp-sub">Dont act.</th><th class="grp-sub">CA actions</th><th class="grp-sub">% fact.</th><th class="grp-sub">CA facturé</th>
       <th class="grp-sub">CA payé</th><th class="grp-sub">% payé</th>
-      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
-      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
-      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
-      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
-      <th class="grp-sub">Nb</th><th class="grp-sub">CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">%nb</th><th class="grp-sub">CA</th><th class="grp-sub">%CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">%nb</th><th class="grp-sub">CA</th><th class="grp-sub">%CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">%nb</th><th class="grp-sub">CA</th><th class="grp-sub">%CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">%nb</th><th class="grp-sub">CA</th><th class="grp-sub">%CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">%nb</th><th class="grp-sub">CA</th><th class="grp-sub">%CA</th>
+      <th class="grp-sub">Nb</th><th class="grp-sub">%</th>
+      <th class="grp-sub">Montant</th>
     </tr>`;
   const heatPct=(p)=>p>=20?'heat-r':p>=10?'heat-o':p>0?'heat-g':'';
   const heatPay=(p)=>p>=95?'heat-g':p>=80?'heat-o':'heat-r';
   let rows='';
-  const tot={nb:0,act:0,caAct:0,caF:0,caP:0,rNb:0,rCA:0,iNb:0,iCA:0,nNb:0,nCA:0,aNb:0,aCA:0,sNb:0,sCA:0};
+  const tot={nb:0,act:0,caAct:0,caF:0,caP:0,rNb:0,rCA:0,iNb:0,iCA:0,nNb:0,nCA:0,aNb:0,aCA:0,sNb:0,sCA:0,tNb:0,audCA:0};
+  // %nb par rapport au total DG facturées du site
+  const pn=(n,base)=>base>0?(n/base*100).toFixed(1)+'%':'0%';
   SITES.forEach(s=>{
     const ss=saga.filter(d=>d._site===s);
     if(!ss.length)return;
     const nb=ss.reduce((t,d)=>t+(d.nb_dossiers||0),0);
-    const act=ss.reduce((t,d)=>t+(d.nb_actions||0),0); // dont actions (depuis détails)
-    const caAct=ss.reduce((t,d)=>t+mon(d.ca_action),0); // CA actions (depuis détails)
+    const act=ss.reduce((t,d)=>t+(d.nb_actions||0),0);
+    const caAct=ss.reduce((t,d)=>t+mon(d.ca_action),0);
     const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
     const aNb=ctrlNb(ctrl,s,'annul'),aCA=ctrlStat(ctrl,s,'annul');
-    // CA payé = CA facturé - CA annulées définitivement
-    const caP=Math.max(0,caF-aCA);
+    const caP=Math.max(0,caF-aCA); // DG payées = facturées - annulées déf.
     const rNb=ctrlNb(ctrl,s,'rattrapage'),rCA=ctrlStat(ctrl,s,'rattrapage');
     const iNb=ctrlNb(ctrl,s,'incomplet'),iCA=ctrlStat(ctrl,s,'incomplet');
-    const nNb=ctrlNb(ctrl,s,'nonfact'),nCA=ctrlStat(ctrl,s,'nonfact');
+    const nNb=ctrlNb(ctrl,s,'retourconc'),nCA=ctrlStat(ctrl,s,'retourconc');
     const sNb=ctrlNb(ctrl,s,'sauvee'),sCA=ctrlStat(ctrl,s,'sauvee');
+    const tNb=ctrlNb(ctrl,s,'temps');
+    const audCA=ctrlStat(ctrl,s,'audit');
     tot.nb+=nb;tot.act+=act;tot.caAct+=caAct;tot.caF+=caF;tot.caP+=caP;
-    tot.rNb+=rNb;tot.rCA+=rCA;tot.iNb+=iNb;tot.iCA+=iCA;tot.nNb+=nNb;tot.nCA+=nCA;tot.aNb+=aNb;tot.aCA+=aCA;tot.sNb+=sNb;tot.sCA+=sCA;
+    tot.rNb+=rNb;tot.rCA+=rCA;tot.iNb+=iNb;tot.iCA+=iCA;tot.nNb+=nNb;tot.nCA+=nCA;tot.aNb+=aNb;tot.aCA+=aCA;tot.sNb+=sNb;tot.sCA+=sCA;tot.tNb+=tNb;tot.audCA+=audCA;
     rows+=`<tr>
       <td class="site" style="border-left:4px solid ${SITE_COLOR[s]};">${SITE_SHORT[s]}</td>
       <td>${nb}</td><td>${act}</td><td>${fmt(caAct)}</td><td>${pct1(caF,totFact)}</td><td>${fmt(caF)}</td>
       <td>${fmt(caP)}</td><td class="${heatPay(pctN(caP,caF))}">${pct1(caP,caF)}</td>
-      <td>${rNb}</td><td>${fmt(rCA)}</td>
-      <td>${iNb}</td><td class="${heatPct(pctN(iCA,caF))}">${fmt(iCA)}</td>
-      <td>${nNb}</td><td>${fmt(nCA)}</td>
-      <td>${aNb}</td><td class="${aCA>0?'heat-r':''}">${fmt(aCA)}</td>
-      <td>${sNb}</td><td class="${sCA>0?'heat-g':''}">${fmt(sCA)}</td>
+      <td>${rNb}</td><td>${pn(rNb,nb)}</td><td>${fmt(rCA)}</td><td>${pn(rCA,caF)}</td>
+      <td>${iNb}</td><td>${pn(iNb,nb)}</td><td class="${heatPct(pctN(iCA,caF))}">${fmt(iCA)}</td><td>${pn(iCA,caF)}</td>
+      <td>${nNb}</td><td>${pn(nNb,nb)}</td><td>${fmt(nCA)}</td><td>${pn(nCA,caF)}</td>
+      <td>${aNb}</td><td>${pn(aNb,nb)}</td><td class="${aCA>0?'heat-r':''}">${fmt(aCA)}</td><td>${pn(aCA,caF)}</td>
+      <td>${sNb}</td><td>${pn(sNb,nb)}</td><td class="${sCA>0?'heat-g':''}">${fmt(sCA)}</td><td>${pn(sCA,caF)}</td>
+      <td>${tNb}</td><td>${pn(tNb,nb)}</td>
+      <td>${audCA>0?fmt(audCA):'—'}</td>
     </tr>`;
   });
   rows+=`<tr class="total">
     <td class="site">TOTAL</td>
     <td>${tot.nb}</td><td>${tot.act}</td><td>${fmt(tot.caAct)}</td><td>100%</td><td>${fmt(tot.caF)}</td>
     <td>${fmt(tot.caP)}</td><td>${pct1(tot.caP,tot.caF)}</td>
-    <td>${tot.rNb}</td><td>${fmt(tot.rCA)}</td>
-    <td>${tot.iNb}</td><td>${fmt(tot.iCA)}</td>
-    <td>${tot.nNb}</td><td>${fmt(tot.nCA)}</td>
-    <td>${tot.aNb}</td><td>${fmt(tot.aCA)}</td>
-    <td>${tot.sNb}</td><td>${fmt(tot.sCA)}</td>
+    <td>${tot.rNb}</td><td>${pn(tot.rNb,tot.nb)}</td><td>${fmt(tot.rCA)}</td><td>${pn(tot.rCA,tot.caF)}</td>
+    <td>${tot.iNb}</td><td>${pn(tot.iNb,tot.nb)}</td><td>${fmt(tot.iCA)}</td><td>${pn(tot.iCA,tot.caF)}</td>
+    <td>${tot.nNb}</td><td>${pn(tot.nNb,tot.nb)}</td><td>${fmt(tot.nCA)}</td><td>${pn(tot.nCA,tot.caF)}</td>
+    <td>${tot.aNb}</td><td>${pn(tot.aNb,tot.nb)}</td><td>${fmt(tot.aCA)}</td><td>${pn(tot.aCA,tot.caF)}</td>
+    <td>${tot.sNb}</td><td>${pn(tot.sNb,tot.nb)}</td><td>${fmt(tot.sCA)}</td><td>${pn(tot.sCA,tot.caF)}</td>
+    <td>${tot.tNb}</td><td>${pn(tot.tNb,tot.nb)}</td>
+    <td>${tot.audCA>0?fmt(tot.audCA):'—'}</td>
   </tr>`;
+  tbl.querySelector('tbody').innerHTML=rows;
+  return tot;
 }
 function renderTblCouts(saga,ctrl,id){buildCoutsTable(saga,ctrl,id,true);}
 function renderTblCumul(saga,ctrl,id){buildCoutsTable(saga,ctrl,id,true);}
@@ -895,6 +929,87 @@ function renderTblEncours(ctrl){
   });
   rows+=`<tr class="total"><td class="site">Total général</td><td>${fmt(grand)}</td></tr>`;
   tbl.querySelector('tbody').innerHTML=rows;
+}
+
+// ══════════ ANALYSE / COMMENTAIRES (auto + modifiable) ══════════
+window._analyseData={saga:[],ctrl:[],cess:[],periode:''};
+
+window.genererAnalyse=function(){
+  const {saga,ctrl,cess,periode}=window._analyseData;
+  if(!saga.length){toast('Importez des données d\'abord','info');return;}
+  const totFact=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
+  const totNb=saga.reduce((t,d)=>t+(d.nb_dossiers||0),0);
+  const totAct=saga.reduce((t,d)=>t+(d.nb_actions||0),0);
+  const caAct=saga.reduce((t,d)=>t+mon(d.ca_action),0);
+  const totAnnul=ctrl.filter(c=>c.annul).reduce((t,c)=>t+mon(c.montant),0);
+  const nbAnnul=ctrl.filter(c=>c.annul).length;
+  const totRatt=ctrl.filter(c=>c.rattrapage).reduce((t,c)=>t+mon(c.montant),0);
+  const nbRatt=ctrl.filter(c=>c.rattrapage).length;
+  const nbIncomplet=ctrl.filter(c=>c.incomplet).length;
+  const nbRetour=ctrl.filter(c=>c.retourconc).length;
+  const nbSauv=ctrl.filter(c=>c.sauvee).length;
+  const caSauv=ctrl.filter(c=>c.sauvee).reduce((t,c)=>t+mon(c.montant),0);
+  const totCess=cess.reduce((t,c)=>t+(parseFloat(c.total)||0),0);
+  const tauxPaye=totFact>0?((totFact-totAnnul)/totFact*100):0;
+  const pctAct=totNb>0?(totAct/totNb*100):0;
+
+  // Site avec le plus d'actions
+  let siteAct='',maxAct=0;
+  SITES.forEach(s=>{const a=saga.filter(d=>d._site===s).reduce((t,d)=>t+(d.nb_actions||0),0);if(a>maxAct){maxAct=a;siteAct=s;}});
+
+  const txt=`ANALYSE — ${periode}
+
+1 — DG FACTURÉES
+${totNb} dossiers facturés pour ${fmt(totFact)}, dont ${totAct} actions (${pctAct.toFixed(0)}% des DG) représentant ${fmt(caAct)}.
+${pctAct>40?'→ Forte proportion d\'actions (rappels constructeur).':'→ Activité majoritairement en garantie classique.'}${siteAct?' Site le plus actif : '+SITE_SHORT[siteAct]+'.':''}
+
+DG PAYÉES
+Taux de paiement : ${tauxPaye.toFixed(1)}% (${fmt(totFact-totAnnul)} payés sur ${fmt(totFact)} facturés).
+${nbAnnul} dossier(s) annulé(s) définitivement pour ${fmt(totAnnul)}.
+
+2 — DG RATTRAPÉES (valeur récupérée par l'équipe)
+${nbRatt} dossier(s) rattrapé(s) représentant ${fmt(totRatt)}.
+→ Dossiers rectifiés par la TeamGarantie sans retour en site.
+
+3 — DOSSIERS INCOMPLETS
+${nbIncomplet} dossier(s) incomplet(s) ou inutilement en garantie.
+${nbIncomplet>0?'→ Process non respecté en amont (OR, vidéo, pièces).':'→ Aucun dossier incomplet sur la période.'}
+
+4 — RETOUR EN CONCESSION
+${nbRetour} dossier(s) retourné(s) en concession (non facturables ou à corriger).
+
+5 — DG ANNULÉES DÉFINITIVEMENT
+${nbAnnul} annulation(s) pour ${fmt(totAnnul)} (${(totFact>0?totAnnul/totFact*100:0).toFixed(1)}% du CA).
+
+6 — DG SAUVÉES
+${nbSauv} dossier(s) sauvé(s) pour ${fmt(caSauv)}.
+→ Justificatifs apportés par la TeamGarantie pour validation constructeur.
+
+CESSIONS INTERNES
+Total cession : ${fmt(totCess)} (coûts non récupérés en garantie constructeur).`;
+
+  document.getElementById('analyse-text').value=txt;
+  toast('Analyse générée — modifiez-la librement','success');
+};
+
+window.saveAnalyse=function(){
+  const txt=document.getElementById('analyse-text').value;
+  const periode=window._analyseData.periodeKey||'global';
+  if(window._db){
+    window._set(window._ref(window._db,'analyses/'+periode),{texte:txt,_ts:Date.now(),_by:'dashboard'})
+      .then(()=>{document.getElementById('analyse-saved').textContent='✓ Enregistré le '+new Date().toLocaleString('fr-FR');toast('Analyse enregistrée','success');})
+      .catch(e=>toast('Erreur : '+e.message,'error'));
+  }
+};
+
+function loadAnalyse(periodeKey){
+  if(!window._db||!window._get)return;
+  window._get(window._ref(window._db,'analyses/'+periodeKey)).then(snap=>{
+    const v=snap.val();
+    const ta=document.getElementById('analyse-text');
+    if(v&&v.texte){if(ta)ta.value=v.texte;document.getElementById('analyse-saved').textContent='Dernière sauvegarde : '+(v._ts?new Date(v._ts).toLocaleString('fr-FR'):'—');}
+    else{if(ta)ta.value='';document.getElementById('analyse-saved').textContent='';}
+  }).catch(()=>{});
 }
 
 // ══════════ VUE DIRECTION — 8 GRAPHIQUES + KPI ANIMÉES ══════════
