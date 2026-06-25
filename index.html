@@ -552,7 +552,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <thead>
             <tr style="cursor:pointer;">
               <th onclick="sortList('site')">Site ⇅</th><th onclick="sortList('nor')">N°OR ⇅</th><th onclick="sortList('vin')">Châssis ⇅</th><th onclick="sortList('ccs')">CCS ⇅</th>
-              <th onclick="sortList('modele')">Modèle ⇅</th><th onclick="sortList('montant')">Montant ⇅</th><th>Statut dossier</th><th>Statut factu.</th>
+              <th onclick="sortList('montant')">Montant ⇅</th><th>Statut dossier</th><th>Statut factu.</th>
               <th onclick="sortList('defaut1')">Défaut ⇅</th><th onclick="sortList('correspondant')">Corresp. ⇅</th><th onclick="sortList('_ts')">Date OR ⇅</th><th onclick="sortList('dateControle')">Date contrôle ⇅</th>
             </tr>
           </thead>
@@ -2140,10 +2140,22 @@ window.generatePDF=async function(){
 
   // ── PIED DE PAGE ──
   y+=10;
-  if(y>275){doc.addPage();y=20;}
-  doc.setDrawColor(0,212,168);doc.setLineWidth(0.5);doc.line(15,y,195,y);y+=6;
+  if(y>260){doc.addPage();y=20;}
+  doc.setDrawColor(0,212,168);doc.setLineWidth(0.5);doc.line(15,y,195,y);y+=8;
+  // N° OR rappelé en bas (gras)
+  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(40,45,60);
+  doc.text('N° OR : '+nor,15,y);
+  // Signature du contrôleur garantie (à droite)
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(90,95,110);
+  doc.text('Contrôleur garantie :',120,y);
+  doc.setFont('helvetica','bold');doc.setTextColor(40,45,60);doc.setFontSize(10);
+  doc.text(_currentUser||'—',168,y);
+  y+=6;
+  // ligne de signature
+  doc.setDrawColor(180,185,195);doc.setLineWidth(0.3);doc.line(120,y+4,195,y+4);
+  y+=10;
   doc.setFontSize(8);doc.setTextColor(150,155,170);doc.setFont('helvetica','italic');
-  doc.text('Créé par '+(_currentUser||'—')+' · '+new Date().toLocaleString('fr-FR'),15,y);
+  doc.text('TeamGarantie — Grand Est Automobiles · '+new Date().toLocaleString('fr-FR'),15,y);
 
   // Nom fichier : Controle_Garantie_KVPS_OR_chassis.pdf
   const kvps=SITE_KVPS[site]||'00000';
@@ -2159,19 +2171,27 @@ function openMailtoIfNeeded(ctx){
   const {pdfNom,site,nor,vin,modele,montant,delai,typegar,def1,def2}=ctx;
   const fmtDateSlash=dateFR;
   const commentaires=document.getElementById('f-commentaires').value||'';
+  // Convertir le texte en gras + italique Unicode (𝙩𝙚𝙭𝙩𝙚) — visible même en mail texte brut
+  const toBoldItalic=(str)=>{
+    let out='';
+    for(const ch of str){
+      const code=ch.codePointAt(0);
+      if(code>=65&&code<=90){out+=String.fromCodePoint(0x1D63C+(code-65));}      // A-Z → 𝘼-𝙕
+      else if(code>=97&&code<=122){out+=String.fromCodePoint(0x1D656+(code-97));} // a-z → 𝙖-𝙯
+      else if(code>=48&&code<=57){out+=String.fromCodePoint(0x1D7CE+(code-48));}  // 0-9 → 𝟎-𝟗 (gras)
+      else{out+=ch;}
+    }
+    return out;
+  };
   let motif='DOSSIER INCOMPLET';
   if(_statuts.nonfact)motif='DOSSIER NON FACTURABLE';
   else if(_statuts.incomplet)motif='DOSSIER INCOMPLET';
-  // Ajouter l'issue au motif si présente
   if(_statuts.retourconc)motif+=' - RETOUR CONCESSION';
   else if(_statuts.agarantie)motif+=' - A LA GARANTIE';
   else if(_statuts.fcession_issue)motif+=' - FACTURE CESSION';
-  const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`;
-  // Calculer les labels depuis _statuts (autonome)
-  const activeKeys=Object.keys(_statuts).filter(k=>_statuts[k]);
-  const dossierLabels=activeKeys.filter(k=>GROUPE_DOSSIER.includes(k)).map(k=>STATUT_LABELS[k]);
-  const factuLabels=activeKeys.filter(k=>GROUPE_FACTURATION.includes(k)).map(k=>STATUT_LABELS[k]);
-  const corps=`Bonjour,\n\nVeuillez trouver ci-joint la fiche de contrôle garantie.\n(PDF à joindre : ${pdfNom})\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nModèle             : ${modele}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nSTATUT DU DOSSIER\n──────────────────────────────\n${dossierLabels.length?dossierLabels.map(s=>'  • '+s).join('\n'):'  • —'}\n${factuLabels.length?'\n──────────────────────────────\nSTATUT FACTURATION\n──────────────────────────────\n'+factuLabels.map(s=>'  • '+s).join('\n')+'\n':''}\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentaires?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentaires+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
+  const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`; // sujet inchangé
+  const commentBI=commentaires?toBoldItalic(commentaires):'';
+  const corps=`Bonjour,\n\n${toBoldItalic('Dossier non conforme')}\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentBI?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentBI+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
   const mailtoUrl=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
   setTimeout(()=>{
     const a=document.createElement('a');a.href=mailtoUrl;a.style.display='none';
@@ -2188,35 +2208,30 @@ window.savePDF=async function(){
   toast(_statuts.incomplet||_statuts.nonfact?'PDF enregistré — glissez-le dans l\'email':'PDF enregistré ✓','success');
 };
 
-// ── IMPRIMER PDF (ouvrir la fenêtre d'impression) ──
+// ── IMPRIMER (ouvre la fenêtre d'impression directement) ──
 window.printPDF=async function(){
   const ctx=await generatePDF();
   if(!ctx)return;
   const blob=ctx.doc.output('blob');
   const url=URL.createObjectURL(blob);
-  // Ouvrir dans une vraie FENÊTRE séparée (pas un onglet)
-  const w=900,h=700;
-  const left=(screen.width-w)/2, top=(screen.height-h)/2;
-  const features=`width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=yes`;
-  const win=window.open(url,'impression_pdf',features);
-  if(win){
-    win.focus();
-    win.onload=()=>{
-      setTimeout(()=>{win.focus();win.print();},500);
-    };
-    // Fallback si onload ne se déclenche pas
-    setTimeout(()=>{try{win.focus();win.print();}catch(e){}},1200);
-  } else {
-    // Popup bloquée → fallback iframe caché
-    const iframe=document.createElement('iframe');
-    iframe.style.cssText='position:fixed;top:-9999px;width:0;height:0;';
-    iframe.src=url;
-    document.body.appendChild(iframe);
-    iframe.onload=()=>{setTimeout(()=>{iframe.contentWindow.print();setTimeout(()=>iframe.remove(),2000);},400);};
-    toast('Autorisez les pop-ups pour ouvrir la fenêtre d\'impression','info');
-  }
+  // Iframe caché → lance directement la boîte de dialogue d'impression
+  const iframe=document.createElement('iframe');
+  iframe.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  iframe.src=url;
+  document.body.appendChild(iframe);
+  iframe.onload=()=>{
+    setTimeout(()=>{
+      try{iframe.contentWindow.focus();iframe.contentWindow.print();}
+      catch(e){
+        // Fallback : fenêtre séparée
+        const win=window.open(url,'_blank');
+        if(win){win.onload=()=>{win.focus();win.print();};}
+      }
+      setTimeout(()=>{iframe.remove();URL.revokeObjectURL(url);},60000);
+    },300);
+  };
   openMailtoIfNeeded(ctx);
-  toast('Fenêtre d\'impression ouverte...','info');
+  toast('Impression lancée...','info');
 };
 
 // ── Alias pour generatePDFFromDetail ──
@@ -2360,16 +2375,19 @@ function getDossiersARelancer(){
   const all=Object.values(window._dossiers||{});
   const seuil=Date.now()-RELANCE_DELAI_JOURS*864e5;
   const facturationDone=d=>GROUPE_FACTURATION.some(k=>d[k]);
+  // Un dossier est "en attente de traitement" s'il a un statut dossier (envoyé/retourné en concession)
+  // mais AUCUN statut facturation. C'est ceux-là qu'on relance.
+  const enAttente=d=>GROUPE_DOSSIER.some(k=>d[k]);
   const res=all.filter(d=>{
-    if(!d.retourconc)return false;
-    if(facturationDone(d))return false; // déjà revenu/traité
+    if(!enAttente(d))return false;       // pas de statut dossier → rien à relancer
+    if(facturationDone(d))return false;  // a un statut facturation → traité, on ne relance plus
     // Point de référence : dernière relance si elle existe, sinon date de CONTRÔLE
     const ref=d._lastRelanceTs||d.dateControle||d._ts||0;
     return ref<=seuil; // <= pour que délai 0 fonctionne immédiatement
   });
   // Diagnostic console (visible avec F12)
-  const totalRetour=all.filter(d=>d.retourconc).length;
-  console.log(`[Relance] ${all.length} dossiers, ${totalRetour} en retour concession, ${res.length} à relancer (délai ${RELANCE_DELAI_JOURS}j)`);
+  const sansFactu=all.filter(d=>enAttente(d)&&!facturationDone(d)).length;
+  console.log(`[Relance] ${all.length} dossiers, ${sansFactu} sans statut facturation, ${res.length} à relancer (délai ${RELANCE_DELAI_JOURS}j)`);
   return res;
 }
 
@@ -2541,7 +2559,6 @@ window.renderList=function(){
       <td class="mono">${d.nor||'—'}</td>
       <td class="mono" style="font-size:9px;">${d.vin||'—'}</td>
       <td style="font-size:10px;">${d.ccs||'—'}</td>
-      <td style="font-size:10px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.modele||''}">${d.modele||'—'}</td>
       <td class="mono" style="white-space:nowrap;">${d.montant||'—'} €</td>
       <td>${statDossier||'<span style="color:var(--text3);">—</span>'}</td>
       <td>${statFactu||'<span style="color:var(--text3);">—</span>'}</td>
