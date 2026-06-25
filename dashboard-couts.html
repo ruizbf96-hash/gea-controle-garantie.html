@@ -53,6 +53,16 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--ink
 
 /* Section titre */
 .sec-title{display:flex;align-items:center;gap:10px;margin:26px 0 14px;}
+/* Analyse visuelle */
+.dir-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.dir-kpi{background:linear-gradient(135deg,#fffdf8,#faf6ed);border:1px solid var(--line);border-radius:14px;padding:18px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(120,100,60,.06);transition:transform .2s,box-shadow .2s;}
+.dir-kpi:hover{transform:translateY(-3px);box-shadow:0 6px 18px rgba(120,100,60,.12);}
+.dir-kpi::before{content:'';position:absolute;top:0;left:0;width:5px;height:100%;background:var(--c);}
+.dir-kpi .dk-icon{font-size:22px;margin-bottom:8px;}
+.dir-kpi .dk-val{font-size:26px;font-weight:800;color:var(--c);font-family:'IBM Plex Mono',monospace;line-height:1;}
+.dir-kpi .dk-lbl{font-size:11px;color:var(--ink3);margin-top:6px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+.panel-head .ph-sub{display:block;font-size:10px;color:var(--ink3);font-weight:400;margin-top:2px;}
+@media(max-width:900px){.dir-kpi-row{grid-template-columns:repeat(2,1fr);}}
 .sec-title .num{width:30px;height:30px;border-radius:8px;background:var(--accent2);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;}
 .sec-title h2{font-size:17px;font-weight:600;color:var(--ink);}
 .sec-title:first-child{margin-top:0;}
@@ -199,6 +209,65 @@ table.xl tbody tr.total td{font-weight:700;color:var(--ink);}
     <div class="kpi" style="--kc:var(--sauvee)"><div class="kpi-label">CA rattrapé / sauvé</div><div class="kpi-val" id="k-sauv">—</div><div class="kpi-sub" id="k-sauv-nb">—</div></div>
   </div>
 
+  <!-- ════ VUE DIRECTION — 8 GRAPHIQUES ════ -->
+  <div class="sec-title" style="margin-top:10px;"><div class="num" style="background:linear-gradient(135deg,#5b9bd5,#4caf7d);">★</div><h2>Analyse visuelle</h2></div>
+
+  <!-- KPI animées direction -->
+  <div class="dir-kpi-row">
+    <div class="dir-kpi" style="--c:#5b9bd5"><div class="dk-icon">💰</div><div class="dk-val" data-target="0" id="dk-facture">0 €</div><div class="dk-lbl">CA Garantie facturé</div></div>
+    <div class="dir-kpi" style="--c:#f5a623"><div class="dk-icon">🔄</div><div class="dk-val" data-target="0" id="dk-cession">0 €</div><div class="dk-lbl">CA Cession (perte)</div></div>
+    <div class="dir-kpi" style="--c:#4caf7d"><div class="dk-icon">✓</div><div class="dk-val" data-target="0" id="dk-taux">0 %</div><div class="dk-lbl">Taux de récupération</div></div>
+    <div class="dir-kpi" style="--c:#e6a817"><div class="dk-icon">⬆</div><div class="dk-val" data-target="0" id="dk-rattrape">0 €</div><div class="dk-lbl">CA Rattrapé</div></div>
+  </div>
+
+  <!-- Ligne 1 : Garantie vs Cession + Composition -->
+  <div class="g21">
+    <div class="panel">
+      <div class="panel-head"><h3>① Garantie vs Cession par site</h3><span class="ph-sub">Où part l'argent : récupéré (garantie) vs perdu (cession)</span></div>
+      <div class="panel-body"><canvas id="dc-gar-cess"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>② Composition du CA garantie</h3><span class="ph-sub">Garantie pure / PR / Actions par site</span></div>
+      <div class="panel-body"><canvas id="dc-composition"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Ligne 2 : Récupération + Qualité dossiers -->
+  <div class="g21">
+    <div class="panel">
+      <div class="panel-head"><h3>③ Facturé / Payé / Annulé par site</h3><span class="ph-sub">Performance de récupération</span></div>
+      <div class="panel-body"><canvas id="dc-recup"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>④ Qualité des dossiers par site</h3><span class="ph-sub">Incomplets / Non facturables / Rattrapés</span></div>
+      <div class="panel-body"><canvas id="dc-qualite"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Ligne 3 : Comparaison annuelle + Cumul -->
+  <div class="g21">
+    <div class="panel">
+      <div class="panel-head"><h3>⑤ Comparaison mensuelle N vs N-1</h3><span class="ph-sub">Année actuelle vs année précédente</span></div>
+      <div class="panel-body"><canvas id="dc-annuel"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>⑥ CA cumulé sur l'année</h3><span class="ph-sub">Progression cumulée mois après mois</span></div>
+      <div class="panel-body"><canvas id="dc-cumul"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Ligne 4 : Cessions détail + Taux par site -->
+  <div class="g21">
+    <div class="panel">
+      <div class="panel-head"><h3>⑦ Répartition des cessions par compte</h3><span class="ph-sub">Pourquoi on perd : malfaçon, annulation, commercial...</span></div>
+      <div class="panel-body"><canvas id="dc-cess-comptes"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>⑧ Taux de paiement par site</h3><span class="ph-sub">Classement de performance</span></div>
+      <div class="panel-body"><canvas id="dc-taux-site"></canvas></div>
+    </div>
+  </div>
+
   <!-- ════ 1. RÉPARTITION COÛTS ════ -->
   <div class="sec-title"><div class="num">1</div><h2>Répartition des coûts garantie <span id="t1-period" style="font-size:13px;color:var(--ink3);font-weight:400;"></span></h2></div>
   <div class="panel">
@@ -304,6 +373,13 @@ onValue(ref(db,'vgf_cessions'),snap=>{
   if(v) Object.entries(v).forEach(([k,d])=>{window._vgfCess[k]={_id:k,...d};});
   setTimeout(()=>{if(typeof window.refresh==='function')window.refresh();},50);
 },{onlyOnce:false});
+// Données VGF garanties M-1 (comparaison)
+onValue(ref(db,'vgf_garanties_m1'),snap=>{
+  window._vgfGarM1={};
+  const v=snap.val();
+  if(v) Object.entries(v).forEach(([k,d])=>{window._vgfGarM1[k]={_id:k,...d};});
+  setTimeout(()=>{if(typeof window.refresh==='function')window.refresh();},50);
+},{onlyOnce:false});
 // Dossiers de contrôle (statuts manuels)
 onValue(ref(db,'controle_garantie'),snap=>{
   window._ctrl={};
@@ -315,7 +391,7 @@ onValue(ref(db,'controle_garantie'),snap=>{
 
 <!-- ══ SCRIPT ══ -->
 <script>
-window._vgfGar={}; window._vgfCess={}; window._ctrl={};
+window._vgfGar={}; window._vgfGarM1={}; window._vgfCess={}; window._ctrl={};
 let _ch={};
 
 const KVPS_MAP={'02153':'VW_Illkirch','02154':'VW_Bischheim','02155':'Audi_Hoenheim','63930':'Seat_Hoenheim','02376':'Skoda_Hoenheim','02486':'Audi_Obernai','02485':'VW_Obernai'};
@@ -338,7 +414,7 @@ const pctN=(a,b)=>b>0?Math.round(a/b*100):0;
 // ── MAPPING GIDA → SITE ──
 const GIDA_SITE={'GIDAAUDHOE':'Audi_Hoenheim','GIDAAUDOBE':'Audi_Obernai','GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWBIS':'VW_Bischheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai'};
 // Comptes de cession
-const CESSION_COMPTES={'93120':'Malfaçon méca','93130':'Malfaçon garantie APV','93140':'Annulation garantie','93500':'Concession commerciale APV'};
+const CESSION_COMPTES={'93120':'Malfaçon méca','93130':'Malfaçon garantie APV','93140':'Annulation garantie','93500':'Cession commercial APV','91500':'Cession commercial VN','92500':'Cession commercial VO'};
 
 // Extraire la période AAAA-MM depuis le nom de fichier (ex: 202605-VGF... → 2026-05)
 function periodeFromName(name){
@@ -367,7 +443,10 @@ window.importExcel=async function(file){
       try{
         if(type==='garanties'){
           const n=await parseGaranties(rows,periode);
-          if(n){feuillesLues.push('Garanties ('+n+' sites)');totalImported+=n;}
+          if(n){feuillesLues.push('Garanties M-1 ('+n+' sites)');totalImported+=n;}
+        } else if(type==='details_garanties'){
+          const n=await parseDetailsGaranties(rows,periode);
+          if(n){feuillesLues.push('Détails garanties ('+n+' sites)');totalImported+=n;}
         } else if(type==='cessions'){
           const n=await parseCessions(rows,periode);
           if(n){feuillesLues.push('Cessions ('+n+' sites)');totalImported+=n;}
@@ -397,7 +476,9 @@ window.importExcel=async function(file){
 // Détecter le type de feuille via son nom + en-têtes
 function detectSheetType(name,rows){
   const n=(name||'').toUpperCase();
-  // Les feuilles DETAILS (lignes brutes) sont ignorées pour la synthèse
+  // DETAILS GARANTIES = lignes brutes par No Client → on les parse pour le détail
+  if(n.includes('DETAIL')&&n.includes('GARANTIE')) return 'details_garanties';
+  // Autres DETAILS (cessions) ignorés
   if(n.includes('DETAIL')) return 'ignore';
   const headerRow=rows.find(r=>r&&r.some(c=>(c||'').toString().includes('Nom Affaire')));
   const hdr=(headerRow||[]).map(c=>(c||'').toString().toLowerCase());
@@ -408,7 +489,7 @@ function detectSheetType(name,rows){
   return 'unknown';
 }
 
-// Parser SUIVI GARANTIES : lignes "TOTAL GIDAxxx" = CA + Nb par site
+// Parser SUIVI GARANTIES M-1 : synthèse du mois précédent (pour comparaison)
 async function parseGaranties(rows,periode){
   let count=0;
   const updates=[];
@@ -419,13 +500,12 @@ async function parseGaranties(rows,periode){
     if(m){
       const site=GIDA_SITE[m[1]];
       if(!site)continue;
-      // Colonnes: [Nom Affaire, ORV, Montant TTC, Nb Dossiers]
       const montant=parseFloat(r[2])||0;
       const nb=parseInt(r[3])||0;
-      const key='vgf_garanties/'+periode.annee+'_'+periode.mois+'_'+site;
+      const key='vgf_garanties_m1/'+periode.annee+'_'+periode.mois+'_'+site;
       updates.push(window._set(window._ref(window._db,key),{
         site,annee:periode.annee,mois:periode.mois,
-        ca_facture:montant,nb_dossiers:nb,_ts:Date.now()
+        ca_facture:montant,nb_dossiers:nb,source:'suivi_m1',_ts:Date.now()
       }));
       count++;
     }
@@ -433,10 +513,92 @@ async function parseGaranties(rows,periode){
   try{
     await Promise.all(updates);
   }catch(e){
-    console.error('Erreur écriture Firebase (garanties):',e);
+    console.error('Erreur écriture Firebase (garanties M-1):',e);
     toast('Firebase a refusé l\'écriture — vérifiez les règles de la base','error');
     throw e;
   }
+  return count;
+}
+
+// Parser DETAILS GARANTIES : somme par site, filtré par No Client (garantie/garantie PR/action)
+// Colonnes: [Nom Affaire, No facture, Date, No bon, No client, Nom client, Référence, Qté, Montant net]
+async function parseDetailsGaranties(rows,periode){
+  const GARANTIE=['90000','90010','90020'];
+  const GARANTIE_PR=['90001','90011','90021'];
+  const ACTION=['90002','90012','90022'];
+  const TOUS=new Set([...GARANTIE,...GARANTIE_PR,...ACTION]);
+  // Comptes de cession (libellés selon ta nomenclature)
+  const CESSION_COMPTES={
+    '93120':'Malfaçon méca','93130':'Malfaçon garantie APV','93140':'Annulation garantie',
+    '93500':'Cession commercial APV','91500':'Cession commercial VN','92500':'Cession commercial VO'
+  };
+  const CESSION_SET=new Set(Object.keys(CESSION_COMPTES));
+
+  const bySite={};
+  const bySiteCession={};
+  for(const r of rows){
+    if(!r)continue;
+    const gida=(r[0]||'').toString().trim();
+    if(!/^GIDA/.test(gida))continue;
+    const site=GIDA_SITE[gida];
+    if(!site)continue;
+    const noBon=(r[3]||'').toString();
+    const noClient=(r[4]||'').toString().trim();
+    const montant=parseFloat(r[8])||0;
+    if(montant<=0)continue;
+
+    // ── GARANTIES (comptes 9000x/9001x/9002x) ──
+    if(TOUS.has(noClient)){
+      if(!bySite[site])bySite[site]={ca_garantie:0,ca_pr:0,ca_action:0,ca_total:0,bons:new Set(),bonsAction:new Set(),nbLignes:0};
+      const s=bySite[site];
+      s.ca_total+=montant;s.nbLignes++;
+      if(GARANTIE.includes(noClient))s.ca_garantie+=montant;
+      else if(GARANTIE_PR.includes(noClient))s.ca_pr+=montant;
+      else if(ACTION.includes(noClient)){s.ca_action+=montant;if(noBon)s.bonsAction.add(noBon);}
+      if(noBon)s.bons.add(noBon);
+    }
+    // ── CESSIONS (comptes 93120/93130/93140/93500/91500/92500) ──
+    if(CESSION_SET.has(noClient)){
+      if(!bySiteCession[site])bySiteCession[site]={comptes:{},total:0,bons:new Set()};
+      const cs=bySiteCession[site];
+      cs.comptes[noClient]=(cs.comptes[noClient]||0)+montant;
+      cs.total+=montant;
+      if(noBon)cs.bons.add(noBon);
+    }
+  }
+
+  const updates=[];let count=0;
+  for(const site in bySite){
+    const s=bySite[site];
+    const key='vgf_garanties/'+periode.annee+'_'+periode.mois+'_'+site;
+    updates.push(window._set(window._ref(window._db,key),{
+      site,annee:periode.annee,mois:periode.mois,
+      ca_facture:Math.round(s.ca_total*100)/100,
+      ca_garantie:Math.round(s.ca_garantie*100)/100,
+      ca_pr:Math.round(s.ca_pr*100)/100,
+      ca_action:Math.round(s.ca_action*100)/100,
+      nb_dossiers:s.bons.size,
+      nb_actions:s.bonsAction.size,
+      nb_lignes:s.nbLignes,
+      source:'details',_ts:Date.now()
+    }));
+    count++;
+  }
+  // Écrire les cessions calculées depuis les détails
+  for(const site in bySiteCession){
+    const cs=bySiteCession[site];
+    const comptesArrondis={};
+    for(const k in cs.comptes)comptesArrondis[k]=Math.round(cs.comptes[k]*100)/100;
+    const key='vgf_cessions/'+periode.annee+'_'+periode.mois+'_'+site;
+    updates.push(window._set(window._ref(window._db,key),{
+      site,annee:periode.annee,mois:periode.mois,
+      total:Math.round(cs.total*100)/100,
+      nb:cs.bons.size,
+      comptes:comptesArrondis,source:'details',_ts:Date.now()
+    }));
+  }
+  try{await Promise.all(updates);}
+  catch(e){console.error('Erreur écriture (details garanties):',e);toast('Firebase a refusé l\'écriture — vérifiez les règles','error');throw e;}
   return count;
 }
 
@@ -494,7 +656,19 @@ function ctrlNb(ctrl,site,key){
 window.refresh=function(){
   const annee=document.getElementById('f-annee').value;
   const mois=document.getElementById('f-mois').value;
-  const ctrl=Object.values(window._ctrl);
+  let ctrl=Object.values(window._ctrl);
+
+  // Filtrer les dossiers de contrôle par période (date de contrôle)
+  ctrl=ctrl.filter(c=>{
+    const ts=c.dateControle||c._ts;
+    if(!ts)return true; // anciens dossiers sans date → toujours visibles
+    const d=new Date(ts);
+    const cAnnee=String(d.getFullYear());
+    const cMois=String(d.getMonth()+1).padStart(2,'0');
+    if(annee&&cAnnee!==annee)return false;
+    if(mois&&cMois!==mois)return false;
+    return true;
+  });
 
   // Données VGF garanties → format "saga-like" pour réutiliser le rendu
   // Une entrée par site/mois : ca_facture, nb_dossiers
@@ -503,7 +677,8 @@ window.refresh=function(){
   const garMois=mois?gar.filter(g=>g.mois===mois):gar;
   // Convertir en lignes "saga" (une par site, valeur_demande=ca, valeur_payee=ca par défaut)
   const toSaga=arr=>arr.map(g=>({_site:g.site,_annee:g.annee,_mois:g.mois,
-    valeur_demande:g.ca_facture,valeur_payee:g.ca_facture,nb_dossiers:g.nb_dossiers}));
+    valeur_demande:g.ca_facture,valeur_payee:g.ca_facture,nb_dossiers:g.nb_dossiers,
+    ca_action:g.ca_action||0,nb_actions:g.nb_actions||0,ca_garantie:g.ca_garantie||0,ca_pr:g.ca_pr||0}));
   const sagaMois=toSaga(garMois);
   const sagaAll=toSaga(gar);
 
@@ -525,16 +700,17 @@ window.refresh=function(){
   renderTblCession(cess,annee);
   renderTblEncours(ctrl);
   renderCharts(sagaMois,sagaAll,ctrl,cess);
+  renderDirection(garMois,gar,ctrl,cess,annee,mois);
 };
 
 // ── RÉSUMÉ EXÉCUTIF ──
 function renderExec(saga,ctrl,period){
   const caFact=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
-  const caPaye=saga.reduce((t,d)=>t+mon(d.valeur_payee),0);
-  const tauxP=pctN(caPaye,caFact);
-  const caRisque=ctrl.filter(c=>c.risque).reduce((t,c)=>t+mon(c.montant),0);
   const caAnnul=ctrl.filter(c=>c.annul).reduce((t,c)=>t+mon(c.montant),0);
   const nbAnnul=ctrl.filter(c=>c.annul).length;
+  const caPaye=Math.max(0,caFact-caAnnul);
+  const tauxP=pctN(caPaye,caFact);
+  const caRisque=ctrl.filter(c=>c.risque).reduce((t,c)=>t+mon(c.montant),0);
   const caEncours=ctrl.filter(c=>c.incomplet||c.nonfact).reduce((t,c)=>t+mon(c.montant),0);
   const nbIncomplet=ctrl.filter(c=>c.incomplet).length;
   const caSauv=ctrl.filter(c=>c.sauvee).reduce((t,c)=>t+mon(c.montant),0)+ctrl.filter(c=>c.rattrapage).reduce((t,c)=>t+mon(c.montant),0);
@@ -565,10 +741,11 @@ function renderExec(saga,ctrl,period){
 // ── KPIs ──
 function renderKPIs(saga,ctrl){
   const caFact=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
-  const caPaye=saga.reduce((t,d)=>t+mon(d.valeur_payee),0);
+  const caAnnul=ctrl.filter(c=>c.annul).reduce((t,c)=>t+mon(c.montant),0);
+  // CA payé = CA facturé - CA annulées définitivement
+  const caPaye=Math.max(0,caFact-caAnnul);
   const tauxP=pctN(caPaye,caFact);
   const caRisque=ctrl.filter(c=>c.risque).reduce((t,c)=>t+mon(c.montant),0);
-  const caAnnul=ctrl.filter(c=>c.annul).reduce((t,c)=>t+mon(c.montant),0);
   const caSauv=ctrl.filter(c=>c.sauvee).reduce((t,c)=>t+mon(c.montant),0);
   const caRatt=ctrl.filter(c=>c.rattrapage).reduce((t,c)=>t+mon(c.montant),0);
 
@@ -619,14 +796,15 @@ function buildCoutsTable(saga,ctrl,tblId,withActions){
     const ss=saga.filter(d=>d._site===s);
     if(!ss.length)return;
     const nb=ss.reduce((t,d)=>t+(d.nb_dossiers||0),0);
-    const act=0; // info "dont actions" non fournie par l'Excel VGF
-    const caAct=0;
+    const act=ss.reduce((t,d)=>t+(d.nb_actions||0),0); // dont actions (depuis détails)
+    const caAct=ss.reduce((t,d)=>t+mon(d.ca_action),0); // CA actions (depuis détails)
     const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
-    const caP=ss.reduce((t,d)=>t+mon(d.valeur_payee),0);
+    const aNb=ctrlNb(ctrl,s,'annul'),aCA=ctrlStat(ctrl,s,'annul');
+    // CA payé = CA facturé - CA annulées définitivement
+    const caP=Math.max(0,caF-aCA);
     const rNb=ctrlNb(ctrl,s,'rattrapage'),rCA=ctrlStat(ctrl,s,'rattrapage');
     const iNb=ctrlNb(ctrl,s,'incomplet'),iCA=ctrlStat(ctrl,s,'incomplet');
     const nNb=ctrlNb(ctrl,s,'nonfact'),nCA=ctrlStat(ctrl,s,'nonfact');
-    const aNb=ctrlNb(ctrl,s,'annul'),aCA=ctrlStat(ctrl,s,'annul');
     const sNb=ctrlNb(ctrl,s,'sauvee'),sCA=ctrlStat(ctrl,s,'sauvee');
     tot.nb+=nb;tot.act+=act;tot.caAct+=caAct;tot.caF+=caF;tot.caP+=caP;
     tot.rNb+=rNb;tot.rCA+=rCA;tot.iNb+=iNb;tot.iCA+=iCA;tot.nNb+=nNb;tot.nCA+=nCA;tot.aNb+=aNb;tot.aCA+=aCA;tot.sNb+=sNb;tot.sCA+=sCA;
@@ -651,8 +829,6 @@ function buildCoutsTable(saga,ctrl,tblId,withActions){
     <td>${tot.aNb}</td><td>${fmt(tot.aCA)}</td>
     <td>${tot.sNb}</td><td>${fmt(tot.sCA)}</td>
   </tr>`;
-  tbl.querySelector('tbody').innerHTML=rows;
-  return tot;
 }
 function renderTblCouts(saga,ctrl,id){buildCoutsTable(saga,ctrl,id,true);}
 function renderTblCumul(saga,ctrl,id){buildCoutsTable(saga,ctrl,id,true);}
@@ -683,7 +859,7 @@ function renderTblMarque(saga){
 // ── TABLEAU CESSION (par site × compte) ──
 function renderTblCession(cess,annee){
   const tbl=document.getElementById('tbl-cession');
-  const comptes=['93120','93130','93140','93500'];
+  const comptes=['93120','93130','93140','93500','91500','92500'];
   tbl.querySelector('thead').innerHTML=`<tr>
     <th class="grp-site">Site</th>${comptes.map(co=>`<th class="grp-fact" style="font-size:9px;">${CESSION_COMPTES[co]}</th>`).join('')}<th class="grp-incomplet">Total</th>
   </tr>`;
@@ -719,6 +895,106 @@ function renderTblEncours(ctrl){
   });
   rows+=`<tr class="total"><td class="site">Total général</td><td>${fmt(grand)}</td></tr>`;
   tbl.querySelector('tbody').innerHTML=rows;
+}
+
+// ══════════ VUE DIRECTION — 8 GRAPHIQUES + KPI ANIMÉES ══════════
+function animateValue(el,target,suffix,isEuro){
+  if(!el)return;
+  const start=parseFloat(el.dataset.current||'0')||0;
+  el.dataset.current=target;
+  const dur=900,t0=performance.now();
+  const step=(now)=>{
+    const p=Math.min(1,(now-t0)/dur);
+    const ease=1-Math.pow(1-p,3); // easeOutCubic
+    const val=start+(target-start)*ease;
+    el.textContent=(isEuro?Math.round(val).toLocaleString('fr-FR'):val.toFixed(1))+suffix;
+    if(p<1)requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function renderDirection(garMois,garAll,ctrl,cess,annee,mois){
+  const dc=id=>{if(_ch[id]){_ch[id].destroy();delete _ch[id];}};
+  const FONT={family:'IBM Plex Sans',size:10};
+  const tooltip={backgroundColor:'#fffdf8',titleColor:'#3d3526',bodyColor:'#6b5f48',borderColor:'#e0d5bf',borderWidth:1,titleFont:FONT,bodyFont:{family:'IBM Plex Mono',size:11},padding:10,callbacks:{label:(c)=>{const v=c.parsed.y??c.parsed;return c.dataset.label?c.dataset.label+' : '+Math.round(v).toLocaleString('fr-FR')+' €':Math.round(v).toLocaleString('fr-FR')+' €';}}};
+  const BASE={responsive:true,maintainAspectRatio:true,animation:{duration:800},plugins:{legend:{display:false},tooltip},scales:{x:{ticks:{color:'#9a8c6f',font:FONT},grid:{color:'#e0d5bf40'},border:{display:false}},y:{ticks:{color:'#9a8c6f',font:FONT},grid:{color:'#e0d5bf60'},border:{display:false}}}};
+  const sActifs=SITES.filter(s=>garMois.some(g=>g.site===s));
+  const sumBy=(arr,site,field)=>arr.filter(g=>g.site===site).reduce((t,g)=>t+(parseFloat(g[field])||0),0);
+
+  // ── KPI ANIMÉES ──
+  const totFacture=garMois.reduce((t,g)=>t+(parseFloat(g.ca_facture)||0),0);
+  const totCession=cess.filter(c=>!mois||c.mois===mois).reduce((t,c)=>t+(parseFloat(c.total)||0),0);
+  const totAnnul=ctrl.filter(c=>c.annul).reduce((t,c)=>t+mon(c.montant),0);
+  const totRatt=ctrl.filter(c=>c.rattrapage).reduce((t,c)=>t+mon(c.montant),0);
+  const tauxRecup=totFacture>0?((totFacture-totAnnul)/totFacture*100):0;
+  animateValue(document.getElementById('dk-facture'),totFacture,' €',true);
+  animateValue(document.getElementById('dk-cession'),totCession,' €',true);
+  animateValue(document.getElementById('dk-taux'),tauxRecup,' %',false);
+  animateValue(document.getElementById('dk-rattrape'),totRatt,' €',true);
+
+  // ① GARANTIE vs CESSION (barres groupées)
+  dc('dc-gar-cess');
+  const cessByS=s=>cess.filter(c=>c.site===s&&(!mois||c.mois===mois)).reduce((t,c)=>t+(parseFloat(c.total)||0),0);
+  _ch['dc-gar-cess']=new Chart(document.getElementById('dc-gar-cess'),{type:'bar',data:{labels:sActifs.map(s=>SITE_SHORT[s]),datasets:[
+    {label:'Garantie',data:sActifs.map(s=>Math.round(sumBy(garMois,s,'ca_facture'))),backgroundColor:'#5b9bd5',borderRadius:5},
+    {label:'Cession',data:sActifs.map(s=>Math.round(cessByS(s))),backgroundColor:'#f5a623',borderRadius:5}
+  ]},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,boxWidth:10,padding:8}}}}});
+
+  // ② COMPOSITION CA (barres empilées : garantie/PR/action)
+  dc('dc-composition');
+  _ch['dc-composition']=new Chart(document.getElementById('dc-composition'),{type:'bar',data:{labels:sActifs.map(s=>SITE_SHORT[s]),datasets:[
+    {label:'Garantie',data:sActifs.map(s=>Math.round(sumBy(garMois,s,'ca_garantie'))),backgroundColor:'#5b9bd5'},
+    {label:'Garantie PR',data:sActifs.map(s=>Math.round(sumBy(garMois,s,'ca_pr'))),backgroundColor:'#7ec8e3'},
+    {label:'Actions',data:sActifs.map(s=>Math.round(sumBy(garMois,s,'ca_action'))),backgroundColor:'#9c6fc4'}
+  ]},options:{...BASE,scales:{x:{...BASE.scales.x,stacked:true},y:{...BASE.scales.y,stacked:true}},plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,boxWidth:10,padding:8}}}}});
+
+  // ③ FACTURÉ / PAYÉ / ANNULÉ (barres groupées)
+  dc('dc-recup');
+  _ch['dc-recup']=new Chart(document.getElementById('dc-recup'),{type:'bar',data:{labels:sActifs.map(s=>SITE_SHORT[s]),datasets:[
+    {label:'Facturé',data:sActifs.map(s=>Math.round(sumBy(garMois,s,'ca_facture'))),backgroundColor:'#5b9bd5',borderRadius:4},
+    {label:'Payé',data:sActifs.map(s=>{const f=sumBy(garMois,s,'ca_facture');const a=ctrlStat(ctrl,s,'annul');return Math.round(Math.max(0,f-a));}),backgroundColor:'#4caf7d',borderRadius:4},
+    {label:'Annulé',data:sActifs.map(s=>Math.round(ctrlStat(ctrl,s,'annul'))),backgroundColor:'#d9455f',borderRadius:4}
+  ]},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,boxWidth:10,padding:8}}}}});
+
+  // ④ QUALITÉ DOSSIERS (barres groupées : incomplet/nonfact/rattrapé)
+  dc('dc-qualite');
+  _ch['dc-qualite']=new Chart(document.getElementById('dc-qualite'),{type:'bar',data:{labels:sActifs.map(s=>SITE_SHORT[s]),datasets:[
+    {label:'Incomplets',data:sActifs.map(s=>ctrlNb(ctrl,s,'incomplet')),backgroundColor:'#e8c33c',borderRadius:4},
+    {label:'Non facturables',data:sActifs.map(s=>ctrlNb(ctrl,s,'nonfact')),backgroundColor:'#e8533c',borderRadius:4},
+    {label:'Rattrapés',data:sActifs.map(s=>ctrlNb(ctrl,s,'rattrapage')),backgroundColor:'#4caf7d',borderRadius:4}
+  ]},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,boxWidth:10,padding:8}},tooltip:{...tooltip,callbacks:{label:(c)=>c.dataset.label+' : '+c.parsed.y+' dossier(s)'}}},scales:{x:BASE.scales.x,y:{...BASE.scales.y,ticks:{...BASE.scales.y.ticks,precision:0}}}}});
+
+  // ⑤ COMPARAISON N vs N-1 (par mois)
+  dc('dc-annuel');
+  const anneeN=parseInt(annee)||new Date().getFullYear();
+  const anneeP=anneeN-1;
+  const moisData=(an)=>MOIS_FULL.map((_,i)=>{const mm=String(i+1).padStart(2,'0');return Math.round(garAll.filter(g=>g.annee===String(an)&&g.mois===mm).reduce((t,g)=>t+(parseFloat(g.ca_facture)||0),0));});
+  _ch['dc-annuel']=new Chart(document.getElementById('dc-annuel'),{type:'line',data:{labels:MOIS_FULL.map(m=>m.slice(0,3)),datasets:[
+    {label:anneeP,data:moisData(anneeP),borderColor:'#c9b896',backgroundColor:'#c9b89630',borderWidth:2,tension:.35,fill:true,pointRadius:3},
+    {label:anneeN,data:moisData(anneeN),borderColor:'#5b9bd5',backgroundColor:'#5b9bd530',borderWidth:2.5,tension:.35,fill:true,pointRadius:3}
+  ]},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,boxWidth:10,padding:8}}}}});
+
+  // ⑥ CUMUL ANNUEL (courbe cumulée)
+  dc('dc-cumul');
+  const cumul=(an)=>{let acc=0;return MOIS_FULL.map((_,i)=>{const mm=String(i+1).padStart(2,'0');acc+=garAll.filter(g=>g.annee===String(an)&&g.mois===mm).reduce((t,g)=>t+(parseFloat(g.ca_facture)||0),0);return Math.round(acc);});};
+  _ch['dc-cumul']=new Chart(document.getElementById('dc-cumul'),{type:'line',data:{labels:MOIS_FULL.map(m=>m.slice(0,3)),datasets:[
+    {label:'Cumul '+anneeP,data:cumul(anneeP),borderColor:'#c9b896',borderWidth:2,tension:.3,pointRadius:0,borderDash:[5,4]},
+    {label:'Cumul '+anneeN,data:cumul(anneeN),borderColor:'#4caf7d',backgroundColor:'#4caf7d20',borderWidth:2.5,tension:.3,fill:true,pointRadius:0}
+  ]},options:{...BASE,plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,boxWidth:10,padding:8}}}}});
+
+  // ⑦ CESSIONS PAR COMPTE (donut)
+  dc('dc-cess-comptes');
+  const comptesLbl={'93120':'Malfaçon méca','93130':'Malfaçon gar. APV','93140':'Annulation gar.','93500':'Cession com. APV','91500':'Cession com. VN','92500':'Cession com. VO'};
+  const comptesCol={'93120':'#e8533c','93130':'#f5a623','93140':'#d9455f','93500':'#5b9bd5','91500':'#9c6fc4','92500':'#4caf7d'};
+  const aggC={};
+  cess.filter(c=>!mois||c.mois===mois).forEach(c=>{if(c.comptes)Object.entries(c.comptes).forEach(([k,v])=>{aggC[k]=(aggC[k]||0)+(parseFloat(v)||0);});});
+  const ckeys=Object.keys(comptesLbl).filter(k=>aggC[k]>0);
+  _ch['dc-cess-comptes']=new Chart(document.getElementById('dc-cess-comptes'),{type:'doughnut',data:{labels:ckeys.map(k=>comptesLbl[k]),datasets:[{data:ckeys.map(k=>Math.round(aggC[k])),backgroundColor:ckeys.map(k=>comptesCol[k]),borderColor:'#fffdf8',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,boxWidth:10,padding:6}},tooltip}}});
+
+  // ⑧ TAUX DE PAIEMENT PAR SITE (barres horizontales triées)
+  dc('dc-taux-site');
+  const tauxData=sActifs.map(s=>{const f=sumBy(garMois,s,'ca_facture');const a=ctrlStat(ctrl,s,'annul');return{site:s,taux:f>0?((f-a)/f*100):100};}).sort((a,b)=>b.taux-a.taux);
+  _ch['dc-taux-site']=new Chart(document.getElementById('dc-taux-site'),{type:'bar',data:{labels:tauxData.map(d=>SITE_SHORT[d.site]),datasets:[{data:tauxData.map(d=>Math.round(d.taux*10)/10),backgroundColor:tauxData.map(d=>d.taux>=95?'#4caf7d':d.taux>=85?'#e6a817':'#d9455f'),borderRadius:5}]},options:{...BASE,indexAxis:'y',plugins:{...BASE.plugins,tooltip:{...tooltip,callbacks:{label:(c)=>'Taux : '+c.parsed.x+' %'}}},scales:{x:{...BASE.scales.x,max:100,ticks:{...BASE.scales.x.ticks,callback:v=>v+'%'}},y:BASE.scales.y}}});
 }
 
 // ── CHARTS ──
