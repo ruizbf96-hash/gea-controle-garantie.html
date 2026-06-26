@@ -464,6 +464,20 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
               <label style="color:var(--warn);">💬 Commentaires (dossier incomplet / non facturable)</label>
               <textarea id="f-commentaires" rows="3" placeholder="Raison du retour, éléments manquants, précisions pour le site..."></textarea>
             </div>
+            <div class="field span2">
+              <label>📷 Capture d'écran — motif du retour (optionnel)</label>
+              <div id="capture-zone" tabindex="0" onpaste="handleCapturePaste(event)" onclick="document.getElementById('capture-file').click()" style="border:1.5px dashed #c9a86a;border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:#2a2418;transition:border-color .2s;" title="Faites Win+Shift+S puis cliquez ici et collez (Ctrl+V), ou cliquez pour choisir un fichier">
+                <div id="capture-placeholder" style="color:#c9a86a;font-size:12px;">
+                  📋 Faites <strong>Win+Shift+S</strong>, puis cliquez ici et <strong>Ctrl+V</strong> pour coller<br>
+                  <span style="font-size:11px;color:#9a8c6f;">(ou cliquez pour choisir une image)</span>
+                </div>
+                <img id="capture-preview" style="display:none;max-width:100%;max-height:200px;border-radius:6px;margin-top:4px;">
+              </div>
+              <input type="file" id="capture-file" accept="image/*" style="display:none" onchange="handleCaptureFile(this.files[0])">
+              <div id="capture-actions" style="display:none;margin-top:6px;">
+                <button class="btn" type="button" onclick="clearCapture()" style="font-size:11px;padding:4px 10px;background:#3a1a1a;color:#ff8a8a;border-color:#ff8a8a40;">🗑 Retirer la capture</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1922,6 +1936,68 @@ async function savePdfAs(doc,filename){
   doc.save(filename);
 }
 
+// ── CAPTURE D'ÉCRAN (motif du retour) ──
+window._captureDataUrl=null;
+
+window.handleCapturePaste=function(e){
+  const items=(e.clipboardData||e.originalEvent.clipboardData).items;
+  for(const item of items){
+    if(item.type.indexOf('image')!==-1){
+      e.preventDefault();
+      readCaptureBlob(item.getAsFile());
+      return;
+    }
+  }
+};
+window.handleCaptureFile=function(file){
+  if(file&&file.type.startsWith('image/'))readCaptureBlob(file);
+};
+function readCaptureBlob(blob){
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=1400;
+      const scale=img.width>maxW?maxW/img.width:1;
+      const cv=document.createElement('canvas');
+      cv.width=img.width*scale;cv.height=img.height*scale;
+      const ctx=cv.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.drawImage(img,0,0,cv.width,cv.height);
+      window._captureDataUrl=cv.toDataURL('image/jpeg',0.85);
+      const prev=document.getElementById('capture-preview');
+      prev.src=window._captureDataUrl;prev.style.display='block';
+      document.getElementById('capture-placeholder').style.display='none';
+      document.getElementById('capture-actions').style.display='block';
+      toast('Capture ajoutée ✓','success');
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(blob);
+}
+window.clearCapture=function(){
+  window._captureDataUrl=null;
+  const prev=document.getElementById('capture-preview');
+  if(prev){prev.src='';prev.style.display='none';}
+  const ph=document.getElementById('capture-placeholder');if(ph)ph.style.display='block';
+  const ca=document.getElementById('capture-actions');if(ca)ca.style.display='none';
+  const cf=document.getElementById('capture-file');if(cf)cf.value='';
+};
+// Collage global : si on est dans l'étape 2 et qu'on colle une image, l'ajouter à la capture
+document.addEventListener('paste',e=>{
+  const step2=document.getElementById('step2');
+  if(!step2||step2.style.display==='none')return;
+  // Ne pas interférer avec le collage de texte dans les champs
+  const items=(e.clipboardData||{}).items||[];
+  for(const item of items){
+    if(item.type.indexOf('image')!==-1){
+      readCaptureBlob(item.getAsFile());
+      e.preventDefault();
+      return;
+    }
+  }
+});
+
 window.generatePDF=async function(){
   const nor=document.getElementById('f-nor').value||'—';
   const vin=document.getElementById('f-vin').value||'—';
@@ -1980,61 +2056,58 @@ window.generatePDF=async function(){
     y+=8;
   };
 
-  // Cadre fin autour de l'identification (hauteur adaptée au contenu)
-  const extraLines=(typegar?1:0)+((document.getElementById('f-codedommage').value||'').trim()?1:0);
-  const cardH=62+extraLines*7;
-  doc.setDrawColor(220,225,232);doc.setLineWidth(0.3);
-  doc.roundedRect(13,y-3,184,cardH,2,2,'S');
-  y+=4;
-  section('Identification du dossier');
-  // "Dossier facturable jusqu'au [DATE] (jour compris)" : texte noir, date orange et plus grosse, justifié à droite
+  // ── BANDEAU "DOSSIER FACTURABLE" EN HAUT ──
   if(delai){
     const dateStr=fmtDateSlash(delai);
+    doc.setFillColor(232,245,238);
+    doc.rect(13,y-3,184,10,'F');
+    doc.setFillColor(29,158,117);doc.rect(13,y-3,3,10,'F');
     const txtAvant='Dossier facturable jusqu\'au ';
     const txtApres=' (jour compris)';
-    doc.setFont('helvetica','bold');
-    // Mesurer chaque partie
-    doc.setFontSize(9.5);
+    doc.setFont('helvetica','bold');doc.setFontSize(10);
     const wAvant=doc.getTextWidth(txtAvant);
-    const wApres=doc.getTextWidth(txtApres);
-    doc.setFontSize(12);
-    const wDate=doc.getTextWidth(dateStr);
-    const total=wAvant+wDate+wApres;
-    let x=193-total; // point de départ pour finir à droite (193)
-    // Texte "avant" en noir
-    doc.setFontSize(9.5);doc.setTextColor(30,35,50);
-    doc.text(txtAvant,x,y);x+=wAvant;
-    // Date en orange, plus grosse
-    doc.setFontSize(12);doc.setTextColor(245,150,20);
-    doc.text(dateStr,x,y);x+=wDate;
-    // Texte "après" en noir
-    doc.setFontSize(9.5);doc.setTextColor(30,35,50);
-    doc.text(txtApres,x,y);
+    doc.setFontSize(12);const wDate=doc.getTextWidth(dateStr);
+    doc.setFontSize(10);const wApres=doc.getTextWidth(txtApres);
+    let x=20;const yb=y+3.5;
+    doc.setFontSize(10);doc.setTextColor(15,110,86);doc.text(txtAvant,x,yb);x+=wAvant;
+    doc.setFontSize(12);doc.setTextColor(245,150,20);doc.text(dateStr,x,yb);x+=wDate;
+    doc.setFontSize(10);doc.setTextColor(15,110,86);doc.text(txtApres,x,yb);
+    y+=14;
   }
-  cardId('N° OR :',nor,true);
-  cardId('Site :',SITE_SHORT[site]||site);
-  cardId('Date OR :',fmtDateSlash(date));
-  cardId('Châssis (VIN) :',vin);
-  cardId('Modèle :',modele);
-  cardId('CCS :',ccs);
-  // Montant en vert accent
-  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);doc.text('Montant total :',18,y);
-  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(0,180,140);
-  doc.text(montant!=='—'?montant+' €':'—',70,y);y+=7;
-  // Type de garantie en bleu gras (sous le montant / délai)
-  if(typegar){
-    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);doc.text('Type de garantie :',18,y);
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,110,200);
-    doc.text(typegar,70,y);y+=7;
-  }
-  // Code dommage en monospace
+
+  // ── IDENTIFICATION EN 2 COLONNES ──
+  section('Identification du dossier',[24,95,165]);
   const codedommage=(document.getElementById('f-codedommage').value||'').trim().toUpperCase();
-  if(codedommage){
-    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);doc.text('Code dommage :',18,y);
-    doc.setFontSize(10);doc.setFont('courier','bold');doc.setTextColor(40,45,60);
-    doc.text(codedommage,70,y);y+=7;
+  // Construire les paires label/valeur (colonne gauche / droite)
+  const champs=[
+    ['N° OR',nor,true],['Site',SITE_SHORT[site]||site,false],
+    ['Châssis (VIN)',vin,false],['CCS',ccs,false],
+    ['Date OR',fmtDateSlash(date),false],['Montant total',montant!=='—'?montant+' €':'—',true],
+  ];
+  if(typegar)champs.push(['Type de garantie',typegar,false]);
+  if(codedommage)champs.push(['Code dommage',codedommage,false]);
+  // Cadre autour
+  const nbLignes=Math.ceil(champs.length/2);
+  const cardH=nbLignes*7+6;
+  doc.setDrawColor(220,225,232);doc.setLineWidth(0.3);
+  doc.roundedRect(13,y-3,184,cardH,2,2,'S');
+  y+=2;
+  const colX=[18,108]; // x label gauche / droite
+  const colVX=[55,150]; // x valeur
+  for(let i=0;i<champs.length;i++){
+    const [label,val,bold]=champs[i];
+    const col=i%2;
+    const ly=y+Math.floor(i/2)*7;
+    doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);
+    doc.text(label,colX[col],ly);
+    doc.setFontSize(9.5);doc.setFont(label==='Code dommage'?'courier':'helvetica',bold?'bold':'normal');
+    doc.setTextColor(label==='Montant total'?[0,180,140]:label==='Type de garantie'?[0,110,200]:[30,35,50]);
+    const v=String(val||'—');
+    const vTrunc=v.length>22?v.slice(0,21)+'…':v;
+    doc.text(vTrunc,colVX[col],ly);
   }
-  y+=6;
+  y+=nbLignes*7+6;
+
 
   // ── INTERVENTIONS ──
   const FACTU=  {possible:{l:'Facturation possible',c:'#00c896'},facturegar:{l:'Facturé en garantie',c:'#3498db'},nonfacturable:{l:'Non facturable',c:'#ff4d6a'},cession:{l:'Cession',c:'#f5a623'}};
@@ -2121,13 +2194,13 @@ window.generatePDF=async function(){
 
   // ── DÉFAUTS ──
   if(y>255){doc.addPage();y=20;}
-  section('Défauts identifiés',[255,77,106]);
+  section('Défauts identifiés',[163,45,45]);
   doc.setFontSize(10);doc.setFont('helvetica','normal');
   if(def1){doc.setTextColor(40,45,60);doc.text('1.  '+def1,22,y);y+=6;}
   if(def2){doc.setTextColor(40,45,60);doc.text('2.  '+def2,22,y);y+=6;}
   if(!def1&&!def2){doc.setTextColor(150,155,170);doc.text('Aucun défaut sélectionné',22,y);y+=6;}
 
-  // Commentaires en bas des défauts
+  // ── COMMENTAIRES (avant la capture) ──
   if(commentaires){
     y+=4;
     if(y>260){doc.addPage();y=20;}
@@ -2138,24 +2211,29 @@ window.generatePDF=async function(){
     doc.text(cLines,18,y);y+=cLines.length*5+2;
   }
 
-  // ── PIED DE PAGE ──
-  y+=10;
-  if(y>260){doc.addPage();y=20;}
-  doc.setDrawColor(0,212,168);doc.setLineWidth(0.5);doc.line(15,y,195,y);y+=8;
-  // N° OR rappelé en bas (gras)
-  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(40,45,60);
-  doc.text('N° OR : '+nor,15,y);
-  // Signature du contrôleur garantie (à droite)
-  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(90,95,110);
-  doc.text('Contrôleur garantie :',120,y);
-  doc.setFont('helvetica','bold');doc.setTextColor(40,45,60);doc.setFontSize(10);
-  doc.text(_currentUser||'—',168,y);
-  y+=6;
-  // ligne de signature
-  doc.setDrawColor(180,185,195);doc.setLineWidth(0.3);doc.line(120,y+4,195,y+4);
-  y+=10;
-  doc.setFontSize(8);doc.setTextColor(150,155,170);doc.setFont('helvetica','italic');
-  doc.text('TeamGarantie — Grand Est Automobiles · '+new Date().toLocaleString('fr-FR'),15,y);
+  // ── CAPTURE D'ÉCRAN (motif du retour) ──
+  if(window._captureDataUrl){
+    y+=6;
+    try{
+      const props=doc.getImageProperties(window._captureDataUrl);
+      const maxW=175, maxH=180;
+      let w=maxW, h=w*props.height/props.width;
+      if(h>maxH){h=maxH;w=h*props.width/props.height;}
+      // Nouvelle page si pas assez de place
+      if(y+h+14>285){doc.addPage();y=20;}
+      // Titre zone capture (bandeau orange)
+      doc.setFillColor(133,79,11);doc.rect(15,y-4,3,6,'F');
+      doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(133,79,11);
+      doc.text('Capture — Motif du retour',21,y);
+      y+=6;
+      // Cadre + image centrée
+      const imgX=(210-w)/2;
+      doc.setDrawColor(201,184,150);doc.setLineWidth(0.4);
+      doc.roundedRect(imgX-2,y-2,w+4,h+4,2,2,'S');
+      doc.addImage(window._captureDataUrl,'JPEG',imgX,y,w,h);
+      y+=h+6;
+    }catch(e){console.warn('Capture PDF:',e);}
+  }
 
   // Nom fichier : Controle_Garantie_KVPS_OR_chassis.pdf
   const kvps=SITE_KVPS[site]||'00000';
@@ -2306,6 +2384,7 @@ function buildAutocomplete(){
 // ── RESET ──
 window.resetForm=function(){
   clearDraft();
+  if(window.clearCapture)clearCapture();
   ['f-nor','f-vin','f-modele','f-km','f-ccs','f-tech1','f-montant','f-date','f-heures'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){el.value='';el.classList.remove('filled');}
@@ -2375,19 +2454,16 @@ function getDossiersARelancer(){
   const all=Object.values(window._dossiers||{});
   const seuil=Date.now()-RELANCE_DELAI_JOURS*864e5;
   const facturationDone=d=>GROUPE_FACTURATION.some(k=>d[k]);
-  // Un dossier est "en attente de traitement" s'il a un statut dossier (envoyé/retourné en concession)
-  // mais AUCUN statut facturation. C'est ceux-là qu'on relance.
-  const enAttente=d=>GROUPE_DOSSIER.some(k=>d[k]);
   const res=all.filter(d=>{
-    if(!enAttente(d))return false;       // pas de statut dossier → rien à relancer
+    if(!d.retourconc)return false;       // doit être en retour concession
     if(facturationDone(d))return false;  // a un statut facturation → traité, on ne relance plus
     // Point de référence : dernière relance si elle existe, sinon date de CONTRÔLE
     const ref=d._lastRelanceTs||d.dateControle||d._ts||0;
     return ref<=seuil; // <= pour que délai 0 fonctionne immédiatement
   });
   // Diagnostic console (visible avec F12)
-  const sansFactu=all.filter(d=>enAttente(d)&&!facturationDone(d)).length;
-  console.log(`[Relance] ${all.length} dossiers, ${sansFactu} sans statut facturation, ${res.length} à relancer (délai ${RELANCE_DELAI_JOURS}j)`);
+  const totalRetour=all.filter(d=>d.retourconc&&!facturationDone(d)).length;
+  console.log(`[Relance] ${all.length} dossiers, ${totalRetour} en retour concession non traités, ${res.length} à relancer (délai ${RELANCE_DELAI_JOURS}j)`);
   return res;
 }
 
