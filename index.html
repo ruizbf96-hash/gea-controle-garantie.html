@@ -1960,23 +1960,28 @@ function readCaptureBlob(blob){
       const maxW=1400;
       const scale=img.width>maxW?maxW/img.width:1;
       const cv=document.createElement('canvas');
-      cv.width=img.width*scale;cv.height=img.height*scale;
+      cv.width=Math.round(img.width*scale);cv.height=Math.round(img.height*scale);
       const ctx=cv.getContext('2d');
       ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);
       ctx.drawImage(img,0,0,cv.width,cv.height);
       window._captureDataUrl=cv.toDataURL('image/jpeg',0.85);
+      window._captureW=cv.width;   // dimensions mémorisées (fiable pour le PDF)
+      window._captureH=cv.height;
       const prev=document.getElementById('capture-preview');
       prev.src=window._captureDataUrl;prev.style.display='block';
       document.getElementById('capture-placeholder').style.display='none';
       document.getElementById('capture-actions').style.display='block';
       toast('Capture ajoutée ✓','success');
     };
+    img.onerror=()=>toast('Image illisible, réessayez','error');
     img.src=ev.target.result;
   };
+  reader.onerror=()=>toast('Lecture image échouée','error');
   reader.readAsDataURL(blob);
 }
 window.clearCapture=function(){
   window._captureDataUrl=null;
+  window._captureW=null;window._captureH=null;
   const prev=document.getElementById('capture-preview');
   if(prev){prev.src='';prev.style.display='none';}
   const ph=document.getElementById('capture-placeholder');if(ph)ph.style.display='block';
@@ -2212,13 +2217,14 @@ window.generatePDF=async function(){
   }
 
   // ── CAPTURE D'ÉCRAN (motif du retour) ──
-  if(window._captureDataUrl){
+  if(window._captureDataUrl&&window._captureW&&window._captureH){
     y+=6;
     try{
-      const props=doc.getImageProperties(window._captureDataUrl);
+      const iw=window._captureW, ih=window._captureH;
       const maxW=175, maxH=180;
-      let w=maxW, h=w*props.height/props.width;
-      if(h>maxH){h=maxH;w=h*props.width/props.height;}
+      let w=maxW, h=w*ih/iw;
+      if(h>maxH){h=maxH;w=h*iw/ih;}
+      w=Math.round(w);h=Math.round(h);
       // Nouvelle page si pas assez de place
       if(y+h+14>285){doc.addPage();y=20;}
       // Titre zone capture (bandeau orange)
@@ -2227,12 +2233,12 @@ window.generatePDF=async function(){
       doc.text('Capture — Motif du retour',21,y);
       y+=6;
       // Cadre + image centrée
-      const imgX=(210-w)/2;
+      const imgX=Math.round((210-w)/2);
       doc.setDrawColor(201,184,150);doc.setLineWidth(0.4);
       doc.roundedRect(imgX-2,y-2,w+4,h+4,2,2,'S');
-      doc.addImage(window._captureDataUrl,'JPEG',imgX,y,w,h);
+      doc.addImage(window._captureDataUrl,'JPEG',imgX,y,w,h,undefined,'FAST');
       y+=h+6;
-    }catch(e){console.warn('Capture PDF:',e);}
+    }catch(e){console.warn('Capture PDF ignorée:',e);toast('La capture n\'a pas pu être ajoutée au PDF','info');}
   }
 
   // Nom fichier : Controle_Garantie_KVPS_OR_chassis.pdf
