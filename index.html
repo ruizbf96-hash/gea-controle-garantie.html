@@ -2106,7 +2106,10 @@ window.generatePDF=async function(){
     doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);
     doc.text(label,colX[col],ly);
     doc.setFontSize(9.5);doc.setFont(label==='Code dommage'?'courier':'helvetica',bold?'bold':'normal');
-    doc.setTextColor(label==='Montant total'?[0,180,140]:label==='Type de garantie'?[0,110,200]:[30,35,50]);
+    // Couleur selon le champ (valeurs séparées, jamais un tableau)
+    if(label==='Montant total')doc.setTextColor(0,180,140);
+    else if(label==='Type de garantie')doc.setTextColor(0,110,200);
+    else doc.setTextColor(30,35,50);
     const v=String(val||'—');
     const vTrunc=v.length>22?v.slice(0,21)+'…':v;
     doc.text(vTrunc,colVX[col],ly);
