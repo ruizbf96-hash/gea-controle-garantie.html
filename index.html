@@ -401,7 +401,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <div class="section-sep" style="border:none;margin-bottom:12px;">Statut du dossier — état à l'issue du contrôle</div>
           <div class="statuts-grid">
             <button class="statut-toggle" style="--kc:#ffe066" id="tog-incomplet" onclick="toggleStatut('incomplet')">
-              <span class="tog-dot"></span>Dossier incomplet
+              <span class="tog-dot"></span>Dossier non conforme
             </button>
             <button class="statut-toggle" style="--kc:#ff4d6a" id="tog-nonfact" onclick="toggleStatut('nonfact')">
               <span class="tog-dot"></span>Dossier non facturable
@@ -526,7 +526,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <select id="lf-statut" onchange="renderList()">
             <option value="">Tous statuts</option>
             <optgroup label="Statut dossier">
-              <option value="incomplet">Incomplet</option>
+              <option value="incomplet">Dossier non conforme</option>
               <option value="nonfact">Non facturable</option>
               <option value="retourconc">Retour concession</option>
               <option value="agarantie">À la garantie</option>
@@ -651,7 +651,7 @@ const SITE_MAP={
   'GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai',
   'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim'
 };
-const STATUT_LABELS={incomplet:'Incomplet',nonfact:'Non facturable',retourconc:'Retour concession',agarantie:'À la garantie',fcession_issue:'Facturé cession',rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG malgré risque',sauvee:'DG sauvée',annul:'Annulation déf.',facturegar:'Facturé garantie',fcession:'Facturé cession',temps:'Temps supp.'};
+const STATUT_LABELS={incomplet:'Dossier non conforme',nonfact:'Non facturable',retourconc:'Retour concession',agarantie:'À la garantie',fcession_issue:'Facturé cession',rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG passée malgré risque',sauvee:'DG sauvée',annul:'Annulation déf.',facturegar:'Facturé garantie',fcession:'Facturé cession',temps:'Temps supp.'};
 const STATUT_COLORS={incomplet:'#ffe066',nonfact:'#ff4d6a',retourconc:'#e67e22',agarantie:'#3498db',fcession_issue:'#f5a623',rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',sauvee:'#00c896',annul:'#ff4d6a',facturegar:'#2ecc71',fcession:'#f5a623',temps:'#2ecc71'};
 // Groupes pour l'affichage séparé
 const GROUPE_DOSSIER=['incomplet','nonfact','retourconc','agarantie','fcession_issue'];
@@ -765,6 +765,9 @@ dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
 dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)handleOcrFile(f);});
 document.addEventListener('paste',e=>{
   if(document.getElementById('detail-modal').classList.contains('open'))return;
+  // Ne capturer pour l'OCR que si l'étape 1 est visible (sinon conflit avec capture étape 2)
+  const step1=document.getElementById('step1');
+  if(!step1||step1.style.display==='none')return;
   const items=e.clipboardData?.items;
   if(!items)return;
   for(const item of items){if(item.type.startsWith('image/')){handleOcrFile(item.getAsFile());break;}}
@@ -1779,21 +1782,23 @@ window.saveDossier=function(){
     return;
   }
 
-  // Clé unique basée sur le N°OR
+  // Clé unique basée sur SITE + N°OR (deux sites peuvent avoir le même N°OR)
   const norKey=nor.replace(/[.#$\[\]\/\s]/g,'_');
-  const existant=Object.values(window._dossiers).find(d=>(d.nor||'').trim()===nor);
+  const siteKey=(site||'').replace(/[.#$\[\]\/\s]/g,'_');
+  // Chercher un dossier existant : même site ET même OR
+  const existant=Object.values(window._dossiers).find(d=>(d.nor||'').trim()===nor&&(d.site||'')===site);
   if(existant && !_editingDossierId){
-    if(!confirm('Un dossier avec le N°OR '+nor+' existe déjà. Le mettre à jour ?')){
+    if(!confirm('Un dossier avec le N°OR '+nor+' existe déjà pour ce site. Le mettre à jour ?')){
       return;
     }
   }
 
   _saving=true;
-  const btn=document.querySelector('.btn.primary');
+  const btn=document.getElementById('btn-save');
   if(btn){btn.disabled=true;btn.style.opacity='.5';btn.textContent='Enregistrement...';}
 
-  // Préserver les infos de création si édition
-  const ancien=window._dossiers['OR_'+norKey]||existant||{};
+  // Préserver les infos de création si édition (chercher par _id existant en priorité)
+  const ancien=existant||(_editingDossierId&&window._dossiers[_editingDossierId])||{};
 
   const interventionsList=getInterventions();
   const montantTotal=interventionsList.reduce((s,iv)=>s+(parseFloat((iv.montant||'0').toString().replace(',','.'))||0),0);
@@ -1829,7 +1834,12 @@ window.saveDossier=function(){
     obj._modifiedTs=Date.now();
   }
 
-  const fbKey='controle_garantie/OR_'+norKey;
+  // Clé : réutiliser l'_id du dossier existant (compat anciens 'OR_xxx'), sinon créer 'SITE_OR'
+  let key;
+  if(existant&&existant._id)key=existant._id;
+  else if(_editingDossierId)key=_editingDossierId;
+  else key=siteKey+'_OR_'+norKey;
+  const fbKey='controle_garantie/'+key;
   // Sauvegarde avec fallback file d'attente hors-ligne
   saveWithQueue(fbKey,obj,existant);
 };
@@ -1889,7 +1899,11 @@ function syncQueue(){
     const item=remaining[0];
     window._set(window._ref(window._db,item.fbKey),item.obj)
       .then(()=>{remaining.shift();setQueue(remaining);next();})
-      .catch(()=>{/* on réessaiera plus tard */});
+      .catch(()=>{
+        // Échec : on garde l'élément en file mais on arrête (réessai au prochain cycle)
+        setQueue(remaining);
+        console.warn('Sync interrompue, réessai plus tard');
+      });
   };
   next();
 }
@@ -2267,15 +2281,16 @@ function openMailtoIfNeeded(ctx){
     }
     return out;
   };
-  let motif='DOSSIER INCOMPLET';
+  let motif='DOSSIER NON CONFORME';
   if(_statuts.nonfact)motif='DOSSIER NON FACTURABLE';
-  else if(_statuts.incomplet)motif='DOSSIER INCOMPLET';
+  else if(_statuts.incomplet)motif='DOSSIER NON CONFORME';
   if(_statuts.retourconc)motif+=' - RETOUR CONCESSION';
   else if(_statuts.agarantie)motif+=' - A LA GARANTIE';
   else if(_statuts.fcession_issue)motif+=' - FACTURE CESSION';
   const sujet=`${SITE_SHORT[site]||site}_${nor}_${vin}_${motif}`; // sujet inchangé
-  const commentBI=commentaires?toBoldItalic(commentaires):'';
-  const corps=`Bonjour,\n\n${toBoldItalic('Dossier non conforme')}\n\n──────────────────────────────\nIDENTIFICATION DU DOSSIER\n──────────────────────────────\nN° OR              : ${nor}\nSite               : ${SITE_SHORT[site]||site}\nVIN                : ${vin}\nMontant total      : ${montant} ${montant!=='—'?'€':''}\n${typegar?'Type de garantie   : '+typegar+'\n':''}${delai?'Facturable jusqu\'au: '+fmtDateSlash(delai)+' (jour compris)\n':''}\n──────────────────────────────\nDÉFAUTS IDENTIFIÉS\n──────────────────────────────\n${[def1,def2].filter(Boolean).map(d=>'  • '+d).join('\n')}\n${commentBI?'\n──────────────────────────────\nCOMMENTAIRES\n──────────────────────────────\n'+commentBI+'\n':''}\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
+  // Texte adapté selon le statut : 'non conforme' (incomplet) ou 'non facturable'
+  const qualif=_statuts.nonfact?'non facturable':'non conforme';
+  const corps=`Salut,\n\nDossier ${toBoldItalic(qualif)} à la garantie (voir PJ)\n\nCordialement\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
   const mailtoUrl=`mailto:?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
   setTimeout(()=>{
     const a=document.createElement('a');a.href=mailtoUrl;a.style.display='none';
@@ -2911,8 +2926,13 @@ window.importSuiviRattrapage=async function(file){
         dateControle,
         _importedFrom:'suivi_rattrapage'
       };
-      // Clé : site + OR pour éviter doublons sur réimport
-      const fbKey='import_'+site+'_'+nor;
+      // Clé identique à la création manuelle (SITE_OR_xxx) → pas de doublon entre import et saisie
+      const norKey=String(nor).replace(/[.#$\[\]\/\s]/g,'_');
+      const siteKey=site.replace(/[.#$\[\]\/\s]/g,'_');
+      const fbKey=siteKey+'_OR_'+norKey;
+      // Ne pas écraser un dossier déjà saisi/traité par l'équipe (préserver l'existant)
+      const dejaExistant=window._dossiers&&window._dossiers[fbKey];
+      if(dejaExistant){ignores++;continue;}
       if(window._db){
         updates.push(window._set(window._ref(window._db,'controle_garantie/'+fbKey),dossier));
       }
