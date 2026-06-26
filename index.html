@@ -2034,56 +2034,54 @@ window.generatePDF=async function(){
 
   // ── EN-TÊTE BLANC (économe en encre) ──
   doc.setTextColor(20,25,40);
-  doc.setFontSize(18);doc.setFont('helvetica','bold');
-  doc.text('CONTRÔLE GARANTIE',105,16,{align:'center'});
+  doc.setFontSize(15);doc.setFont('helvetica','bold');
+  doc.text('CONTRÔLE GARANTIE',105,14,{align:'center'});
   doc.setTextColor(0,160,130);
-  doc.setFontSize(10);doc.setFont('helvetica','normal');
-  doc.text('GEA · TeamGarantie — Grand Est Automobiles',105,24,{align:'center'});
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text('GEA · TeamGarantie — Grand Est Automobiles',105,20,{align:'center'});
   // Ligne turquoise sous le titre
-  doc.setDrawColor(0,180,140);doc.setLineWidth(1);doc.line(15,30,195,30);
-  y=42;
+  doc.setDrawColor(0,180,140);doc.setLineWidth(0.8);doc.line(15,25,195,25);
+  y=34;
 
   // ── CARTOUCHE IDENTIFICATION ──
   const cardId=(label,val,bold=false)=>{
-    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);
     doc.text(label,18,y);
-    doc.setFontSize(10);doc.setFont('helvetica',bold?'bold':'normal');doc.setTextColor(30,35,50);
+    doc.setFontSize(9);doc.setFont('helvetica',bold?'bold':'normal');doc.setTextColor(30,35,50);
     doc.text(String(val||'—'),70,y);
-    y+=7;
+    y+=6;
   };
   // titre section
   const section=(txt,color=[0,153,255])=>{
-    y+=3;
+    y+=2;
     doc.setFillColor(color[0],color[1],color[2]);
-    doc.rect(15,y-4,3,6,'F');
-    doc.setFontSize(12);doc.setFont('helvetica','bold');doc.setTextColor(30,35,50);
+    doc.rect(15,y-4,3,5.5,'F');
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(30,35,50);
     doc.text(txt,21,y);
-    y+=8;
+    y+=7;
   };
 
   // ── BANDEAU "DOSSIER FACTURABLE" EN HAUT ──
   if(delai){
     const dateStr=fmtDateSlash(delai);
     doc.setFillColor(232,245,238);
-    doc.rect(13,y-3,184,10,'F');
-    doc.setFillColor(29,158,117);doc.rect(13,y-3,3,10,'F');
+    doc.rect(13,y-3,184,8,'F');
+    doc.setFillColor(29,158,117);doc.rect(13,y-3,3,8,'F');
     const txtAvant='Dossier facturable jusqu\'au ';
     const txtApres=' (jour compris)';
-    doc.setFont('helvetica','bold');doc.setFontSize(10);
+    doc.setFont('helvetica','bold');doc.setFontSize(9);
     const wAvant=doc.getTextWidth(txtAvant);
-    doc.setFontSize(12);const wDate=doc.getTextWidth(dateStr);
-    doc.setFontSize(10);const wApres=doc.getTextWidth(txtApres);
-    let x=20;const yb=y+3.5;
-    doc.setFontSize(10);doc.setTextColor(15,110,86);doc.text(txtAvant,x,yb);x+=wAvant;
-    doc.setFontSize(12);doc.setTextColor(245,150,20);doc.text(dateStr,x,yb);x+=wDate;
-    doc.setFontSize(10);doc.setTextColor(15,110,86);doc.text(txtApres,x,yb);
-    y+=14;
+    doc.setFontSize(10);const wDate=doc.getTextWidth(dateStr);
+    let x=20;const yb=y+2.5;
+    doc.setFontSize(9);doc.setTextColor(15,110,86);doc.text(txtAvant,x,yb);x+=wAvant;
+    doc.setFontSize(10);doc.setTextColor(245,150,20);doc.text(dateStr,x,yb);x+=wDate;
+    doc.setFontSize(9);doc.setTextColor(15,110,86);doc.text(txtApres,x,yb);
+    y+=11;
   }
 
   // ── IDENTIFICATION EN 2 COLONNES ──
   section('Identification du dossier',[24,95,165]);
   const codedommage=(document.getElementById('f-codedommage').value||'').trim().toUpperCase();
-  // Construire les paires label/valeur (colonne gauche / droite)
   const champs=[
     ['N° OR',nor,true],['Site',SITE_SHORT[site]||site,false],
     ['Châssis (VIN)',vin,false],['CCS',ccs,false],
@@ -2091,30 +2089,28 @@ window.generatePDF=async function(){
   ];
   if(typegar)champs.push(['Type de garantie',typegar,false]);
   if(codedommage)champs.push(['Code dommage',codedommage,false]);
-  // Cadre autour
   const nbLignes=Math.ceil(champs.length/2);
-  const cardH=nbLignes*7+6;
+  const cardH=nbLignes*6+5;
   doc.setDrawColor(220,225,232);doc.setLineWidth(0.3);
   doc.roundedRect(13,y-3,184,cardH,2,2,'S');
-  y+=2;
-  const colX=[18,108]; // x label gauche / droite
-  const colVX=[55,150]; // x valeur
+  y+=1;
+  const colX=[18,108];
+  const colVX=[53,148];
   for(let i=0;i<champs.length;i++){
     const [label,val,bold]=champs[i];
     const col=i%2;
-    const ly=y+Math.floor(i/2)*7;
-    doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);
+    const ly=y+Math.floor(i/2)*6;
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(130,140,160);
     doc.text(label,colX[col],ly);
-    doc.setFontSize(9.5);doc.setFont(label==='Code dommage'?'courier':'helvetica',bold?'bold':'normal');
-    // Couleur selon le champ (valeurs séparées, jamais un tableau)
+    doc.setFontSize(9);doc.setFont(label==='Code dommage'?'courier':'helvetica',bold?'bold':'normal');
     if(label==='Montant total')doc.setTextColor(0,180,140);
     else if(label==='Type de garantie')doc.setTextColor(0,110,200);
     else doc.setTextColor(30,35,50);
     const v=String(val||'—');
-    const vTrunc=v.length>22?v.slice(0,21)+'…':v;
+    const vTrunc=v.length>24?v.slice(0,23)+'…':v;
     doc.text(vTrunc,colVX[col],ly);
   }
-  y+=nbLignes*7+6;
+  y+=nbLignes*6+4;
 
 
   // ── INTERVENTIONS ──
@@ -2136,11 +2132,11 @@ window.generatePDF=async function(){
         doc.text(iv.montant+' €',193,y,{align:'right'});
       }
       // texte plainte + pièce
-      doc.setTextColor(40,45,60);doc.setFontSize(10);doc.setFont('helvetica','normal');
+      doc.setTextColor(40,45,60);doc.setFontSize(9);doc.setFont('helvetica','normal');
       const pieceTxt=iv.piece?(' — '+iv.piece):'';
       const plLines=doc.splitTextToSize((iv.plainte||'')+pieceTxt,150);
       doc.text(plLines,25,y);
-      y+=Math.max(5,plLines.length*5);
+      y+=Math.max(4.5,plLines.length*4.5);
       // badge statut facturation coloré
       if(iv.factu&&FACTU[iv.factu]){
         const fc=rgb(FACTU[iv.factu].c);
@@ -2169,72 +2165,73 @@ window.generatePDF=async function(){
     keys.forEach(k=>{
       const c=rgb(STATUT_COLORS[k]||'#8a9ab5');
       const txt=STATUT_LABELS[k];
-      doc.setFontSize(9);doc.setFont('helvetica','bold');
-      const tw=doc.getTextWidth(txt)+8;
-      if(x+tw>195){x=18;y+=9;}
+      doc.setFontSize(8);doc.setFont('helvetica','bold');
+      const tw=doc.getTextWidth(txt)+7;
+      if(x+tw>195){x=18;y+=8;}
       doc.setFillColor(c[0],c[1],c[2]);
-      doc.roundedRect(x,y-4,tw,6.5,2,2,'F');
+      doc.roundedRect(x,y-3.5,tw,5.5,1.5,1.5,'F');
       doc.setTextColor(255,255,255);
-      doc.text(txt,x+4,y);
+      doc.text(txt,x+3.5,y);
       x+=tw+4;
     });
-    y+=10;
+    y+=8;
   };
   const dossierKeys=statutsActifsKeys.filter(k=>GROUPE_DOSSIER.includes(k));
   const factuKeys=statutsActifsKeys.filter(k=>GROUPE_FACTURATION.includes(k));
 
   section('Statut du dossier',[245,166,35]);
   if(dossierKeys.length) drawBadges(dossierKeys);
-  else {doc.setFontSize(10);doc.setTextColor(150,155,170);doc.text('Aucun',22,y);y+=8;}
+  else {doc.setFontSize(9);doc.setTextColor(150,155,170);doc.text('Aucun',22,y);y+=7;}
 
   if(factuKeys.length){
-    if(y>250){doc.addPage();y=20;}
+    if(y>255){doc.addPage();y=20;}
     section('Statut facturation',[52,152,219]);
     drawBadges(factuKeys);
     // Raison temps supp si présente
     const raison=document.getElementById('f-raison-temps')?document.getElementById('f-raison-temps').value:'';
     if(_statuts.temps&&raison){
-      doc.setFontSize(9);doc.setFont('helvetica','italic');doc.setTextColor(110,120,140);
+      doc.setFontSize(8.5);doc.setFont('helvetica','italic');doc.setTextColor(110,120,140);
       const rl=doc.splitTextToSize('Raison temps supp. : '+raison,175);
-      doc.text(rl,18,y);y+=rl.length*5+2;
+      doc.text(rl,18,y);y+=rl.length*4.5+2;
     }
   }
 
   // ── DÉFAUTS ──
-  if(y>255){doc.addPage();y=20;}
+  if(y>250){doc.addPage();y=20;}
   section('Défauts identifiés',[163,45,45]);
-  doc.setFontSize(10);doc.setFont('helvetica','normal');
-  if(def1){doc.setTextColor(40,45,60);doc.text('1.  '+def1,22,y);y+=6;}
-  if(def2){doc.setTextColor(40,45,60);doc.text('2.  '+def2,22,y);y+=6;}
-  if(!def1&&!def2){doc.setTextColor(150,155,170);doc.text('Aucun défaut sélectionné',22,y);y+=6;}
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  if(def1){doc.setTextColor(40,45,60);doc.text('1.  '+def1,22,y);y+=5;}
+  if(def2){doc.setTextColor(40,45,60);doc.text('2.  '+def2,22,y);y+=5;}
+  if(!def1&&!def2){doc.setTextColor(150,155,170);doc.text('Aucun défaut sélectionné',22,y);y+=5;}
 
   // ── COMMENTAIRES (avant la capture) ──
   if(commentaires){
-    y+=4;
-    if(y>260){doc.addPage();y=20;}
-    doc.setFontSize(9.5);doc.setFont('helvetica','bold');doc.setTextColor(110,120,140);
-    doc.text('Commentaires :',18,y);y+=6;
-    doc.setFont('helvetica','normal');doc.setTextColor(40,45,60);doc.setFontSize(10);
+    y+=3;
+    if(y>255){doc.addPage();y=20;}
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(110,120,140);
+    doc.text('Commentaires :',18,y);y+=5;
+    doc.setFont('helvetica','normal');doc.setTextColor(40,45,60);doc.setFontSize(9);
     const cLines=doc.splitTextToSize(commentaires,175);
-    doc.text(cLines,18,y);y+=cLines.length*5+2;
+    doc.text(cLines,18,y);y+=cLines.length*4.5+2;
   }
 
   // ── CAPTURE D'ÉCRAN (motif du retour) ──
   if(window._captureDataUrl&&window._captureW&&window._captureH){
-    y+=6;
+    y+=4;
     try{
       const iw=window._captureW, ih=window._captureH;
-      const maxW=175, maxH=180;
+      // Taille réduite pour tenir sur 1 page : largeur max 120mm, hauteur max selon place restante
+      const maxW=120;
+      const placeRestante=Math.max(40,283-y-8); // espace jusqu'au bas de page
+      const maxH=Math.min(95,placeRestante);
       let w=maxW, h=w*ih/iw;
       if(h>maxH){h=maxH;w=h*iw/ih;}
       w=Math.round(w);h=Math.round(h);
-      // Nouvelle page si pas assez de place
-      if(y+h+14>285){doc.addPage();y=20;}
       // Titre zone capture (bandeau orange)
-      doc.setFillColor(133,79,11);doc.rect(15,y-4,3,6,'F');
-      doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(133,79,11);
+      doc.setFillColor(133,79,11);doc.rect(15,y-4,3,5.5,'F');
+      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(133,79,11);
       doc.text('Capture — Motif du retour',21,y);
-      y+=6;
+      y+=5;
       // Cadre + image centrée
       const imgX=Math.round((210-w)/2);
       doc.setDrawColor(201,184,150);doc.setLineWidth(0.4);
