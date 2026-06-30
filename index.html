@@ -2499,11 +2499,17 @@ function getDossiersARelancer(){
     if(facturationDone(d))return false;  // a un statut facturation → traité
     const base=d.dateControle||d._ts||0;
     if(!base)return false;
-    const joursEcoules=Math.floor((now-base)/864e5);
+    const joursEcoules=joursEcoules_safe(Math.floor((now-base)/864e5));
     const nb=d._nbRelances||0;           // nombre de rappels déjà envoyés
-    if(nb>=RELANCE_PALIERS.length)return false; // 3 rappels faits → plus de relance (clôture gérée ailleurs)
-    const seuil=RELANCE_PALIERS[nb];     // prochain palier à atteindre
-    return joursEcoules_safe(joursEcoules)>=seuil;
+    if(nb>=RELANCE_PALIERS.length)return false; // 3 rappels faits → plus de relance
+    const seuil=RELANCE_PALIERS[nb];     // palier absolu à atteindre (depuis date contrôle)
+    if(joursEcoules<seuil)return false;  // palier pas encore atteint
+    // Anti-réapparition immédiate : si déjà relancé, attendre au moins 1 jour depuis le dernier rappel
+    if(d._lastRelanceTs){
+      const joursDepuisRelance=Math.floor((now-d._lastRelanceTs)/864e5);
+      if(joursDepuisRelance<1)return false; // relancé il y a moins d'un jour → patienter
+    }
+    return true;
   });
   console.log(`[Relance] ${all.length} dossiers, ${res.length} à relancer (paliers J+${RELANCE_PALIERS.join(', J+')})`);
   return res;
@@ -2586,11 +2592,19 @@ window.sendRelanceSite=function(site){
     const nb=(d._nbRelances||0)+1;
     const obj={...d,_lastRelanceTs:now,_lastRelanceBy:_currentUser,_nbRelances:nb};
     delete obj._id;
+    // Mise à jour LOCALE immédiate (le bouton disparaît tout de suite, sans attendre Firebase)
+    if(window._dossiers[d._id]){
+      window._dossiers[d._id]._lastRelanceTs=now;
+      window._dossiers[d._id]._lastRelanceBy=_currentUser;
+      window._dossiers[d._id]._nbRelances=nb;
+    }
     return window._db?window._set(window._ref(window._db,'controle_garantie/'+d._id),obj):Promise.resolve();
   });
+  // Rafraîchir tout de suite (données locales déjà à jour)
+  renderRelancePanel();
   Promise.all(updates).then(()=>{
     toast(`Rappel ${siteName} envoyé (${aRelancer.length} dossier(s))`,'success');
-    setTimeout(renderRelancePanel,400);
+    renderRelancePanel();
   }).catch(err=>{toast('Mail ouvert, erreur marquage : '+err.message,'info');});
 };
 
