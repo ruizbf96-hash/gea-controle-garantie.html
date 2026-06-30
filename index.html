@@ -484,7 +484,8 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
         <div class="form-actions">
           <button class="btn primary" id="btn-save" onclick="saveDossier()" title="Ctrl+S">💾 Enregistrer</button>
           <button class="btn" onclick="printPDF()" style="background:#1a3a5a;color:#7ec8e3;border-color:#7ec8e340;" title="Imprimer">🖨 Imprimer</button>
-          <button class="btn pdf" onclick="savePDF()" title="Ctrl+P">💾 Sauvegarder PDF</button>
+          <button class="btn pdf" onclick="savePDF()" title="Sauvegarder le PDF">💾 Sauvegarder PDF</button>
+          <button class="btn" onclick="sendMail()" style="background:#2a1f0d;color:#e6a817;border-color:#e6a81740;" title="Ouvrir l'email de notification">✉ Envoyer mail</button>
           <button class="btn" onclick="nextDossier()" style="background:#0d3a2a;color:#5ee8b0;border-color:#5ee8b040;" title="Nouveau dossier">➕ Dossier suivant</button>
           <button class="btn" onclick="resetForm()">Réinitialiser</button>
         </div>
@@ -651,8 +652,8 @@ const SITE_MAP={
   'GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai',
   'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim'
 };
-const STATUT_LABELS={incomplet:'Dossier non conforme',nonfact:'Non facturable',retourconc:'Retour concession',agarantie:'À la garantie',fcession_issue:'Facturé cession',rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG passée malgré risque',sauvee:'DG sauvée',annul:'Annulation déf.',facturegar:'Facturé garantie',fcession:'Facturé cession',temps:'Temps supp.'};
-const STATUT_COLORS={incomplet:'#ffe066',nonfact:'#ff4d6a',retourconc:'#e67e22',agarantie:'#3498db',fcession_issue:'#f5a623',rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',sauvee:'#00c896',annul:'#ff4d6a',facturegar:'#2ecc71',fcession:'#f5a623',temps:'#2ecc71'};
+const STATUT_LABELS={incomplet:'Dossier non conforme',nonfact:'Non facturable',retourconc:'Retour concession',agarantie:'À la garantie',fcession_issue:'Facturé cession',rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG passée malgré risque',sauvee:'DG sauvée',annul:'Annulation déf.',facturegar:'Facturé garantie',fcession:'Facturé cession',temps:'Temps supp.',nonrevenu:'Dossier non revenu'};
+const STATUT_COLORS={incomplet:'#ffe066',nonfact:'#ff4d6a',retourconc:'#e67e22',agarantie:'#3498db',fcession_issue:'#f5a623',rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',sauvee:'#00c896',annul:'#ff4d6a',facturegar:'#2ecc71',fcession:'#f5a623',temps:'#2ecc71',nonrevenu:'#ff7a8a'};
 // Groupes pour l'affichage séparé
 const GROUPE_DOSSIER=['incomplet','nonfact','retourconc','agarantie','fcession_issue'];
 const GROUPE_FACTURATION=['rattrapage','risque','sauvee','annul','facturegar','fcession','temps'];
@@ -2263,9 +2264,9 @@ window.generatePDF=async function(){
 };
 
 // Ouvrir le mailto si incomplet/non facturable
-function openMailtoIfNeeded(ctx){
-  // Mail si dossier incomplet OU non facturable (avec ou sans issue)
-  if(!_statuts.incomplet&&!_statuts.nonfact)return;
+function openMailtoIfNeeded(ctx,force){
+  // Mail si dossier incomplet OU non facturable, OU si forcé (bouton dédié)
+  if(!force&&!_statuts.incomplet&&!_statuts.nonfact)return;
   const {pdfNom,site,nor,vin,modele,montant,delai,typegar,def1,def2}=ctx;
   const fmtDateSlash=dateFR;
   const commentaires=document.getElementById('f-commentaires').value||'';
@@ -2303,8 +2304,7 @@ window.savePDF=async function(){
   const ctx=await generatePDF();
   if(!ctx)return;
   await savePdfAs(ctx.doc,ctx.pdfNom);
-  openMailtoIfNeeded(ctx);
-  toast(_statuts.incomplet||_statuts.nonfact?'PDF enregistré — glissez-le dans l\'email':'PDF enregistré ✓','success');
+  toast('PDF enregistré ✓','success');
 };
 
 // ── IMPRIMER (ouvre la fenêtre d'impression directement) ──
@@ -2329,8 +2329,16 @@ window.printPDF=async function(){
       setTimeout(()=>{iframe.remove();URL.revokeObjectURL(url);},60000);
     },300);
   };
-  openMailtoIfNeeded(ctx);
   toast('Impression lancée...','info');
+};
+
+// ── ENVOYER MAIL (bouton dédié) ──
+window.sendMail=async function(){
+  const ctx=await generatePDF();
+  if(!ctx)return;
+  // Forcer l'ouverture du mail même si pas incomplet/nonfact
+  openMailtoIfNeeded(ctx,true);
+  toast('Email ouvert — joignez le PDF si besoin','info');
 };
 
 // ── Alias pour generatePDFFromDetail ──
@@ -2339,6 +2347,12 @@ window.printPDFFromDetail=async function(id){
   if(!d)return;
   loadDossierIntoForm(d);
   await printPDF();
+};
+window.sendMailFromDetail=async function(id){
+  const d=window._dossiers[id];
+  if(!d)return;
+  loadDossierIntoForm(d);
+  await sendMail();
 };
 
 // ── OPTION 3 : RACCOURCIS CLAVIER ──
@@ -2471,21 +2485,51 @@ function renderMyStats(){
 // ── COMPTEURS WORKFLOW (en attente garantie / retournés) ──
 // ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +4 jours ──
 const RELANCE_DELAI_JOURS=3; // délai de relance en jours
+// Intervalles de relance progressifs (jours depuis la date de contrôle)
+// 1er rappel à J+3, 2e à J+5 (+2), 3e à J+6 (+1). Après le 3e → clôture "non revenu".
+const RELANCE_PALIERS=[3,5,6];
+
 function getDossiersARelancer(){
   const all=Object.values(window._dossiers||{});
-  const seuil=Date.now()-RELANCE_DELAI_JOURS*864e5;
+  const now=Date.now();
   const facturationDone=d=>GROUPE_FACTURATION.some(k=>d[k]);
   const res=all.filter(d=>{
     if(!d.retourconc)return false;       // doit être en retour concession
-    if(facturationDone(d))return false;  // a un statut facturation → traité, on ne relance plus
-    // Point de référence : dernière relance si elle existe, sinon date de CONTRÔLE
-    const ref=d._lastRelanceTs||d.dateControle||d._ts||0;
-    return ref<=seuil; // <= pour que délai 0 fonctionne immédiatement
+    if(d.nonrevenu)return false;         // déjà clôturé "non revenu"
+    if(facturationDone(d))return false;  // a un statut facturation → traité
+    const base=d.dateControle||d._ts||0;
+    if(!base)return false;
+    const joursEcoules=Math.floor((now-base)/864e5);
+    const nb=d._nbRelances||0;           // nombre de rappels déjà envoyés
+    if(nb>=RELANCE_PALIERS.length)return false; // 3 rappels faits → plus de relance (clôture gérée ailleurs)
+    const seuil=RELANCE_PALIERS[nb];     // prochain palier à atteindre
+    return joursEcoules_safe(joursEcoules)>=seuil;
   });
-  // Diagnostic console (visible avec F12)
-  const totalRetour=all.filter(d=>d.retourconc&&!facturationDone(d)).length;
-  console.log(`[Relance] ${all.length} dossiers, ${totalRetour} en retour concession non traités, ${res.length} à relancer (délai ${RELANCE_DELAI_JOURS}j)`);
+  console.log(`[Relance] ${all.length} dossiers, ${res.length} à relancer (paliers J+${RELANCE_PALIERS.join(', J+')})`);
   return res;
+}
+function joursEcoules_safe(j){return isNaN(j)?0:j;}
+
+// Clôture automatique des dossiers ayant épuisé les 3 rappels et toujours pas revenus
+function cloturerDossiersNonRevenus(){
+  const all=Object.values(window._dossiers||{});
+  const now=Date.now();
+  const facturationDone=d=>GROUPE_FACTURATION.some(k=>d[k]);
+  const aCloturer=all.filter(d=>{
+    if(!d.retourconc||d.nonrevenu||facturationDone(d))return false;
+    const base=d.dateControle||d._ts||0;
+    if(!base)return false;
+    const jours=Math.floor((now-base)/864e5);
+    const nb=d._nbRelances||0;
+    // 3 rappels envoyés ET dernier palier dépassé → clôture
+    return nb>=RELANCE_PALIERS.length && jours>RELANCE_PALIERS[RELANCE_PALIERS.length-1];
+  });
+  aCloturer.forEach(d=>{
+    const obj={...d,nonrevenu:true,_clotureTs:now,_clotureBy:'Auto (relances épuisées)'};
+    delete obj._id;
+    if(window._db)window._set(window._ref(window._db,'controle_garantie/'+d._id),obj);
+  });
+  if(aCloturer.length)console.log(`[Relance] ${aCloturer.length} dossier(s) clôturé(s) "non revenu"`);
 }
 
 function renderRelancePanel(){
@@ -2497,17 +2541,22 @@ function renderRelancePanel(){
   // Grouper par site
   const parSite={};
   aRelancer.forEach(d=>{const s=d.site||'?';(parSite[s]=parSite[s]||[]).push(d);});
+  const ordinal=['1er','2e','3e'];
   // Un bouton par site (envoi individuel = fiable)
   const sitesHtml=Object.entries(parSite).map(([s,arr])=>{
     const kvps=SITE_KVPS[s]||'?????';
-    return `<button onclick="sendRelanceSite('${s}')" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid #e67e22;border-radius:8px;padding:8px 12px;margin:3px;font-size:12px;cursor:pointer;color:var(--text);">
-      ✉ ${SITE_SHORT[s]||s} <span style="color:var(--text3);">(${kvps})</span> <strong style="color:#e67e22;">${arr.length}</strong>
+    // Répartition des rappels dans ce site (combien de 1er, 2e, 3e)
+    const paliers={};
+    arr.forEach(d=>{const n=(d._nbRelances||0);paliers[n]=(paliers[n]||0)+1;});
+    const detail=Object.entries(paliers).sort((a,b)=>a[0]-b[0]).map(([n,c])=>`${c}×${ordinal[n]||(parseInt(n)+1)+'e'}`).join(', ');
+    return `<button onclick="sendRelanceSite('${s}')" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid #e67e22;border-radius:8px;padding:8px 12px;margin:3px;font-size:12px;cursor:pointer;color:var(--text);" title="${detail} rappel">
+      ✉ ${SITE_SHORT[s]||s} <span style="color:var(--text3);">(${kvps})</span> <strong style="color:#e67e22;">${arr.length}</strong> <span style="color:var(--text3);font-size:10px;">${detail}</span>
     </button>`;
   }).join('');
   panel.innerHTML=`
     <div style="background:#2a1f0d;border:1px solid #e67e22;border-radius:10px;padding:14px;margin-bottom:14px;">
-      <div style="font-size:14px;font-weight:700;color:#e67e22;">⚠ ${aRelancer.length} dossier(s) en attente de retour (+${RELANCE_DELAI_JOURS} jours)</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px;margin-bottom:8px;">Retournés en concession, sans retour ni statut facturation. Cliquez sur un site pour envoyer son rappel :</div>
+      <div style="font-size:14px;font-weight:700;color:#e67e22;">⚠ ${aRelancer.length} dossier(s) en attente de retour</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;margin-bottom:8px;">Rappels progressifs : 1er à J+3, 2e à J+5, 3e à J+6 (depuis la date de contrôle). Après le 3e sans retour → clôturé "non revenu". Cliquez sur un site pour envoyer son rappel :</div>
       <div>${sitesHtml}</div>
     </div>`;
 }
@@ -2531,10 +2580,11 @@ window.sendRelanceSite=function(site){
   const a=document.createElement('a');a.href=mailtoUrl;a.style.display='none';
   document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500);
 
-  // Marquer ces dossiers comme relancés dans Firebase
+  // Marquer ces dossiers comme relancés : incrémenter le compteur de rappels
   const now=Date.now();
   const updates=aRelancer.map(d=>{
-    const obj={...d,_lastRelanceTs:now,_lastRelanceBy:_currentUser};
+    const nb=(d._nbRelances||0)+1;
+    const obj={...d,_lastRelanceTs:now,_lastRelanceBy:_currentUser,_nbRelances:nb};
     delete obj._id;
     return window._db?window._set(window._ref(window._db,'controle_garantie/'+d._id),obj):Promise.resolve();
   });
@@ -2639,6 +2689,7 @@ window.renderList=function(){
   buildAutocomplete();
   renderMyStats();
   renderWorkflowCounters();
+  cloturerDossiersNonRevenus();
   renderRelancePanel();
   updateConnDot();
 
@@ -2752,6 +2803,7 @@ window.showDetail=function(id){
     <button class="btn primary" onclick="editFromDetail('${id}')">✏ Modifier</button>
     <button class="btn" onclick="printPDFFromDetail('${id}')" style="background:#1a3a5a;color:#7ec8e3;border-color:#7ec8e340;">🖨 Imprimer</button>
     <button class="btn pdf" onclick="generatePDFFromDetail('${id}')">💾 PDF</button>
+    <button class="btn" onclick="sendMailFromDetail('${id}')" style="background:#2a1f0d;color:#e6a817;border-color:#e6a81740;">✉ Mail</button>
     <button class="btn" onclick="deleteDetail('${id}')" style="color:var(--danger);border-color:var(--danger)40;">Supprimer</button>
     <button class="btn" onclick="closeDetail()">Fermer</button>
   `;

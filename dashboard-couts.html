@@ -290,70 +290,16 @@ table.xl tbody tr.total td{font-weight:700;color:var(--ink);}
     </div>
   </div>
 
-  <!-- Graphiques section 1 -->
-  <div class="g21">
-    <div class="panel">
-      <div class="panel-head"><h3>CA facturé par site</h3></div>
-      <div class="panel-body"><canvas id="ch-ca-site"></canvas></div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><h3>Répartition par catégorie</h3></div>
-      <div class="panel-body"><canvas id="ch-categories"></canvas></div>
-    </div>
-  </div>
-
-  <!-- ════ 2. PAR MARQUE ════ -->
-  <div class="sec-title"><div class="num">2</div><h2>DG facturées par marque</h2></div>
-  <div class="g21">
-    <div class="panel">
-      <div class="tbl-wrap"><table class="xl" id="tbl-marque"><thead></thead><tbody></tbody></table></div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><h3>% CA par marque</h3></div>
-      <div class="panel-body"><canvas id="ch-marque"></canvas></div>
-    </div>
-  </div>
-
-  <!-- ════ 3. BUDGET CIG ════ -->
-  <div class="sec-title"><div class="num">3</div><h2>Budget CIG 70/30 restant <span style="font-size:12px;color:var(--ink3);font-weight:400;">(données fixes — à importer)</span></h2></div>
+  <!-- ════ 2. CESSION INTERNE ════ -->
+  <div class="sec-title"><div class="num">2</div><h2>Récap comptes de cession interne</h2></div>
   <div class="panel">
-    <div class="panel-body" id="budget-placeholder" style="text-align:center;color:var(--ink3);padding:30px;">
-      Le tableau budget s'affichera une fois le fichier de données budget fourni.
-    </div>
+    <div class="tbl-wrap"><table class="xl" id="tbl-cession"><thead></thead><tbody></tbody></table></div>
   </div>
 
-  <!-- ════ 4. CUMUL ANNUEL ════ -->
-  <div class="sec-title"><div class="num">4</div><h2>Cumul répartition des coûts <span id="t4-year" style="font-size:13px;color:var(--ink3);font-weight:400;"></span></h2></div>
+  <!-- ════ 3. EN-COURS ════ -->
+  <div class="sec-title"><div class="num">3</div><h2>Récap En-cours Garantie +60 jours</h2></div>
   <div class="panel">
-    <div class="tbl-wrap"><table class="xl" id="tbl-cumul"><thead></thead><tbody></tbody></table></div>
-  </div>
-  <div class="panel">
-    <div class="panel-head"><h3>Évolution mensuelle du CA facturé</h3></div>
-    <div class="panel-body"><canvas id="ch-mensuel" style="max-height:240px;"></canvas></div>
-  </div>
-
-  <!-- ════ 5. CESSION INTERNE ════ -->
-  <div class="sec-title"><div class="num">5</div><h2>Récap comptes de cession interne</h2></div>
-  <div class="g21">
-    <div class="panel">
-      <div class="tbl-wrap"><table class="xl" id="tbl-cession"><thead></thead><tbody></tbody></table></div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><h3>Cession par marque et par mois</h3></div>
-      <div class="panel-body"><canvas id="ch-cession"></canvas></div>
-    </div>
-  </div>
-
-  <!-- ════ 6. EN-COURS ════ -->
-  <div class="sec-title"><div class="num">6</div><h2>Récap En-cours Garantie +60 jours</h2></div>
-  <div class="g21">
-    <div class="panel">
-      <div class="tbl-wrap"><table class="xl" id="tbl-encours"><thead></thead><tbody></tbody></table></div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><h3>En-cours +60j à traiter</h3></div>
-      <div class="panel-body"><canvas id="ch-encours"></canvas></div>
-    </div>
+    <div class="tbl-wrap"><table class="xl" id="tbl-encours"><thead></thead><tbody></tbody></table></div>
   </div>
 
 </div>
@@ -706,16 +652,12 @@ window.refresh=function(){
   document.getElementById('exec-period').textContent=periodTxt;
   document.getElementById('exec-badge').textContent=periodTxt;
   document.getElementById('t1-period').textContent='— '+periodTxt;
-  document.getElementById('t4-year').textContent='— Année '+annee;
 
   renderExec(sagaMois,ctrl,periodTxt);
   renderKPIs(sagaMois,ctrl);
   renderTblCouts(sagaMois,ctrl,'tbl-couts');
-  renderTblCumul(sagaAll,ctrl,'tbl-cumul');
-  renderTblMarque(sagaMois);
   renderTblCession(cess,annee);
   renderTblEncours(ctrl);
-  renderCharts(sagaMois,sagaAll,ctrl,cess);
   renderDirection(garMois,gar,ctrl,cess,annee,mois);
   // Données pour l'analyse auto
   const periodeKey=(annee||'')+(mois?'_'+mois:'');
@@ -830,7 +772,8 @@ function buildCoutsTable(saga,ctrl,tblId,withActions){
     const caP=Math.max(0,caF-aCA); // DG payées = facturées - annulées déf.
     const rNb=ctrlNb(ctrl,s,'rattrapage'),rCA=ctrlStat(ctrl,s,'rattrapage');
     const iNb=ctrlNb(ctrl,s,'incomplet'),iCA=ctrlStat(ctrl,s,'incomplet');
-    const nNb=ctrlNb(ctrl,s,'retourconc'),nCA=ctrlStat(ctrl,s,'retourconc');
+    // Retour concession = retourconc + nonrevenu (dossiers clôturés non revenus)
+    const nNb=ctrlNb(ctrl,s,'retourconc')+ctrlNb(ctrl,s,'nonrevenu'),nCA=ctrlStat(ctrl,s,'retourconc')+ctrlStat(ctrl,s,'nonrevenu');
     const sNb=ctrlNb(ctrl,s,'sauvee'),sCA=ctrlStat(ctrl,s,'sauvee');
     const tNb=ctrlNb(ctrl,s,'temps');
     const audCA=ctrlStat(ctrl,s,'audit');
@@ -861,34 +804,10 @@ function buildCoutsTable(saga,ctrl,tblId,withActions){
     <td>${tot.tNb}</td><td>${pn(tot.tNb,tot.nb)}</td>
     <td>${tot.audCA>0?fmt(tot.audCA):'—'}</td>
   </tr>`;
-  tbl.querySelector('tbody').innerHTML=rows;
+  tbl.querySelector('tbody').innerHTML=rows||'<tr><td colspan="31" style="padding:30px;text-align:center;color:var(--ink3);">Aucune donnée garantie pour cette période.<br>Vérifiez que vous avez importé le fichier Excel et sélectionné la bonne année/mois.</td></tr>';
   return tot;
 }
 function renderTblCouts(saga,ctrl,id){buildCoutsTable(saga,ctrl,id,true);}
-function renderTblCumul(saga,ctrl,id){buildCoutsTable(saga,ctrl,id,true);}
-
-// ── TABLEAU MARQUE ──
-function renderTblMarque(saga){
-  const tbl=document.getElementById('tbl-marque');
-  tbl.querySelector('thead').innerHTML=`<tr>
-    <th class="grp-site">Site / Marque</th><th class="grp-incomplet">Total DG</th><th class="grp-incomplet">% DG</th><th class="grp-fact">CA facturé</th><th class="grp-fact">% CA</th>
-  </tr>`;
-  const totF=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
-  const totN=saga.reduce((t,d)=>t+(d.nb_dossiers||0),0);
-  let rows='';
-  SITES.forEach(s=>{
-    const ss=saga.filter(d=>d._site===s);
-    if(!ss.length)return;
-    const caF=ss.reduce((t,d)=>t+mon(d.valeur_demande),0);
-    const nb=ss.reduce((t,d)=>t+(d.nb_dossiers||0),0);
-    rows+=`<tr>
-      <td class="site" style="border-left:4px solid ${SITE_COLOR[s]};">${SITE_SHORT[s]}</td>
-      <td>${nb}</td><td>${pct(nb,totN)}</td><td>${fmt(caF)}</td><td>${pct(caF,totF)}</td>
-    </tr>`;
-  });
-  rows+=`<tr class="total"><td class="site">TOTAL</td><td>${totN}</td><td>100%</td><td>${fmt(totF)}</td><td>100%</td></tr>`;
-  tbl.querySelector('tbody').innerHTML=rows||'<tr><td colspan="5" style="padding:20px;color:var(--ink3);">Aucune donnée — importez un fichier Excel</td></tr>';
-}
 
 // ── TABLEAU CESSION (par site × compte) ──
 function renderTblCession(cess,annee){
@@ -1110,57 +1029,6 @@ function renderDirection(garMois,garAll,ctrl,cess,annee,mois){
   dc('dc-taux-site');
   const tauxData=sActifs.map(s=>{const f=sumBy(garMois,s,'ca_facture');const a=ctrlStat(ctrl,s,'annul');return{site:s,taux:f>0?((f-a)/f*100):100};}).sort((a,b)=>b.taux-a.taux);
   _ch['dc-taux-site']=new Chart(document.getElementById('dc-taux-site'),{type:'bar',data:{labels:tauxData.map(d=>SITE_SHORT[d.site]),datasets:[{data:tauxData.map(d=>Math.round(d.taux*10)/10),backgroundColor:tauxData.map(d=>d.taux>=95?'#4caf7d':d.taux>=85?'#e6a817':'#d9455f'),borderRadius:5}]},options:{...BASE,indexAxis:'y',plugins:{...BASE.plugins,tooltip:{...tooltip,callbacks:{label:(c)=>'Taux : '+c.parsed.x+' %'}}},scales:{x:{...BASE.scales.x,max:100,ticks:{...BASE.scales.x.ticks,callback:v=>v+'%'}},y:BASE.scales.y}}});
-}
-
-// ── CHARTS ──
-function renderCharts(sagaMois,sagaAll,ctrl,cess){
-  const dc=id=>{if(_ch[id]){_ch[id].destroy();delete _ch[id];}};
-  const FONT={family:'IBM Plex Sans',size:10};
-  const BASE={responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fffdf8',titleColor:'#3d3526',bodyColor:'#6b5f48',borderColor:'#e0d5bf',borderWidth:1,titleFont:FONT,bodyFont:{family:'IBM Plex Mono',size:11}}},scales:{x:{ticks:{color:'#9a8c6f',font:FONT},grid:{color:'#e0d5bf40'},border:{display:false}},y:{ticks:{color:'#9a8c6f',font:FONT},grid:{color:'#e0d5bf60'},border:{display:false}}}};
-
-  // CA par site
-  dc('ch-ca-site');
-  const sActifs=SITES.filter(s=>sagaMois.some(d=>d._site===s));
-  _ch['ch-ca-site']=new Chart(document.getElementById('ch-ca-site'),{type:'bar',data:{labels:sActifs.map(s=>SITE_SHORT[s]),datasets:[{data:sActifs.map(s=>Math.round(sagaMois.filter(d=>d._site===s).reduce((t,d)=>t+mon(d.valeur_demande),0))),backgroundColor:sActifs.map(s=>SITE_COLOR[s]),borderColor:sActifs.map(s=>SITE_COLOR[s]),borderWidth:1,borderRadius:5}]},options:BASE});
-
-  // Catégories donut
-  dc('ch-categories');
-  const cats=[
-    {l:'Payées',v:ctrl.filter(c=>!c.annul&&!c.nonfact).length,c:'#4caf7d'},
-    {l:'Rattrapées',v:ctrl.filter(c=>c.rattrapage).length,c:'#e6a817'},
-    {l:'Incomplets',v:ctrl.filter(c=>c.incomplet).length,c:'#e8c33c'},
-    {l:'Non fact.',v:ctrl.filter(c=>c.nonfact).length,c:'#e8533c'},
-    {l:'Annulées',v:ctrl.filter(c=>c.annul).length,c:'#d9455f'},
-    {l:'Sauvées',v:ctrl.filter(c=>c.sauvee).length,c:'#6fbf73'},
-  ].filter(x=>x.v>0);
-  _ch['ch-categories']=new Chart(document.getElementById('ch-categories'),{type:'doughnut',data:{labels:cats.map(c=>c.l),datasets:[{data:cats.map(c=>c.v),backgroundColor:cats.map(c=>c.c),borderColor:'#fffdf8',borderWidth:2}]},options:{...BASE,scales:{},plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,padding:8,boxWidth:10}}}}});
-
-  // Marque
-  dc('ch-marque');
-  const marques=['AUDI','SKODA','VW','SEAT'];
-  const mColors={AUDI:'#a89878',SKODA:'#6fbf73',VW:'#7ec8e3',SEAT:'#b8a9d0'};
-  const mData=marques.map(m=>Math.round(sagaMois.filter(d=>MARQUE_OF[d._site]===m).reduce((t,d)=>t+mon(d.valeur_demande),0)));
-  _ch['ch-marque']=new Chart(document.getElementById('ch-marque'),{type:'doughnut',data:{labels:marques,datasets:[{data:mData,backgroundColor:marques.map(m=>mColors[m]),borderColor:'#fffdf8',borderWidth:2}]},options:{...BASE,scales:{},plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,padding:8,boxWidth:10}}}}});
-
-  // Mensuel (CA facturé par mois depuis toutes les périodes importées)
-  dc('ch-mensuel');
-  const mensuel=MOIS.map(mo=>Math.round(sagaAll.filter(d=>d._mois===mo).reduce((t,d)=>t+mon(d.valeur_demande),0)));
-  _ch['ch-mensuel']=new Chart(document.getElementById('ch-mensuel'),{type:'bar',data:{labels:MOIS_N,datasets:[{data:mensuel,backgroundColor:'#5b9bd540',borderColor:'#5b9bd5',borderWidth:1.5,borderRadius:4}]},options:BASE});
-
-  // Cession par site (barres)
-  dc('ch-cession');
-  const cessParSite=SITES.map(s=>{
-    const sc=cess.filter(c=>c.site===s);
-    return Math.round(sc.reduce((t,c)=>t+(c.total||0),0));
-  });
-  const cessActifs=SITES.map((s,i)=>({s,v:cessParSite[i]})).filter(x=>x.v>0);
-  _ch['ch-cession']=new Chart(document.getElementById('ch-cession'),{type:'bar',data:{labels:cessActifs.map(x=>SITE_SHORT[x.s]),datasets:[{data:cessActifs.map(x=>x.v),backgroundColor:cessActifs.map(x=>SITE_COLOR[x.s]),borderColor:cessActifs.map(x=>SITE_COLOR[x.s]),borderWidth:1,borderRadius:4}]},options:BASE});
-
-  // En-cours camembert
-  dc('ch-encours');
-  const encData=SITES.map(s=>ctrl.filter(c=>c.site===s&&(c.incomplet||c.nonfact)).reduce((t,c)=>t+mon(c.montant),0));
-  const encActifs=SITES.map((s,i)=>({s,v:encData[i]})).filter(x=>x.v>0);
-  _ch['ch-encours']=new Chart(document.getElementById('ch-encours'),{type:'doughnut',data:{labels:encActifs.map(x=>SITE_SHORT[x.s]),datasets:[{data:encActifs.map(x=>Math.round(x.v)),backgroundColor:encActifs.map(x=>SITE_COLOR[x.s]),borderColor:'#fffdf8',borderWidth:2}]},options:{...BASE,scales:{},plugins:{...BASE.plugins,legend:{display:true,position:'bottom',labels:{color:'#6b5f48',font:FONT,padding:6,boxWidth:10}}}}});
 }
 
 // ── EXPORT EXCEL ──
