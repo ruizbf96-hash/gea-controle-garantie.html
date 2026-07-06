@@ -673,8 +673,11 @@ function renderExec(saga,ctrl,period){
   const caPaye=Math.max(0,caFact-caAnnul);
   const tauxP=pctN(caPaye,caFact);
   const caRisque=ctrl.filter(c=>c.risque).reduce((t,c)=>t+mon(c.montant),0);
-  const caEncours=ctrl.filter(c=>c.incomplet||c.nonfact).reduce((t,c)=>t+mon(c.montant),0);
-  const nbIncomplet=ctrl.filter(c=>c.incomplet).length;
+  // En-cours = incomplet/nonfact SANS statut facturation (dossiers pas encore traités)
+  const GRP_FACTU=['rattrapage','risque','sauvee','annul','facturegar','fcession','temps'];
+  const aUnStatutFactu=c=>GRP_FACTU.some(k=>c[k]);
+  const caEncours=ctrl.filter(c=>(c.incomplet||c.nonfact)&&!aUnStatutFactu(c)).reduce((t,c)=>t+mon(c.montant),0);
+  const nbIncomplet=ctrl.filter(c=>c.incomplet&&!aUnStatutFactu(c)).length;
   const caSauv=ctrl.filter(c=>c.sauvee).reduce((t,c)=>t+mon(c.montant),0)+ctrl.filter(c=>c.rattrapage).reduce((t,c)=>t+mon(c.montant),0);
 
   document.getElementById('ex-ca').textContent=fmt(caFact);
@@ -1041,7 +1044,18 @@ window.exportExcel=function(){
   const garMois=mois?gar.filter(g=>g.mois===mois):gar;
   let cess=Object.values(window._vgfCess);
   if(annee)cess=cess.filter(c=>c.annee===annee);
-  const ctrl=Object.values(window._ctrl);
+  // Filtrer les dossiers de contrôle par mois/année (comme le tableau à l'écran)
+  let ctrl=Object.values(window._ctrl);
+  ctrl=ctrl.filter(c=>{
+    const ts=c.dateControle||c._ts;
+    if(!ts)return true;
+    const d=new Date(ts);
+    const cAnnee=String(d.getFullYear());
+    const cMois=String(d.getMonth()+1).padStart(2,'0');
+    if(annee&&cAnnee!==annee)return false;
+    if(mois&&cMois!==mois)return false;
+    return true;
+  });
 
   const toSaga=arr=>arr.map(g=>({_site:g.site,valeur_demande:g.ca_facture,valeur_payee:g.ca_facture,nb_dossiers:g.nb_dossiers}));
   const sagaMois=toSaga(garMois);

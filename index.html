@@ -507,11 +507,22 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
     </div>
 
     <div class="panel">
-      <div class="panel-head"><h2>Dossiers de contrôle</h2><span id="list-count" style="font-size:11px;color:var(--text3);"></span></div>
+      <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;"><h2>Dossiers de contrôle</h2><span id="list-count" style="font-size:11px;color:var(--text3);"></span></div>
+        <div id="total-controle" style="background:#1a3a2a;border:1px solid #5ee8b040;border-radius:8px;padding:6px 14px;font-size:13px;color:#5ee8b0;font-weight:600;">Total contrôlé : <span id="total-controle-val">0 €</span></div>
+      </div>
       <div id="workflow-counters" style="display:flex;gap:10px;flex-wrap:wrap;padding:0 0 12px;"></div>
       <div id="relance-panel" style="display:none;"></div>
       <div class="panel-body">
         <!-- Stats personnelles -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;">Mes statistiques</span>
+          <select id="kpi-periode" onchange="renderMyStats()" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;">
+            <option value="week">Cette semaine (7j)</option>
+            <option value="month">Ce mois (30j)</option>
+            <option value="all">Total</option>
+          </select>
+        </div>
         <div id="my-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;"></div>
         <div class="toolbar">
           <select id="lf-site" onchange="renderList()">
@@ -548,6 +559,9 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <option value="week">7 derniers jours</option>
             <option value="month">30 derniers jours</option>
           </select>
+          <select id="lf-mois" onchange="renderList()" title="Mois précis (par date de contrôle)">
+            <option value="">Tous les mois</option>
+          </select>
           <select id="lf-author" onchange="renderList()">
             <option value="">Tous les contrôleurs</option>
             <option value="__me__">Mes dossiers</option>
@@ -560,7 +574,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <input type="text" id="lf-search" placeholder="N°OR, châssis, CCS, modèle, date, conseiller..." oninput="renderList()" style="min-width:200px;">
           <button class="btn" onclick="document.getElementById('import-suivi-file').click()" style="margin-left:auto;background:#1a3a5c;color:#7ec8e3;border-color:#7ec8e340;" title="Importer le tableau Suivi Annulation-Rattrapage">⬆ Importer Excel</button>
           <input type="file" id="import-suivi-file" accept=".xlsx,.xls" style="display:none" onchange="importSuiviRattrapage(this.files[0])">
-          <button class="btn" onclick="exportCSV()">↓ CSV</button>
+          <button class="btn" onclick="exportExcel()" style="background:#1a3a2a;color:#5ee8b0;border-color:#5ee8b040;">↓ Excel</button>
         </div>
         <div>
         <table style="width:100%;table-layout:auto;font-size:11px;">
@@ -2471,13 +2485,21 @@ function renderMyStats(){
   const box=document.getElementById('my-stats');
   if(!box||!_currentUser)return;
   const all=Object.values(window._dossiers||{});
-  const weekAgo=Date.now()-7*864e5;
-  const mine=all.filter(d=>d._createdBy===_currentUser&&(d._ts||0)>=weekAgo);
-  const mineMontant=mine.reduce((s,d)=>s+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
+  // Période choisie via le filtre KPI (kpi-periode), défaut : semaine
+  const per=document.getElementById('kpi-periode')?.value||'week';
+  const refDate=d=>d.dateControle||d._ts||0;
+  const now=Date.now();
+  let seuil=0,libPer='';
+  if(per==='week'){seuil=now-7*864e5;libPer='7j';}
+  else if(per==='month'){seuil=now-30*864e5;libPer='30j';}
+  else if(per==='all'){seuil=0;libPer='total';}
+  const mine=all.filter(d=>d._createdBy===_currentUser&&refDate(d)>=seuil);
+  const sumM=arr=>arr.reduce((s,d)=>s+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
+  const mineMontant=sumM(mine);
   const incomplets=mine.filter(d=>d.incomplet).length;
   const nonfact=mine.filter(d=>d.nonfact).length;
   const rattrap=mine.filter(d=>d.rattrapage);
-  const rattrapMontant=rattrap.reduce((s,d)=>s+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
+  const rattrapMontant=sumM(rattrap);
 
   const card=(label,val,color)=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;border-left:3px solid ${color};">
     <div style="font-size:20px;font-weight:700;color:${color};">${val}</div>
@@ -2485,10 +2507,10 @@ function renderMyStats(){
   </div>`;
 
   box.innerHTML=
-    card('Mes contrôles (7j)',mine.length,'#5b9bd5')+
+    card('Mes contrôles ('+libPer+')',mine.length,'#5b9bd5')+
     card('Montant contrôlé',Math.round(mineMontant).toLocaleString('fr-FR')+' €','#00c896')+
     card('Rattrapés',rattrap.length+' · '+Math.round(rattrapMontant).toLocaleString('fr-FR')+'€','#f5c842')+
-    card('Incomplets',incomplets,'#ffe066')+
+    card('Non conformes',incomplets,'#ffe066')+
     card('Non facturables',nonfact,'#ff4d6a');
 }
 
@@ -2657,28 +2679,41 @@ window.quickFilterWorkflow=function(label){
   if(map[label]){statutSel.value=map[label];renderList();}
 };
 
-window.renderList=function(){
+// Retourne les dossiers filtrés selon les filtres actifs (réutilisé par la liste ET l'export)
+window.getFilteredDossiers=function(){
   const fSite=document.getElementById('lf-site')?.value||'';
   const fStat=document.getElementById('lf-statut')?.value||'';
   const fSearch=(document.getElementById('lf-search')?.value||'').toLowerCase();
   const fPeriode=document.getElementById('lf-periode')?.value||'';
   const fAuthor=document.getElementById('lf-author')?.value||'';
+  const fMois=document.getElementById('lf-mois')?.value||''; // format 'AAAA-MM'
 
   let data=Object.values(window._dossiers);
   if(fSite) data=data.filter(d=>d.site===fSite);
   if(fStat) data=data.filter(d=>d[fStat]);
-  // Filtre période
+  // Filtre mois précis (par date de contrôle)
+  if(fMois){
+    data=data.filter(d=>{
+      const ts=d.dateControle||d._ts;
+      if(!ts)return false;
+      const dt=new Date(ts);
+      const key=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+      return key===fMois;
+    });
+  }
+  // Filtre période — basé sur la date de contrôle
   if(fPeriode){
     const now=Date.now();
-    const ranges={today:864e5,week:7*864e5,month:30*864e5};
+    const refDate=d=>d.dateControle||d._ts||0;
     if(fPeriode==='today'){
       const t=new Date();t.setHours(0,0,0,0);
-      data=data.filter(d=>(d._ts||0)>=t.getTime());
-    } else {
-      data=data.filter(d=>(d._ts||0)>=now-ranges[fPeriode]);
+      data=data.filter(d=>refDate(d)>=t.getTime());
+    } else if(fPeriode==='week'){
+      data=data.filter(d=>refDate(d)>=now-7*864e5);
+    } else if(fPeriode==='month'){
+      data=data.filter(d=>refDate(d)>=now-30*864e5);
     }
   }
-  // Filtre auteur
   if(fAuthor){
     const author=fAuthor==='__me__'?_currentUser:fAuthor;
     data=data.filter(d=>d._createdBy===author);
@@ -2692,6 +2727,30 @@ window.renderList=function(){
     (d.date||'').toLowerCase().includes(fSearch)||
     (d._createdBy||'').toLowerCase().includes(fSearch)||
     (d.defaut1||'').toLowerCase().includes(fSearch));
+  return data;
+};
+
+// Peupler le sélecteur de mois avec les mois présents dans les données
+function buildMoisFilter(){
+  const sel=document.getElementById('lf-mois');
+  if(!sel)return;
+  const current=sel.value;
+  const mois=new Set();
+  Object.values(window._dossiers||{}).forEach(d=>{
+    const ts=d.dateControle||d._ts;
+    if(ts){const dt=new Date(ts);mois.add(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'));}
+  });
+  const MOIS_FR=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const sorted=[...mois].sort().reverse();
+  sel.innerHTML='<option value="">Tous les mois</option>'+sorted.map(m=>{
+    const [a,mo]=m.split('-');
+    return `<option value="${m}">${MOIS_FR[parseInt(mo)-1]} ${a}</option>`;
+  }).join('');
+  if(current&&sorted.includes(current))sel.value=current;
+}
+
+window.renderList=function(){
+  let data=getFilteredDossiers();
   // Tri configurable
   data=data.sort((a,b)=>{
     let va=a[_sortBy],vb=b[_sortBy];
@@ -2710,6 +2769,11 @@ window.renderList=function(){
   document.getElementById('kl-sauv').textContent=data.filter(d=>d.sauvee).length;
   document.getElementById('kl-rattrap').textContent=data.filter(d=>d.rattrapage).length;
   document.getElementById('list-count').textContent=data.length+' dossiers';
+  buildMoisFilter();
+  // Caisse de total contrôle : somme des montants (chaque dossier une fois)
+  const totalCtrl=data.reduce((t,d)=>t+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
+  const tcv=document.getElementById('total-controle-val');
+  if(tcv)tcv.textContent=Math.round(totalCtrl).toLocaleString('fr-FR')+' €';
   updateDailyCount();
   buildAutocomplete();
   renderMyStats();
@@ -2920,16 +2984,66 @@ window.generatePDFFromDetail=async function(id){
 };
 
 // ── EXPORT CSV ──
-window.exportCSV=function(){
-  const data=Object.values(window._dossiers);
-  const cols=['site','nor','vin','modele','ccs','montant','date','rattrapage','risque','malgre','annul','sauvee','incomplet','nonfact','temps','defaut1','defaut2','correspondant','_createdBy'];
-  const heads=['SITE','N°OR','VIN','MODELE','CCS','MONTANT','DATE','RATTRAPAGE','RISQUE','MALGRE','ANNUL','SAUVEE','INCOMPLET','NONFACT','TEMPS','DEFAUT1','DEFAUT2','CORRESPONDANT','CREE_PAR'];
-  const rows=[heads,...data.map(d=>cols.map(c=>d[c]??''))];
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
-  a.download='controle-garantie-'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click();
+window.exportExcel=function(){
+  if(typeof XLSX==='undefined'){toast('Librairie Excel non chargée, rechargez la page','error');return;}
+  // Exporter les dossiers actuellement filtrés (mêmes filtres que la liste)
+  const data=getFilteredDossiers();
+  if(!data.length){toast('Aucun dossier à exporter','info');return;}
+
+  // En-têtes dans l'ordre demandé
+  const heads=['Site / KVPS','N°OR','Statut DG','Type de garantie','Service concerné','Intervention réalisée','Montant',
+    'Rattrapage','Risque annul.','DG sauvée','Annulation déf.','Facturé garantie','Facturé cession','Temps supp.',
+    'Nb relances','Date contrôle','Correspondant','Défaut 1','Défaut 2','Raison temps supp.'];
+
+  // Statut DG (groupe dossier) sous forme lisible
+  const labelDossier=d=>{
+    const l=[];
+    if(d.incomplet)l.push('Dossier non conforme');
+    if(d.nonfact)l.push('Non facturable');
+    if(d.retourconc)l.push('Retour concession');
+    if(d.agarantie)l.push('À la garantie');
+    if(d.fcession_issue)l.push('Facturé cession');
+    if(d.nonrevenu)l.push('Dossier non revenu');
+    return l.join(' + ');
+  };
+  // Intervention réalisée (concaténation des plaintes/pièces)
+  const interv=d=>{
+    if(Array.isArray(d.interventions))return d.interventions.map(i=>[i.plainte,i.piece].filter(Boolean).join(' — ')).join(' | ');
+    return d.intervention||'';
+  };
+  const xMark=v=>v?'X':'';
+
+  const rows=data.map(d=>[
+    (SITE_SHORT[d.site]||d.site||'')+(SITE_KVPS[d.site]?' ('+SITE_KVPS[d.site]+')':''),
+    d.nor||'',
+    labelDossier(d),
+    d.typegar||'',
+    d.service||'',
+    interv(d),
+    d.montant||'',
+    xMark(d.rattrapage),xMark(d.risque),xMark(d.sauvee),xMark(d.annul),xMark(d.facturegar),xMark(d.fcession),xMark(d.temps),
+    d.relances||'0',
+    d.dateControle?new Date(d.dateControle).toLocaleDateString('fr-FR'):(d._ts?new Date(d._ts).toLocaleDateString('fr-FR'):''),
+    d.correspondant||'',
+    d.defaut1||'',
+    d.defaut2||'',
+    d.raison_temps||''
+  ]);
+
+  // Ligne de total (montant)
+  const totalMontant=data.reduce((t,d)=>t+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
+  const totalRow=['TOTAL','','','','','',totalMontant.toFixed(2),'','','','','','','','','','','','',''];
+
+  const ws=XLSX.utils.aoa_to_sheet([heads,...rows,totalRow]);
+  // Largeurs de colonnes
+  ws['!cols']=[{wch:20},{wch:12},{wch:22},{wch:16},{wch:16},{wch:30},{wch:12},{wch:11},{wch:11},{wch:11},{wch:12},{wch:13},{wch:13},{wch:11},{wch:10},{wch:13},{wch:14},{wch:22},{wch:22},{wch:25}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Contrôle Garantie');
+  // Nom du fichier : inclure le mois si un mois précis est filtré
+  const fMois=document.getElementById('lf-mois')?.value||'';
+  const suffixe=fMois?fMois:new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,'controle-garantie-'+suffixe+'.xlsx');
+  toast(`${data.length} dossier(s) exporté(s) en Excel`,'success');
 };
 
 // ── IMPORT EXCEL "Suivi Annulation-Rattrapage" ──
