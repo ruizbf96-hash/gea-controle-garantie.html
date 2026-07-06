@@ -645,6 +645,16 @@ let _detailId=null;
 const USERS={'Omar':'1472','Nico':'3682','Tahir':'3694','Marion':'4715','Céline':'5826'};
 const SITE_SHORT={'VW_Illkirch':'VW Illkirch','VW_Bischheim':'VW Bischheim','Audi_Hoenheim':'Audi Hoenheim','Seat_Hoenheim':'SEAT Hoenheim','Skoda_Hoenheim':'Skoda Hoenheim','Audi_Obernai':'Audi Obernai','VW_Obernai':'VW Obernai'};
 const SITE_KVPS={'VW_Illkirch':'02153','VW_Bischheim':'02154','Audi_Hoenheim':'02155','Seat_Hoenheim':'63930','Skoda_Hoenheim':'02376','Audi_Obernai':'02486','VW_Obernai':'02485'};
+// Responsable(s) de chaque site (destinataire des relances). teamgarantie est toujours en CC.
+const SITE_RESPONSABLE={
+  'Audi_Hoenheim':'vimele.paquirissamy@geauto.fr;olivier.laas@geauto.fr',
+  'Seat_Hoenheim':'pierre.mahler@geauto.fr',
+  'Skoda_Hoenheim':'pierre.mahler@geauto.fr',
+  'VW_Bischheim':'alexandre.bahloul@geauto.fr',
+  'VW_Illkirch':'alexis.metzger@geauto.fr',
+  'VW_Obernai':'eric.goerger@geauto.fr',
+  'Audi_Obernai':'florent.batt@geauto.fr'
+};
 // Format date JJ/MM/AAAA (depuis AAAA-MM-JJ ou autre)
 function dateFR(s){if(!s||s==='—')return s||'—';const m=s.toString().match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:s;}
 const SITE_MAP={
@@ -2581,8 +2591,9 @@ window.sendRelanceSite=function(site){
     return `  • N°OR ${d.nor||'—'} · VIN ${d.vin||'—'} · ${d.ccs||'—'} · en attente depuis ${jours} j${dejaRelance}`;
   }).join('\n');
   const corps=`Bonjour,\n\nLes dossiers suivants ont été retournés en concession (${siteName} - KVPS ${kvps}) et sont toujours en attente de retour :\n\n──────────────────────────────\n${lignes}\n──────────────────────────────\n\nMerci de nous retourner ces dossiers complétés dans les meilleurs délais.\n\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
-  // teamgarantie en destinataire principal (plus fiable que cc sur mailto)
-  const mailtoUrl=`mailto:${encodeURIComponent('teamgarantie@geauto.fr')}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+  // Destinataire = responsable du site ; teamgarantie en copie (CC)
+  const dest=SITE_RESPONSABLE[site]||'teamgarantie@geauto.fr';
+  const mailtoUrl=`mailto:${encodeURIComponent(dest).replace(/%3B/g,';')}?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
   const a=document.createElement('a');a.href=mailtoUrl;a.style.display='none';
   document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500);
 
