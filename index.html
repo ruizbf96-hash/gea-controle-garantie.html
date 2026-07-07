@@ -545,11 +545,10 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
               <option value="agarantie">À la garantie</option>
             </optgroup>
             <optgroup label="Statut facturation">
-              <option value="rattrapage">Rattrapage</option>
+              <option value="rattrapage">Rattrapage (facturé garantie)</option>
               <option value="risque">Risque annulation</option>
               <option value="sauvee">DG sauvée</option>
               <option value="annul">Annulation définitive</option>
-              <option value="facturegar">Facturé garantie</option>
               <option value="fcession">Facturé cession</option>
               <option value="temps">Temps supp.</option>
             </optgroup>
@@ -628,7 +627,12 @@ window._db=db; window._ref=ref; window._push=push; window._set=set; window._remo
 onValue(ref(db,'controle_garantie'), snap => {
   window._dossiers={};
   const v=snap.val();
-  if(v) Object.entries(v).forEach(([k,d])=>{window._dossiers[k]={_id:k,...d};});
+  if(v) Object.entries(v).forEach(([k,d])=>{
+    const dossier={_id:k,...d};
+    // Fusion : facturegar (statut dossier) = rattrapage
+    if(dossier.facturegar){dossier.rattrapage=true;delete dossier.facturegar;}
+    window._dossiers[k]=dossier;
+  });
   setTimeout(()=>{
     if(typeof window.renderList==='function') window.renderList();
   },50);
@@ -677,11 +681,11 @@ const SITE_MAP={
   'GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai',
   'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim'
 };
-const STATUT_LABELS={incomplet:'Dossier non conforme',nonfact:'Non facturable',retourconc:'Retour concession',agarantie:'À la garantie',fcession_issue:'Facturé cession',rattrapage:'Rattrapage',risque:'Risque annul.',malgre:'DG passée malgré risque',sauvee:'DG sauvée',annul:'Annulation déf.',facturegar:'Facturé garantie',fcession:'Facturé cession',temps:'Temps supp.',nonrevenu:'Dossier non revenu'};
+const STATUT_LABELS={incomplet:'Dossier non conforme',nonfact:'Non facturable',retourconc:'Retour concession',agarantie:'À la garantie',fcession_issue:'Facturé cession',rattrapage:'Rattrapage (facturé garantie)',risque:'Risque annul.',malgre:'DG passée malgré risque',sauvee:'DG sauvée',annul:'Annulation déf.',facturegar:'Rattrapage (facturé garantie)',fcession:'Facturé cession',temps:'Temps supp.',nonrevenu:'Dossier non revenu'};
 const STATUT_COLORS={incomplet:'#ffe066',nonfact:'#ff4d6a',retourconc:'#e67e22',agarantie:'#3498db',fcession_issue:'#f5a623',rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',sauvee:'#00c896',annul:'#ff4d6a',facturegar:'#2ecc71',fcession:'#f5a623',temps:'#2ecc71',nonrevenu:'#ff7a8a'};
 // Groupes pour l'affichage séparé
 const GROUPE_DOSSIER=['incomplet','nonfact','retourconc','agarantie','fcession_issue'];
-const GROUPE_FACTURATION=['rattrapage','risque','sauvee','annul','facturegar','fcession','temps'];
+const GROUPE_FACTURATION=['rattrapage','risque','sauvee','annul','fcession','temps'];
 const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet ou illisible','Directive action non respecté','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non exécutée','Garantie échue','Immat sur vidéo','IQ clôturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non clôturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur or manuscrit pas de contre signature client','Liste PPSO non utilisé','Manque dernier entretien participation AUDI','Manque devis','Manque facture 1er remplacement','Manque formulaire de refus',"Manque historique d'entretien",'Manque Kulanz','Manque rétro-documentation','Manuel de réparation non respecté','Mauvaise réf sur lOR','Mise hors tension manquante','MO en trop','Ne relève pas de la garantie','OR clôturé garantie clôturé',"OR non conforme selon règle d'audit",'OR non conforme pour le retour atelier','OR supprimé',"Pas de lignes ouvertes pour l'action",'Photo ou vidéo manquante ou non conforme','Pièce non rendue au magasin','Pièce remplacée non imputable en garantie','Pièce remplacée sans défaut','Pièce renvoyée hors délai','Pièces en trop sur OR','Pièces manquantes sur OR','Pièces non renvoyer','Plainte client sur OR manquante ou non conforme','Plan de contrôle non conforme,manquant ou non abouti','Plusieurs protocoles différence excessive de kilométrage','Plusieurs protocoles sans MAJ ODIS','Pointage manquant,incomplet,erroné','Protocole non conforme,manquant ou non abouti','Purge manquante ou non aboutie','Réglage / calibrage manquant','Remplacement pièce non justifiée','Retard service garantie','Scan airbag non effectué','Signature sur OR manquante','TD1','Ticket batterie non conforme','Ticket clim absent ou non conforme','TPI ne correspond pas','TPI non applicable','TPI non appliquée','TPI non insérer dans lIQ avant MAJ','TPI non jointe à lOR','TPI pas respectée','Véhicule hors garantie'];
 
 // Init défauts — remplir la datalist (choix + saisie manuelle possible)
@@ -2651,8 +2655,8 @@ function renderWorkflowCounters(){
   const attenteGar=all.filter(d=>d.agarantie&&!facturationDone(d)).length;
   // Retournés en concession (issue retour concession)
   const retournes=all.filter(d=>d.retourconc).length;
-  // Facturés (depuis statut facturation)
-  const facturesGar=all.filter(d=>d.facturegar).length;
+  // Rattrapage (= facturé garantie, fusionnés)
+  const facturesGar=all.filter(d=>d.rattrapage).length;
   const facturesCess=all.filter(d=>d.fcession||d.fcession_issue).length;
 
   const card=(label,val,color)=>`<div onclick="quickFilterWorkflow('${label}')" style="cursor:pointer;background:${color}15;border:1px solid ${color}40;border-left:3px solid ${color};border-radius:8px;padding:8px 14px;">
@@ -2663,7 +2667,7 @@ function renderWorkflowCounters(){
   box.innerHTML=
     card('En attente à la garantie',attenteGar,'#3498db')+
     card('Retournés en concession',retournes,'#e67e22')+
-    card('Facturés garantie',facturesGar,'#2ecc71')+
+    card('Rattrapage (facturé garantie)',facturesGar,'#f5c842')+
     card('Facturés cession',facturesCess,'#f5a623');
 }
 
@@ -2674,7 +2678,7 @@ window.quickFilterWorkflow=function(label){
   const map={
     'En attente à la garantie':'agarantie',
     'Retournés en concession':'retourconc',
-    'Facturés garantie':'facturegar',
+    'Rattrapage (facturé garantie)':'rattrapage',
     'Facturés cession':'fcession'
   };
   if(map[label]){statutSel.value=map[label];renderList();}
@@ -2778,13 +2782,13 @@ window.renderList=function(){
   if(tcv)tcv.textContent=Math.round(totalCtrl).toLocaleString('fr-FR')+' €';
   // Cases KPI de montants par statut (suivent les filtres)
   const sumIf=fn=>data.filter(fn).reduce((t,d)=>t+M(d),0);
-  const factuDone=d=>['rattrapage','risque','sauvee','annul','facturegar','fcession','temps'].some(k=>d[k]);
+  const factuDone=d=>['rattrapage','risque','sauvee','annul','fcession','temps'].some(k=>d[k]);
   const kpis=[
-    {l:'Rattrapage',v:sumIf(d=>d.rattrapage),c:'#f5c842'},
+    {l:'Rattrapage (facturé garantie)',v:sumIf(d=>d.rattrapage),c:'#f5c842'},
     {l:'Facturé cession',v:sumIf(d=>d.fcession||d.fcession_issue),c:'#f5a623'},
-    {l:'Facturé garantie',v:sumIf(d=>d.facturegar),c:'#2ecc71'},
     {l:'Retour concession',v:sumIf(d=>d.retourconc),c:'#e67e22'},
     {l:'En attente',v:sumIf(d=>d.retourconc&&!factuDone(d)),c:'#ff7a8a'},
+    {l:'Annulation déf.',v:sumIf(d=>d.annul),c:'#ff4d6a'},
   ];
   const kbox=document.getElementById('montants-kpi');
   if(kbox)kbox.innerHTML=kpis.map(k=>`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${k.c};border-radius:8px;padding:8px 12px;">
@@ -3009,7 +3013,7 @@ window.exportExcel=function(){
 
   // En-têtes dans l'ordre demandé
   const heads=['Site / KVPS','N°OR','Statut DG','Type de garantie','Service concerné','Intervention réalisée','Montant',
-    'Rattrapage','Risque annul.','DG sauvée','Annulation déf.','Facturé garantie','Facturé cession','Temps supp.',
+    'Rattrapage (facturé garantie)','Risque annul.','DG sauvée','Annulation déf.','Facturé cession','Temps supp.',
     'Nb relances','Date contrôle','Correspondant','Défaut 1','Défaut 2','Raison temps supp.'];
 
   // Statut DG (groupe dossier) sous forme lisible
@@ -3046,7 +3050,7 @@ window.exportExcel=function(){
     d.service||'',
     interv(d),
     parseMontant(d.montant),
-    xMark(d.rattrapage),xMark(d.risque),xMark(d.sauvee),xMark(d.annul),xMark(d.facturegar),xMark(d.fcession),xMark(d.temps),
+    xMark(d.rattrapage||d.facturegar),xMark(d.risque),xMark(d.sauvee),xMark(d.annul),xMark(d.fcession),xMark(d.temps),
     parseInt(d.relances)||0,
     d.dateControle?new Date(d.dateControle).toLocaleDateString('fr-FR'):(d._ts?new Date(d._ts).toLocaleDateString('fr-FR'):''),
     d.correspondant||'',
@@ -3055,22 +3059,22 @@ window.exportExcel=function(){
     d.raison_temps||''
   ]);
 
-  // Ligne de total (montant en nombre)
+  // Ligne de total (montant en nombre) — 19 colonnes (une de moins après fusion)
   const totalMontant=data.reduce((t,d)=>t+parseMontant(d.montant),0);
-  const totalRow=['TOTAL','','','','','',Math.round(totalMontant*100)/100,'','','','','','','','','','','','',''];
+  const totalRow=['TOTAL','','','','','',Math.round(totalMontant*100)/100,'','','','','','','','','','','',''];
 
   const ws=XLSX.utils.aoa_to_sheet([heads,...rows,totalRow]);
-  // Forcer le format nombre sur la colonne Montant (G) et Nb relances (O)
+  // Forcer le format nombre sur la colonne Montant (G) et Nb relances (N)
   const nbLignes=rows.length;
   for(let i=0;i<=nbLignes;i++){
     const rowNum=i+2; // +2 car ligne 1 = en-têtes, données dès ligne 2
     const cellMontant=ws['G'+rowNum];
     if(cellMontant&&typeof cellMontant.v==='number'){cellMontant.t='n';cellMontant.z='#,##0.00';}
-    const cellRel=ws['O'+rowNum];
+    const cellRel=ws['N'+rowNum];
     if(cellRel&&typeof cellRel.v==='number'){cellRel.t='n';}
   }
   // Largeurs de colonnes
-  ws['!cols']=[{wch:20},{wch:12},{wch:22},{wch:16},{wch:16},{wch:30},{wch:12},{wch:11},{wch:11},{wch:11},{wch:12},{wch:13},{wch:13},{wch:11},{wch:10},{wch:13},{wch:14},{wch:22},{wch:22},{wch:25}];
+  ws['!cols']=[{wch:20},{wch:12},{wch:22},{wch:16},{wch:16},{wch:30},{wch:12},{wch:22},{wch:11},{wch:11},{wch:12},{wch:13},{wch:11},{wch:10},{wch:13},{wch:14},{wch:22},{wch:22},{wch:25}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Contrôle Garantie');
   // Nom du fichier : inclure le mois si un mois précis est filtré

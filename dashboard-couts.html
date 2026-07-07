@@ -192,13 +192,14 @@ table.xl tbody tr.total td{font-weight:700;color:var(--ink);}
   <div class="exec">
     <h2>📊 Résumé exécutif <span id="exec-badge" style="font-size:12px;font-weight:500;color:var(--accent);"></span></h2>
     <div class="period" id="exec-period">—</div>
-    <div class="exec-grid">
-      <div class="exec-stat"><div class="v" id="ex-ca">— €</div><div class="l">CA total facturé</div></div>
-      <div class="exec-stat"><div class="v" id="ex-paye">—%</div><div class="l">Taux de paiement</div></div>
-      <div class="exec-stat"><div class="v" id="ex-risque">— €</div><div class="l">CA en risque + annulé</div></div>
-      <div class="exec-stat"><div class="v" id="ex-encours">— €</div><div class="l">En-cours +60j à traiter</div></div>
+    <div class="exec-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+      <div class="exec-stat" style="border-left:3px solid #5ee8b0;"><div class="v" id="ex-total">— €</div><div class="l">Total contrôlé</div></div>
+      <div class="exec-stat" style="border-left:3px solid #f5c842;"><div class="v" id="ex-rattrap">— €</div><div class="l">Rattrapage (facturé garantie)</div></div>
+      <div class="exec-stat" style="border-left:3px solid #f5a623;"><div class="v" id="ex-cession">— €</div><div class="l">Facturé cession</div></div>
+      <div class="exec-stat" style="border-left:3px solid #e67e22;"><div class="v" id="ex-retour">— €</div><div class="l">Retour concession</div></div>
+      <div class="exec-stat" style="border-left:3px solid #ff7a8a;"><div class="v" id="ex-attente">— €</div><div class="l">En attente</div></div>
     </div>
-    <div class="exec-text" id="exec-text">Importez des données SAGA pour générer le résumé.</div>
+    <div class="exec-text" id="exec-text">Importez des données pour générer le résumé.</div>
   </div>
 
   <!-- ════ KPIs PRINCIPAUX ════ -->
@@ -346,7 +347,11 @@ onValue(ref(db,'vgf_garanties_m1'),snap=>{
 onValue(ref(db,'controle_garantie'),snap=>{
   window._ctrl={};
   const v=snap.val();
-  if(v) Object.entries(v).forEach(([k,d])=>{window._ctrl[k]={_id:k,...d};});
+  if(v) Object.entries(v).forEach(([k,d])=>{
+    const c={_id:k,...d};
+    if(c.facturegar){c.rattrapage=true;delete c.facturegar;} // fusion facturegar → rattrapage
+    window._ctrl[k]=c;
+  });
   setTimeout(()=>{if(typeof window.refresh==='function')window.refresh();},50);
 },{onlyOnce:false});
 </script>
@@ -368,7 +373,12 @@ const MOIS_FULL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Ao�
 
 const fmt=v=>(v>0?Math.round(v).toLocaleString('fr-FR'):'0')+' €';
 const fmtn=v=>(v||0).toLocaleString('fr-FR');
-const mon=s=>parseFloat((s||'0').toString().replace(/\s/g,'').replace(',','.'))||0;
+const mon=v=>{
+  if(v==null)return 0;
+  let s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/\u00a0/g,'');
+  if(s.includes(',')){s=s.replace(/\./g,'').replace(',','.');}
+  return parseFloat(s)||0;
+};
 const pct=(a,b)=>b>0?Math.round(a/b*100)+'%':'—';
 const pct1=(a,b)=>b>0?(Math.round(a/b*1000)/10).toFixed(1).replace('.',',')+'%':'0%';
 const pctN=(a,b)=>b>0?Math.round(a/b*100):0;
@@ -665,40 +675,37 @@ window.refresh=function(){
   loadAnalyse(periodeKey);
 };
 
-// ── RÉSUMÉ EXÉCUTIF ──
+// ── RÉSUMÉ EXÉCUTIF (mêmes concepts que l'onglet dossiers) ──
 function renderExec(saga,ctrl,period){
-  const caFact=saga.reduce((t,d)=>t+mon(d.valeur_demande),0);
-  const caAnnul=ctrl.filter(c=>c.annul).reduce((t,c)=>t+mon(c.montant),0);
-  const nbAnnul=ctrl.filter(c=>c.annul).length;
-  const caPaye=Math.max(0,caFact-caAnnul);
-  const tauxP=pctN(caPaye,caFact);
-  const caRisque=ctrl.filter(c=>c.risque).reduce((t,c)=>t+mon(c.montant),0);
-  // En-cours = incomplet/nonfact SANS statut facturation (dossiers pas encore traités)
-  const GRP_FACTU=['rattrapage','risque','sauvee','annul','facturegar','fcession','temps'];
-  const aUnStatutFactu=c=>GRP_FACTU.some(k=>c[k]);
-  const caEncours=ctrl.filter(c=>(c.incomplet||c.nonfact)&&!aUnStatutFactu(c)).reduce((t,c)=>t+mon(c.montant),0);
-  const nbIncomplet=ctrl.filter(c=>c.incomplet&&!aUnStatutFactu(c)).length;
-  const caSauv=ctrl.filter(c=>c.sauvee).reduce((t,c)=>t+mon(c.montant),0)+ctrl.filter(c=>c.rattrapage).reduce((t,c)=>t+mon(c.montant),0);
+  const M=c=>mon(c.montant);
+  const sumIf=fn=>ctrl.filter(fn).reduce((t,c)=>t+M(c),0);
+  const GRP_FACTU=['rattrapage','risque','sauvee','annul','fcession','temps'];
+  const factuDone=c=>GRP_FACTU.some(k=>c[k])||c.facturegar;
 
-  document.getElementById('ex-ca').textContent=fmt(caFact);
-  document.getElementById('ex-paye').textContent=tauxP+'%';
-  document.getElementById('ex-risque').textContent=fmt(caRisque+caAnnul);
-  document.getElementById('ex-encours').textContent=fmt(caEncours);
+  // Total contrôlé = somme de TOUS les montants (chaque dossier une fois)
+  const totalCtrl=ctrl.reduce((t,c)=>t+M(c),0);
+  // Rattrapage = rattrapage OU facturegar (fusionnés)
+  const caRattrap=sumIf(c=>c.rattrapage||c.facturegar);
+  const caCession=sumIf(c=>c.fcession||c.fcession_issue);
+  const caRetour=sumIf(c=>c.retourconc);
+  const caAttente=sumIf(c=>c.retourconc&&!factuDone(c));
+  const nbDossiers=ctrl.length;
 
-  // Site avec le plus de risque
-  let worstSite='',worstVal=0;
-  SITES.forEach(s=>{
-    const v=ctrlStat(ctrl,s,'risque')+ctrlStat(ctrl,s,'annul');
-    if(v>worstVal){worstVal=v;worstSite=s;}
-  });
+  const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=fmt(val);};
+  set('ex-total',totalCtrl);
+  set('ex-rattrap',caRattrap);
+  set('ex-cession',caCession);
+  set('ex-retour',caRetour);
+  set('ex-attente',caAttente);
 
-  const txt=`Sur la période <strong>${period}</strong>, le chiffre d'affaires garantie facturé s'élève à <strong>${fmt(caFact)}</strong> pour <strong>${saga.reduce((t,d)=>t+(d.nb_dossiers||0),0)} dossiers</strong>, avec un taux de paiement de <strong>${tauxP}%</strong>.
+  const nbRetour=ctrl.filter(c=>c.retourconc).length;
+  const nbAttente=ctrl.filter(c=>c.retourconc&&!factuDone(c)).length;
+  const txt=`Sur la période <strong>${period}</strong>, <strong>${nbDossiers} dossier(s)</strong> contrôlé(s) pour un total de <strong>${fmt(totalCtrl)}</strong>.
   <div style="margin-top:10px;">
-  <div class="alert-line"><span class="alert-dot" style="background:var(--annul);"></span>${nbAnnul} dossier(s) annulé(s) définitivement représentant <strong>${fmt(caAnnul)}</strong></div>
-  <div class="alert-line"><span class="alert-dot" style="background:var(--nonfact);"></span>CA en risque actif : <strong>${fmt(caRisque)}</strong></div>
-  <div class="alert-line"><span class="alert-dot" style="background:var(--incomplet);"></span>${nbIncomplet} dossier(s) incomplet(s) — en-cours à traiter : <strong>${fmt(caEncours)}</strong></div>
-  <div class="alert-line"><span class="alert-dot" style="background:var(--sauvee);"></span>Montant rattrapé / sauvé par la TeamGarantie : <strong>${fmt(caSauv)}</strong></div>
-  ${worstSite?`<div class="alert-line"><span class="alert-dot" style="background:var(--annul);"></span>Site le plus exposé : <strong>${SITE_SHORT[worstSite]}</strong> (${fmt(worstVal)} à risque/annulé)</div>`:''}
+  <div class="alert-line"><span class="alert-dot" style="background:#f5c842;"></span>Rattrapé (facturé garantie) : <strong>${fmt(caRattrap)}</strong></div>
+  <div class="alert-line"><span class="alert-dot" style="background:#f5a623;"></span>Facturé en cession : <strong>${fmt(caCession)}</strong></div>
+  <div class="alert-line"><span class="alert-dot" style="background:#e67e22;"></span>${nbRetour} dossier(s) retour concession : <strong>${fmt(caRetour)}</strong></div>
+  <div class="alert-line"><span class="alert-dot" style="background:#ff7a8a;"></span>${nbAttente} dossier(s) en attente de retour : <strong>${fmt(caAttente)}</strong></div>
   </div>`;
   document.getElementById('exec-text').innerHTML=txt;
 }
@@ -1095,10 +1102,52 @@ window.exportExcel=function(){
   ws2['!cols']=Array(6).fill({wch:18});
   XLSX.utils.book_append_sheet(wb,ws2,'Cessions');
 
-  // Feuille 3 : Dossiers contrôle
-  const ctrlAoa=[['N°OR','Site','VIN','CCS','Montant','Type garantie','Rattrapage','Risque','Annulé','Sauvée','Incomplet','Non fact.','Défaut 1','Créé par']];
-  ctrl.forEach(c=>ctrlAoa.push([c.nor,SITE_SHORT[c.site]||c.site,c.vin,c.ccs,mon(c.montant),c.typegar||'',c.rattrapage?'X':'',c.risque?'X':'',c.annul?'X':'',c.sauvee?'X':'',c.incomplet?'X':'',c.nonfact?'X':'',c.defaut1,c._createdBy]));
+  // Feuille 3 : Dossiers contrôle — MÊME ordre de colonnes que l'export de l'app
+  const SITE_KVPS={'VW_Illkirch':'02153','VW_Bischheim':'02154','Audi_Hoenheim':'02155','Seat_Hoenheim':'63930','Skoda_Hoenheim':'02376','Audi_Obernai':'02486','VW_Obernai':'02485'};
+  const labelDossier=c=>{
+    const l=[];
+    if(c.incomplet)l.push('Dossier non conforme');
+    if(c.nonfact)l.push('Non facturable');
+    if(c.retourconc)l.push('Retour concession');
+    if(c.agarantie)l.push('À la garantie');
+    if(c.fcession_issue)l.push('Facturé cession');
+    if(c.nonrevenu)l.push('Dossier non revenu');
+    return l.join(' + ');
+  };
+  const interv=c=>{
+    if(Array.isArray(c.interventions))return c.interventions.map(i=>[i.plainte,i.piece].filter(Boolean).join(' — ')).join(' | ');
+    return c.intervention||c.plainte||'';
+  };
+  const xMark=v=>v?'X':'';
+  const ctrlAoa=[['Site / KVPS','N°OR','Statut DG','Type de garantie','Service concerné','Intervention réalisée','Montant',
+    'Rattrapage (facturé garantie)','Risque annul.','DG sauvée','Annulation déf.','Facturé cession','Temps supp.',
+    'Nb relances','Date contrôle','Correspondant','Défaut 1','Défaut 2','Raison temps supp.']];
+  ctrl.forEach(c=>ctrlAoa.push([
+    (SITE_SHORT[c.site]||c.site||'')+(SITE_KVPS[c.site]?' ('+SITE_KVPS[c.site]+')':''),
+    c.nor||'',
+    labelDossier(c),
+    c.typegar||'',
+    c.service||'',
+    interv(c),
+    mon(c.montant),
+    xMark(c.rattrapage||c.facturegar),xMark(c.risque),xMark(c.sauvee),xMark(c.annul),xMark(c.fcession||c.fcession_issue),xMark(c.temps),
+    parseInt(c.relances)||0,
+    c.dateControle?new Date(c.dateControle).toLocaleDateString('fr-FR'):(c._ts?new Date(c._ts).toLocaleDateString('fr-FR'):''),
+    c.correspondant||'',
+    c.defaut1||'',
+    c.defaut2||'',
+    c.raison_temps||''
+  ]));
+  // Ligne total
+  const totCtrlM=ctrl.reduce((t,c)=>t+mon(c.montant),0);
+  ctrlAoa.push(['TOTAL','','','','','',Math.round(totCtrlM*100)/100,'','','','','','','','','','','','']);
   const ws3=XLSX.utils.aoa_to_sheet(ctrlAoa);
+  ws3['!cols']=[{wch:20},{wch:12},{wch:22},{wch:16},{wch:16},{wch:30},{wch:12},{wch:22},{wch:11},{wch:11},{wch:12},{wch:13},{wch:11},{wch:10},{wch:13},{wch:14},{wch:22},{wch:22},{wch:25}];
+  // Forcer le format nombre sur Montant (colonne G)
+  for(let i=0;i<ctrl.length+1;i++){
+    const cell=ws3['G'+(i+2)];
+    if(cell&&typeof cell.v==='number'){cell.t='n';cell.z='#,##0.00';}
+  }
   XLSX.utils.book_append_sheet(wb,ws3,'Dossiers contrôle');
 
   XLSX.writeFile(wb,`Dashboard_Garantie_GEA_${annee}${mois?'_'+mois:''}.xlsx`);
@@ -1109,11 +1158,8 @@ window.exportExcel=function(){
 window.copyExecSummary=function(){
   const period=document.getElementById('exec-period').textContent;
   const txt=document.getElementById('exec-text').innerText;
-  const ca=document.getElementById('ex-ca').textContent;
-  const paye=document.getElementById('ex-paye').textContent;
-  const risque=document.getElementById('ex-risque').textContent;
-  const enc=document.getElementById('ex-encours').textContent;
-  const body=`RÉSUMÉ EXÉCUTIF GARANTIE — ${period}\n\nCA total facturé : ${ca}\nTaux de paiement : ${paye}\nCA en risque + annulé : ${risque}\nEn-cours +60j à traiter : ${enc}\n\n${txt}\n\nTeamGarantie — Grand Est Automobiles`;
+  const g=id=>document.getElementById(id)?.textContent||'—';
+  const body=`RÉSUMÉ EXÉCUTIF GARANTIE — ${period}\n\nTotal contrôlé : ${g('ex-total')}\nRattrapage (facturé garantie) : ${g('ex-rattrap')}\nFacturé cession : ${g('ex-cession')}\nRetour concession : ${g('ex-retour')}\nEn attente : ${g('ex-attente')}\n\n${txt}\n\nTeamGarantie — Grand Est Automobiles`;
   const sujet=`Résumé garantie ${period} — TeamGarantie GEA`;
   window.location.href=`mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(body)}`;
   toast('Email résumé direction préparé','success');
