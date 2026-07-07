@@ -511,6 +511,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
         <div style="display:flex;align-items:center;gap:10px;"><h2>Dossiers de contrôle</h2><span id="list-count" style="font-size:11px;color:var(--text3);"></span></div>
         <div id="total-controle" style="background:#1a3a2a;border:1px solid #5ee8b040;border-radius:8px;padding:6px 14px;font-size:13px;color:#5ee8b0;font-weight:600;">Total contrôlé : <span id="total-controle-val">0 €</span></div>
       </div>
+      <div id="montants-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px;"></div>
       <div id="workflow-counters" style="display:flex;gap:10px;flex-wrap:wrap;padding:0 0 12px;"></div>
       <div id="relance-panel" style="display:none;"></div>
       <div class="panel-body">
@@ -2770,10 +2771,26 @@ window.renderList=function(){
   document.getElementById('kl-rattrap').textContent=data.filter(d=>d.rattrapage).length;
   document.getElementById('list-count').textContent=data.length+' dossiers';
   buildMoisFilter();
-  // Caisse de total contrôle : somme des montants (chaque dossier une fois)
-  const totalCtrl=data.reduce((t,d)=>t+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
+  // Caisse de total contrôle : somme de TOUS les montants (chaque dossier une fois)
+  const M=d=>parseFloat((d.montant||'0').toString().replace(',','.'))||0;
+  const totalCtrl=data.reduce((t,d)=>t+M(d),0);
   const tcv=document.getElementById('total-controle-val');
   if(tcv)tcv.textContent=Math.round(totalCtrl).toLocaleString('fr-FR')+' €';
+  // Cases KPI de montants par statut (suivent les filtres)
+  const sumIf=fn=>data.filter(fn).reduce((t,d)=>t+M(d),0);
+  const factuDone=d=>['rattrapage','risque','sauvee','annul','facturegar','fcession','temps'].some(k=>d[k]);
+  const kpis=[
+    {l:'Rattrapage',v:sumIf(d=>d.rattrapage),c:'#f5c842'},
+    {l:'Facturé cession',v:sumIf(d=>d.fcession||d.fcession_issue),c:'#f5a623'},
+    {l:'Facturé garantie',v:sumIf(d=>d.facturegar),c:'#2ecc71'},
+    {l:'Retour concession',v:sumIf(d=>d.retourconc),c:'#e67e22'},
+    {l:'En attente',v:sumIf(d=>d.retourconc&&!factuDone(d)),c:'#ff7a8a'},
+  ];
+  const kbox=document.getElementById('montants-kpi');
+  if(kbox)kbox.innerHTML=kpis.map(k=>`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${k.c};border-radius:8px;padding:8px 12px;">
+    <div style="font-size:15px;font-weight:700;color:${k.c};">${Math.round(k.v).toLocaleString('fr-FR')} €</div>
+    <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;margin-top:2px;">${k.l}</div>
+  </div>`).join('');
   updateDailyCount();
   buildAutocomplete();
   renderMyStats();
@@ -3012,6 +3029,14 @@ window.exportExcel=function(){
     return d.intervention||'';
   };
   const xMark=v=>v?'X':'';
+  // Parsing robuste du montant → nombre (retire espaces, €, séparateurs de milliers)
+  const parseMontant=v=>{
+    if(v==null)return 0;
+    let s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/\u00a0/g,'');
+    // Si virgule décimale française : "1.234,56" → "1234.56"
+    if(s.includes(',')){s=s.replace(/\./g,'').replace(',','.');}
+    return parseFloat(s)||0;
+  };
 
   const rows=data.map(d=>[
     (SITE_SHORT[d.site]||d.site||'')+(SITE_KVPS[d.site]?' ('+SITE_KVPS[d.site]+')':''),
@@ -3020,9 +3045,9 @@ window.exportExcel=function(){
     d.typegar||'',
     d.service||'',
     interv(d),
-    d.montant||'',
+    parseMontant(d.montant),
     xMark(d.rattrapage),xMark(d.risque),xMark(d.sauvee),xMark(d.annul),xMark(d.facturegar),xMark(d.fcession),xMark(d.temps),
-    d.relances||'0',
+    parseInt(d.relances)||0,
     d.dateControle?new Date(d.dateControle).toLocaleDateString('fr-FR'):(d._ts?new Date(d._ts).toLocaleDateString('fr-FR'):''),
     d.correspondant||'',
     d.defaut1||'',
@@ -3030,11 +3055,20 @@ window.exportExcel=function(){
     d.raison_temps||''
   ]);
 
-  // Ligne de total (montant)
-  const totalMontant=data.reduce((t,d)=>t+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
-  const totalRow=['TOTAL','','','','','',totalMontant.toFixed(2),'','','','','','','','','','','','',''];
+  // Ligne de total (montant en nombre)
+  const totalMontant=data.reduce((t,d)=>t+parseMontant(d.montant),0);
+  const totalRow=['TOTAL','','','','','',Math.round(totalMontant*100)/100,'','','','','','','','','','','','',''];
 
   const ws=XLSX.utils.aoa_to_sheet([heads,...rows,totalRow]);
+  // Forcer le format nombre sur la colonne Montant (G) et Nb relances (O)
+  const nbLignes=rows.length;
+  for(let i=0;i<=nbLignes;i++){
+    const rowNum=i+2; // +2 car ligne 1 = en-têtes, données dès ligne 2
+    const cellMontant=ws['G'+rowNum];
+    if(cellMontant&&typeof cellMontant.v==='number'){cellMontant.t='n';cellMontant.z='#,##0.00';}
+    const cellRel=ws['O'+rowNum];
+    if(cellRel&&typeof cellRel.v==='number'){cellRel.t='n';}
+  }
   // Largeurs de colonnes
   ws['!cols']=[{wch:20},{wch:12},{wch:22},{wch:16},{wch:16},{wch:30},{wch:12},{wch:11},{wch:11},{wch:11},{wch:12},{wch:13},{wch:13},{wch:11},{wch:10},{wch:13},{wch:14},{wch:22},{wch:22},{wch:25}];
   const wb=XLSX.utils.book_new();

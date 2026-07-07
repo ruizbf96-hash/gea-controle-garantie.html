@@ -951,6 +951,7 @@ function animateValue(el,target,suffix,isEuro){
 }
 
 function renderDirection(garMois,garAll,ctrl,cess,annee,mois){
+  try{
   const dc=id=>{if(_ch[id]){_ch[id].destroy();delete _ch[id];}};
   const FONT={family:'IBM Plex Sans',size:10};
   const tooltip={backgroundColor:'#fffdf8',titleColor:'#3d3526',bodyColor:'#6b5f48',borderColor:'#e0d5bf',borderWidth:1,titleFont:FONT,bodyFont:{family:'IBM Plex Mono',size:11},padding:10,callbacks:{label:(c)=>{const v=c.parsed.y??c.parsed;return c.dataset.label?c.dataset.label+' : '+Math.round(v).toLocaleString('fr-FR')+' €':Math.round(v).toLocaleString('fr-FR')+' €';}}};
@@ -1032,6 +1033,7 @@ function renderDirection(garMois,garAll,ctrl,cess,annee,mois){
   dc('dc-taux-site');
   const tauxData=sActifs.map(s=>{const f=sumBy(garMois,s,'ca_facture');const a=ctrlStat(ctrl,s,'annul');return{site:s,taux:f>0?((f-a)/f*100):100};}).sort((a,b)=>b.taux-a.taux);
   _ch['dc-taux-site']=new Chart(document.getElementById('dc-taux-site'),{type:'bar',data:{labels:tauxData.map(d=>SITE_SHORT[d.site]),datasets:[{data:tauxData.map(d=>Math.round(d.taux*10)/10),backgroundColor:tauxData.map(d=>d.taux>=95?'#4caf7d':d.taux>=85?'#e6a817':'#d9455f'),borderRadius:5}]},options:{...BASE,indexAxis:'y',plugins:{...BASE.plugins,tooltip:{...tooltip,callbacks:{label:(c)=>'Taux : '+c.parsed.x+' %'}}},scales:{x:{...BASE.scales.x,max:100,ticks:{...BASE.scales.x.ticks,callback:v=>v+'%'}},y:BASE.scales.y}}});
+  }catch(e){console.error('Erreur graphiques dashboard:',e);}
 }
 
 // ── EXPORT EXCEL ──
