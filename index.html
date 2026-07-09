@@ -2193,14 +2193,14 @@ window.generatePDF=async function(){
         doc.text(txt,28,y);
         y+=6;
       }
-      y+=3;
+      y+=2;
       // séparateur léger
       doc.setDrawColor(230,234,240);doc.setLineWidth(0.2);doc.line(15,y-2,195,y-2);
     });
   } else {
-    doc.setFontSize(10);doc.setTextColor(150,155,170);doc.text('Aucune intervention',22,y);y+=6;
+    doc.setFontSize(10);doc.setTextColor(150,155,170);doc.text('Aucune intervention',22,y);y+=5;
   }
-  y+=4;
+  y+=1;
 
   // ── STATUTS (dossier + facturation séparés) ──
   if(y>240){doc.addPage();y=20;}
@@ -2260,14 +2260,16 @@ window.generatePDF=async function(){
   }
 
   // ── CAPTURE D'ÉCRAN (motif du retour) ──
+  // Espace réservé en bas pour le bloc contrôleur (ligne + nom) : ~22mm
+  const ESPACE_CONTROLEUR=22;
   if(window._captureDataUrl&&window._captureW&&window._captureH){
     y+=4;
     try{
       const iw=window._captureW, ih=window._captureH;
-      // Taille réduite pour tenir sur 1 page : largeur max 120mm, hauteur max selon place restante
       const maxW=120;
-      const placeRestante=Math.max(40,283-y-8); // espace jusqu'au bas de page
-      const maxH=Math.min(95,placeRestante);
+      // La capture ne doit pas empiéter sur l'espace réservé au contrôleur
+      const placeRestante=Math.max(30,283-y-8-ESPACE_CONTROLEUR);
+      const maxH=Math.min(90,placeRestante);
       let w=maxW, h=w*ih/iw;
       if(h>maxH){h=maxH;w=h*iw/ih;}
       w=Math.round(w);h=Math.round(h);
@@ -2284,6 +2286,25 @@ window.generatePDF=async function(){
       y+=h+6;
     }catch(e){console.warn('Capture PDF ignorée:',e);toast('La capture n\'a pas pu être ajoutée au PDF','info');}
   }
+
+  // ── PIED DE PAGE : ligne tout en bas + contrôleur en dessous ──
+  // Position fixe en bas de page pour garantir une seule page
+  const pageH=297; // hauteur A4 en mm
+  let yFooter=pageH-18;
+  // Si le contenu descend trop bas, on place le pied juste après (sécurité)
+  if(y>yFooter-4)yFooter=Math.min(y+6,pageH-12);
+  // Ligne tout en bas
+  doc.setDrawColor(0,180,140);doc.setLineWidth(0.5);
+  doc.line(15,yFooter,195,yFooter);
+  // Nom du contrôleur en dessous de la ligne
+  yFooter+=6;
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(110,120,140);
+  doc.text('Contrôlé par :',18,yFooter);
+  doc.setFont('helvetica','bold');doc.setTextColor(30,35,50);
+  const controleur=(document.getElementById('f-correspondant').value||_currentUser||'—');
+  doc.text(controleur,52,yFooter);
+  doc.setFont('helvetica','normal');doc.setTextColor(110,120,140);
+  doc.text('Date : '+new Date().toLocaleDateString('fr-FR'),150,yFooter);
 
   // Nom fichier : Controle_Garantie_KVPS_OR_chassis.pdf
   const kvps=SITE_KVPS[site]||'00000';
