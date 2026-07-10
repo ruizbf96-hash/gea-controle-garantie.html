@@ -398,7 +398,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
 
         <!-- STATUTS TOGGLE -->
         <div style="margin-top:20px;">
-          <div class="section-sep" style="border:none;margin-bottom:12px;">Statut du dossier — état à l'issue du contrôle</div>
+          <div class="section-sep" style="border:none;margin-bottom:12px;">1 · Statut du dossier — état à l'issue du contrôle</div>
           <div class="statuts-grid">
             <button class="statut-toggle" style="--kc:#ffe066" id="tog-incomplet" onclick="toggleStatut('incomplet')">
               <span class="tog-dot"></span>Dossier non conforme
@@ -407,23 +407,49 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
               <span class="tog-dot"></span>Dossier non facturable
             </button>
           </div>
-          <!-- Issues (apparaissent selon le statut dossier) -->
+          <!-- Destination (niveau 2, dépend du statut dossier) -->
           <div id="issues-zone" style="display:none;margin-top:12px;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;">Que devient le dossier ? <span style="text-transform:none;color:var(--text3);">(optionnel)</span></div>
-            <div class="statuts-grid">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;">2 · Destination du dossier</div>
+            <div class="statuts-grid" id="destination-grid">
               <button class="statut-toggle" style="--kc:#e67e22" id="tog-retourconc" onclick="toggleStatut('retourconc')">
-                <span class="tog-dot"></span>Retour en concession
+                <span class="tog-dot"></span>Retour concession
               </button>
               <button class="statut-toggle" style="--kc:#3498db" id="tog-agarantie" onclick="toggleStatut('agarantie')">
-                <span class="tog-dot"></span>À la garantie (2e contrôle)
+                <span class="tog-dot"></span>À la garantie
               </button>
               <button class="statut-toggle" style="--kc:#f5a623" id="tog-fcession_issue" onclick="toggleStatut('fcession_issue')">
                 <span class="tog-dot"></span>Facturé en cession
               </button>
             </div>
           </div>
-          <div style="font-size:11px;color:var(--text3);margin-top:10px;padding:8px;background:var(--bg3);border-radius:6px;">
-            💡 Le statut <strong>facturation</strong> (rattrapage, facturé garantie/cession, annulation...) se renseigne plus tard depuis le détail du dossier, après le 2e contrôle.
+          <!-- Statut facturation (niveau 3) -->
+          <div style="margin-top:16px;">
+            <div class="section-sep" style="border:none;margin-bottom:12px;">3 · Statut facturation <span style="text-transform:none;font-weight:400;color:var(--text3);">(après 2e contrôle)</span></div>
+            <div class="statuts-grid">
+              <button class="statut-toggle" style="--kc:#f5c842" id="tog-rattrapage" onclick="toggleStatut('rattrapage')">
+                <span class="tog-dot"></span>Rattrapage (facturé garantie)
+              </button>
+              <button class="statut-toggle" style="--kc:#f5a623" id="tog-risque" onclick="toggleStatut('risque')">
+                <span class="tog-dot"></span>Risque d'annulation
+              </button>
+              <button class="statut-toggle" style="--kc:#e8833c" id="tog-malgre" onclick="toggleStatut('malgre')">
+                <span class="tog-dot"></span>DG passée malgré risque
+              </button>
+              <button class="statut-toggle" style="--kc:#ff4d6a" id="tog-annul" onclick="toggleStatut('annul')">
+                <span class="tog-dot"></span>Annulation définitive
+              </button>
+              <button class="statut-toggle" style="--kc:#b07acc" id="tog-envoye_inutile" onclick="toggleStatut('envoye_inutile')">
+                <span class="tog-dot"></span>Envoyé inutilement en garantie
+              </button>
+              <button class="statut-toggle" style="--kc:#2ecc71" id="tog-temps" onclick="toggleStatut('temps')">
+                <span class="tog-dot"></span>Temps de traitement supp.
+              </button>
+            </div>
+            <!-- Champ CVSP : nom de la personne qui a donné l'ordre (DG passée malgré risque) -->
+            <div id="cvsp-wrap" style="display:none;margin-top:10px;">
+              <label style="font-size:12px;color:#e8833c;">Sur ordre de (CVSP) :</label>
+              <input type="text" id="f-cvsp" placeholder="Nom de la personne ayant validé le passage malgré le risque..." style="margin-top:4px;">
+            </div>
           </div>
         </div>
 
@@ -581,8 +607,8 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
           <thead>
             <tr style="cursor:pointer;">
               <th onclick="sortList('site')">Site ⇅</th><th onclick="sortList('nor')">N°OR ⇅</th><th onclick="sortList('vin')">Châssis ⇅</th><th onclick="sortList('ccs')">CCS ⇅</th>
-              <th onclick="sortList('montant')">Montant ⇅</th><th>Statut dossier</th><th>Statut factu.</th>
-              <th onclick="sortList('defaut1')">Défaut ⇅</th><th onclick="sortList('correspondant')">Corresp. ⇅</th><th onclick="sortList('_ts')">Date OR ⇅</th><th onclick="sortList('dateControle')">Date contrôle ⇅</th>
+              <th onclick="sortList('montant')">Montant ⇅</th><th>Statut dossier</th><th>Destination</th><th>Statut facturation</th>
+              <th onclick="sortList('defaut1')">Défaut ⇅</th><th onclick="sortList('correspondant')">Corresp. ⇅</th><th onclick="sortList('dateControle')">Date contrôle ⇅</th>
             </tr>
           </thead>
           <tbody id="list-tbody"></tbody>
@@ -658,7 +684,8 @@ let _currentSource='dcsnet';
 // Groupe 1 (statut dossier, à la création) : incomplet, nonfact + issues retourconc/agarantie/fcession_issue
 // Groupe 2 (statut facturation, plus tard) : rattrapage, risque, sauvee, annul, facturegar, fcession, temps
 let _statuts={incomplet:false,nonfact:false,retourconc:false,agarantie:false,fcession_issue:false,
-  rattrapage:false,risque:false,malgre:false,sauvee:false,annul:false,facturegar:false,fcession:false,temps:false};
+  rattrapage:false,risque:false,malgre:false,annul:false,envoye_inutile:false,temps:false,
+  sauvee:false,facturegar:false,fcession:false};
 let _detailId=null;
 
 const USERS={'Omar':'1472','Nico':'3682','Tahir':'3694','Marion':'4715','Céline':'5826'};
@@ -681,11 +708,18 @@ const SITE_MAP={
   'GIDASEAHOE':'Seat_Hoenheim','GIDASKOHOE':'Skoda_Hoenheim','GIDAVWILL':'VW_Illkirch','GIDAVWOBE':'VW_Obernai',
   'GARANTIE ILLKIRCH':'VW_Illkirch','GARANTIE BISCHHEIM':'VW_Bischheim','GARANTIE OBERNAI':'Audi_Obernai','GARANTIE HOENHEIM':'Audi_Hoenheim'
 };
-const STATUT_LABELS={incomplet:'Dossier non conforme',nonfact:'Non facturable',retourconc:'Retour concession',agarantie:'À la garantie',fcession_issue:'Facturé cession',rattrapage:'Rattrapage (facturé garantie)',risque:'Risque annul.',malgre:'DG passée malgré risque',sauvee:'DG sauvée',annul:'Annulation déf.',facturegar:'Rattrapage (facturé garantie)',fcession:'Facturé cession',temps:'Temps supp.',nonrevenu:'Dossier non revenu'};
-const STATUT_COLORS={incomplet:'#ffe066',nonfact:'#ff4d6a',retourconc:'#e67e22',agarantie:'#3498db',fcession_issue:'#f5a623',rattrapage:'#f5c842',risque:'#f5a623',malgre:'#f5c842',sauvee:'#00c896',annul:'#ff4d6a',facturegar:'#2ecc71',fcession:'#f5a623',temps:'#2ecc71',nonrevenu:'#ff7a8a'};
+const STATUT_LABELS={incomplet:'Dossier non conforme',nonfact:'Dossier non facturable',retourconc:'Retour concession',agarantie:'À la garantie',fcession_issue:'Facturé cession',rattrapage:'Rattrapage (facturé garantie)',risque:'Risque d\'annulation',malgre:'DG passée malgré risque',annul:'Annulation définitive',envoye_inutile:'Envoyé inutilement en garantie',temps:'Temps de traitement supp.',nonrevenu:'Dossier non revenu',
+// compat anciens statuts
+sauvee:'DG sauvée',facturegar:'Rattrapage (facturé garantie)',fcession:'Facturé cession'};
+const STATUT_COLORS={incomplet:'#ffe066',nonfact:'#ff4d6a',retourconc:'#e67e22',agarantie:'#3498db',fcession_issue:'#f5a623',rattrapage:'#f5c842',risque:'#f5a623',malgre:'#e8833c',annul:'#ff4d6a',envoye_inutile:'#b07acc',temps:'#2ecc71',nonrevenu:'#ff7a8a',
+sauvee:'#00c896',facturegar:'#f5c842',fcession:'#f5a623'};
 // Groupes pour l'affichage séparé
-const GROUPE_DOSSIER=['incomplet','nonfact','retourconc','agarantie','fcession_issue'];
-const GROUPE_FACTURATION=['rattrapage','risque','sauvee','annul','fcession','temps'];
+// NIVEAU 1 : Statut dossier
+const GROUPE_DOSSIER=['incomplet','nonfact'];
+// NIVEAU 2 : Destination (dépend du niveau 1)
+const GROUPE_DESTINATION=['retourconc','agarantie','fcession_issue'];
+// NIVEAU 3 : Statut facturation
+const GROUPE_FACTURATION=['rattrapage','risque','malgre','annul','envoye_inutile','temps'];
 const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet ou illisible','Directive action non respecté','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non exécutée','Garantie échue','Immat sur vidéo','IQ clôturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non clôturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur or manuscrit pas de contre signature client','Liste PPSO non utilisé','Manque dernier entretien participation AUDI','Manque devis','Manque facture 1er remplacement','Manque formulaire de refus',"Manque historique d'entretien",'Manque Kulanz','Manque rétro-documentation','Manuel de réparation non respecté','Mauvaise réf sur lOR','Mise hors tension manquante','MO en trop','Ne relève pas de la garantie','OR clôturé garantie clôturé',"OR non conforme selon règle d'audit",'OR non conforme pour le retour atelier','OR supprimé',"Pas de lignes ouvertes pour l'action",'Photo ou vidéo manquante ou non conforme','Pièce non rendue au magasin','Pièce remplacée non imputable en garantie','Pièce remplacée sans défaut','Pièce renvoyée hors délai','Pièces en trop sur OR','Pièces manquantes sur OR','Pièces non renvoyer','Plainte client sur OR manquante ou non conforme','Plan de contrôle non conforme,manquant ou non abouti','Plusieurs protocoles différence excessive de kilométrage','Plusieurs protocoles sans MAJ ODIS','Pointage manquant,incomplet,erroné','Protocole non conforme,manquant ou non abouti','Purge manquante ou non aboutie','Réglage / calibrage manquant','Remplacement pièce non justifiée','Retard service garantie','Scan airbag non effectué','Signature sur OR manquante','TD1','Ticket batterie non conforme','Ticket clim absent ou non conforme','TPI ne correspond pas','TPI non applicable','TPI non appliquée','TPI non insérer dans lIQ avant MAJ','TPI non jointe à lOR','TPI pas respectée','Véhicule hors garantie'];
 
 // Init défauts — remplir la datalist (choix + saisie manuelle possible)
@@ -1494,26 +1528,12 @@ window.addIntervention=function(plainte='',piece='',montant='',factu=''){
       <label>Référence pièce</label>
       <input type="text" id="iv-piece-${id}" value="${(piece||'').replace(/"/g,'&quot;')}">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <div class="field">
-        <label>Montant (€)</label>
-        <input type="text" id="iv-montant-${id}" value="${montant||''}" placeholder="0,00" oninput="updateMontantTotal()">
-      </div>
-      <div class="field">
-        <label>Statut facturation</label>
-        <select id="iv-factu-${id}" onchange="colorFactu(this)">
-          <option value="">— Sélectionner —</option>
-          <option value="possible"${factu==='possible'?' selected':''}>Facturation possible</option>
-          <option value="facturegar"${factu==='facturegar'?' selected':''}>Facturé en garantie</option>
-          <option value="nonfacturable"${factu==='nonfacturable'?' selected':''}>Non facturable</option>
-          <option value="cession"${factu==='cession'?' selected':''}>Cession</option>
-        </select>
-      </div>
+    <div class="field">
+      <label>Montant (€)</label>
+      <input type="text" id="iv-montant-${id}" value="${montant||''}" placeholder="0,00" oninput="updateMontantTotal()">
     </div>
   `;
   document.getElementById('interventions-container').appendChild(div);
-  const sel=div.querySelector('select');
-  if(sel) colorFactu(sel);
   updateMontantTotal();
   return id;
 };
@@ -1604,9 +1624,8 @@ function getInterventions(){
     const inputs=b.querySelectorAll('input');
     const piece=inputs[0]?.value||'';
     const montant=inputs[1]?.value||'';
-    const factu=b.querySelector('select')?.value||'';
     if(plainte||piece||montant){
-      result.push({letter:String.fromCharCode(65+i),plainte,piece,montant,factu});
+      result.push({letter:String.fromCharCode(65+i),plainte,piece,montant});
     }
   });
   return result;
@@ -1763,6 +1782,10 @@ function refreshStatutButtons(){
   if(delaiWrap) delaiWrap.style.display=show?'flex':'none';
   const commWrap=document.getElementById('comment-wrap');
   if(commWrap) commWrap.style.display=show?'flex':'none';
+
+  // Champ CVSP : visible seulement si "DG passée malgré risque" est actif
+  const cvspWrap=document.getElementById('cvsp-wrap');
+  if(cvspWrap) cvspWrap.style.display=_statuts.malgre?'block':'none';
 }
 
 // Compat : applyExclusion appelé ailleurs → rediriger
@@ -1843,6 +1866,7 @@ window.saveDossier=function(){
     montant:montantTotal>0?montantTotal.toFixed(2):'',
     delai:document.getElementById('f-delai').value,
     commentaires:document.getElementById('f-commentaires').value,
+    cvsp:document.getElementById('f-cvsp')?document.getElementById('f-cvsp').value:'',
     date:document.getElementById('f-date').value,
     service:document.getElementById('f-service').value,
     typegar:document.getElementById('f-typegar').value,
@@ -2484,6 +2508,8 @@ window.resetForm=function(){
   document.getElementById('f-correspondant').value=_currentUser||'';
   document.getElementById('f-delai').value='';
   document.getElementById('f-commentaires').value='';
+  const cvspEl=document.getElementById('f-cvsp');if(cvspEl)cvspEl.value='';
+  const cvspW=document.getElementById('cvsp-wrap');if(cvspW)cvspW.style.display='none';
   document.getElementById('delai-wrap').style.display='none';
   document.getElementById('comment-wrap').style.display='none';
   resetStatuts();
@@ -2832,7 +2858,8 @@ window.renderList=function(){
   tbody.innerHTML=data.map(d=>{
     const badge=(k)=>`<span class="sbadge" style="background:${STATUT_COLORS[k]}20;color:${STATUT_COLORS[k]};border:1px solid ${STATUT_COLORS[k]}40;">${STATUT_LABELS[k]}</span>`;
     const statDossier=GROUPE_DOSSIER.filter(k=>d[k]).map(badge).join('');
-    const statFactu=GROUPE_FACTURATION.filter(k=>d[k]).map(badge).join('');
+    const statDestination=GROUPE_DESTINATION.filter(k=>d[k]).map(badge).join('');
+    const statFactu=GROUPE_FACTURATION.filter(k=>d[k]||(k==='rattrapage'&&d.facturegar)).map(badge).join('');
     return `<tr onclick="showDetail('${d._id}')">
       <td style="white-space:nowrap;">${SITE_SHORT[d.site]||d.site||'—'}</td>
       <td class="mono">${d.nor||'—'}</td>
@@ -2840,10 +2867,10 @@ window.renderList=function(){
       <td style="font-size:10px;">${d.ccs||'—'}</td>
       <td class="mono" style="white-space:nowrap;">${d.montant||'—'} €</td>
       <td>${statDossier||'<span style="color:var(--text3);">—</span>'}</td>
+      <td>${statDestination||'<span style="color:var(--text3);">—</span>'}</td>
       <td>${statFactu||'<span style="color:var(--text3);">—</span>'}</td>
       <td style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.defaut1||''}">${d.defaut1||'—'}</td>
       <td style="font-size:10px;">${d.correspondant||'—'}</td>
-      <td style="font-size:10px;white-space:nowrap;">${dateFR(d.date)}</td>
       <td style="font-size:10px;white-space:nowrap;color:var(--text2);">${d.dateControle?new Date(d.dateControle).toLocaleDateString('fr-FR'):(d._ts?new Date(d._ts).toLocaleDateString('fr-FR'):'—')}</td>
     </tr>`;
   }).join('');
@@ -2965,6 +2992,7 @@ window.editFromDetail=function(id){
   setV('f-service',d.service); setV('f-correspondant',d.correspondant);
   setV('f-typegar',d.typegar); setV('f-codedommage',d.codedommage); setV('f-delai',d.delai);
   setV('f-commentaires',d.commentaires);
+  setV('f-cvsp',d.cvsp);
   // Interventions
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
