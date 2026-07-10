@@ -2543,35 +2543,40 @@ window.sortList=function(col){
 // ── OPTION 2 : STATS PERSONNELLES (semaine en cours) ──
 function renderMyStats(){
   const box=document.getElementById('my-stats');
-  if(!box||!_currentUser)return;
-  const all=Object.values(window._dossiers||{});
-  // Période choisie via le filtre KPI (kpi-periode), défaut : semaine
+  if(!box)return;
+  // Baser les stats sur les dossiers FILTRÉS (site, statut, mois, recherche...)
+  let data=(typeof getFilteredDossiers==='function')?getFilteredDossiers():Object.values(window._dossiers||{});
+  // Période KPI (semaine/mois/total) en plus des filtres actifs
   const per=document.getElementById('kpi-periode')?.value||'week';
   const refDate=d=>d.dateControle||d._ts||0;
   const now=Date.now();
-  let seuil=0,libPer='';
-  if(per==='week'){seuil=now-7*864e5;libPer='7j';}
-  else if(per==='month'){seuil=now-30*864e5;libPer='30j';}
-  else if(per==='all'){seuil=0;libPer='total';}
-  const mine=all.filter(d=>d._createdBy===_currentUser&&refDate(d)>=seuil);
-  const sumM=arr=>arr.reduce((s,d)=>s+(parseFloat((d.montant||'0').toString().replace(',','.'))||0),0);
-  const mineMontant=sumM(mine);
-  const incomplets=mine.filter(d=>d.incomplet).length;
-  const nonfact=mine.filter(d=>d.nonfact).length;
-  const rattrap=mine.filter(d=>d.rattrapage);
-  const rattrapMontant=sumM(rattrap);
+  let libPer='';
+  if(per==='week'){data=data.filter(d=>refDate(d)>=now-7*864e5);libPer='7j';}
+  else if(per==='month'){data=data.filter(d=>refDate(d)>=now-30*864e5);libPer='30j';}
+  else {libPer='total';}
 
-  const card=(label,val,color)=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;border-left:3px solid ${color};">
-    <div style="font-size:20px;font-weight:700;color:${color};">${val}</div>
+  const sumM=arr=>arr.reduce((s,d)=>s+(parseFloat((d.montant||'0').toString().replace(/\s/g,'').replace(',','.'))||0),0);
+  const M=v=>Math.round(v).toLocaleString('fr-FR')+' €';
+
+  const nbControles=data.length;
+  const montantControle=sumM(data);
+  const rattrap=data.filter(d=>d.rattrapage||d.facturegar);
+  const cession=data.filter(d=>d.fcession_issue||d.fcession);
+  const incomplets=data.filter(d=>d.incomplet);
+  const nonfact=data.filter(d=>d.nonfact);
+
+  const card=(label,val,sub,color)=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;border-left:3px solid ${color};">
+    <div style="font-size:19px;font-weight:700;color:${color};">${val}</div>
+    ${sub?`<div style="font-size:11px;color:var(--text2);margin-top:1px;">${sub}</div>`:''}
     <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;">${label}</div>
   </div>`;
 
   box.innerHTML=
-    card('Mes contrôles ('+libPer+')',mine.length,'#5b9bd5')+
-    card('Montant contrôlé',Math.round(mineMontant).toLocaleString('fr-FR')+' €','#00c896')+
-    card('Rattrapés',rattrap.length+' · '+Math.round(rattrapMontant).toLocaleString('fr-FR')+'€','#f5c842')+
-    card('Non conformes',incomplets,'#ffe066')+
-    card('Non facturables',nonfact,'#ff4d6a');
+    card('Contrôles ('+libPer+')',nbControles,M(montantControle),'#5b9bd5')+
+    card('Rattrapage',rattrap.length,M(sumM(rattrap)),'#f5c842')+
+    card('Cession',cession.length,M(sumM(cession)),'#f5a623')+
+    card('Non conformes',incomplets.length,M(sumM(incomplets)),'#ffe066')+
+    card('Non facturables',nonfact.length,M(sumM(nonfact)),'#ff4d6a');
 }
 
 // ── COMPTEURS WORKFLOW (en attente garantie / retournés) ──
@@ -2837,16 +2842,16 @@ window.renderList=function(){
   document.getElementById('list-count').textContent=data.length+' dossiers';
   buildMoisFilter();
   // Caisse de total contrôle : somme de TOUS les montants (chaque dossier une fois)
-  const M=d=>parseFloat((d.montant||'0').toString().replace(',','.'))||0;
+  const M=d=>parseFloat((d.montant||'0').toString().replace(/\s/g,'').replace(',','.'))||0;
   const totalCtrl=data.reduce((t,d)=>t+M(d),0);
   const tcv=document.getElementById('total-controle-val');
   if(tcv)tcv.textContent=Math.round(totalCtrl).toLocaleString('fr-FR')+' €';
   // Cases KPI de montants par statut (suivent les filtres)
   const sumIf=fn=>data.filter(fn).reduce((t,d)=>t+M(d),0);
-  const factuDone=d=>['rattrapage','risque','sauvee','annul','fcession','temps'].some(k=>d[k]);
+  const factuDone=d=>['rattrapage','facturegar','risque','malgre','annul','envoye_inutile','temps','fcession_issue','fcession'].some(k=>d[k]);
   const kpis=[
-    {l:'Rattrapage (facturé garantie)',v:sumIf(d=>d.rattrapage),c:'#f5c842'},
-    {l:'Facturé cession',v:sumIf(d=>d.fcession||d.fcession_issue),c:'#f5a623'},
+    {l:'Rattrapage (facturé garantie)',v:sumIf(d=>d.rattrapage||d.facturegar),c:'#f5c842'},
+    {l:'Facturé cession',v:sumIf(d=>d.fcession_issue||d.fcession),c:'#f5a623'},
     {l:'Retour concession',v:sumIf(d=>d.retourconc),c:'#e67e22'},
     {l:'En attente',v:sumIf(d=>d.retourconc&&!factuDone(d)),c:'#ff7a8a'},
     {l:'Annulation déf.',v:sumIf(d=>d.annul),c:'#ff4d6a'},
