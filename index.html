@@ -417,9 +417,6 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
               <button class="statut-toggle" style="--kc:#3498db" id="tog-agarantie" onclick="toggleStatut('agarantie')">
                 <span class="tog-dot"></span>À la garantie
               </button>
-              <button class="statut-toggle" style="--kc:#f5a623" id="tog-fcession_issue" onclick="toggleStatut('fcession_issue')">
-                <span class="tog-dot"></span>Facturé en cession
-              </button>
             </div>
           </div>
           <!-- Statut facturation (niveau 3) -->
@@ -443,6 +440,9 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
               </button>
               <button class="statut-toggle" style="--kc:#2ecc71" id="tog-temps" onclick="toggleStatut('temps')">
                 <span class="tog-dot"></span>Temps de traitement supp.
+              </button>
+              <button class="statut-toggle" style="--kc:#f5a623" id="tog-fcession_issue" onclick="toggleStatut('fcession_issue')">
+                <span class="tog-dot"></span>Facturé en cession
               </button>
             </div>
             <!-- Champ CVSP : nom de la personne qui a donné l'ordre (DG passée malgré risque) -->
@@ -716,10 +716,10 @@ sauvee:'#00c896',facturegar:'#f5c842',fcession:'#f5a623'};
 // Groupes pour l'affichage séparé
 // NIVEAU 1 : Statut dossier
 const GROUPE_DOSSIER=['incomplet','nonfact'];
-// NIVEAU 2 : Destination (dépend du niveau 1)
-const GROUPE_DESTINATION=['retourconc','agarantie','fcession_issue'];
-// NIVEAU 3 : Statut facturation
-const GROUPE_FACTURATION=['rattrapage','risque','malgre','annul','envoye_inutile','temps'];
+// NIVEAU 2 : Destination (Retour concession ou À la garantie)
+const GROUPE_DESTINATION=['retourconc','agarantie'];
+// NIVEAU 3 : Statut facturation (Facturé cession inclus ici)
+const GROUPE_FACTURATION=['rattrapage','risque','malgre','annul','envoye_inutile','temps','fcession_issue'];
 const DEFAUTS=['ACG demande de déblocage','Action de rappel déjà facturée','Action de rappel non effectué','Adaptation ou réglage de base manquants','Annulation injustifiée','Bon de reliquat manquant','CAD non conforme ou manquant','Chargeur de batterie pas raccordé','Code fabricant manquant ou erroné','Commentaire technicien incomplet ou manquant','Date DMS erronée','Délai OR dépassé','Descriptif des travaux manquant ou incomplet ou illisible','Directive action non respecté','Dossier incomplet pour demande CCR','Dossier reçu hors délai','Entretien non conforme','Erreur service garantie','Feuille descriptif travaux non utilisée','Fonction assistée non exécutée','Garantie échue','Immat sur vidéo','IQ clôturé avant facturation DG','IQ manquant','IQ ne correspond pas à la réparation','IQ non clôturé après facturation DG','IQ non conforme','IQ ouvert après 1er pointage','IQ ouvert par le technicien','Justificatifs manquants','Kilométrage erroné DCS ou IQ','Kilométrage sur or manuscrit pas de contre signature client','Liste PPSO non utilisé','Manque dernier entretien participation AUDI','Manque devis','Manque facture 1er remplacement','Manque formulaire de refus',"Manque historique d'entretien",'Manque Kulanz','Manque rétro-documentation','Manuel de réparation non respecté','Mauvaise réf sur lOR','Mise hors tension manquante','MO en trop','Ne relève pas de la garantie','OR clôturé garantie clôturé',"OR non conforme selon règle d'audit",'OR non conforme pour le retour atelier','OR supprimé',"Pas de lignes ouvertes pour l'action",'Photo ou vidéo manquante ou non conforme','Pièce non rendue au magasin','Pièce remplacée non imputable en garantie','Pièce remplacée sans défaut','Pièce renvoyée hors délai','Pièces en trop sur OR','Pièces manquantes sur OR','Pièces non renvoyer','Plainte client sur OR manquante ou non conforme','Plan de contrôle non conforme,manquant ou non abouti','Plusieurs protocoles différence excessive de kilométrage','Plusieurs protocoles sans MAJ ODIS','Pointage manquant,incomplet,erroné','Protocole non conforme,manquant ou non abouti','Purge manquante ou non aboutie','Réglage / calibrage manquant','Remplacement pièce non justifiée','Retard service garantie','Scan airbag non effectué','Signature sur OR manquante','TD1','Ticket batterie non conforme','Ticket clim absent ou non conforme','TPI ne correspond pas','TPI non applicable','TPI non appliquée','TPI non insérer dans lIQ avant MAJ','TPI non jointe à lOR','TPI pas respectée','Véhicule hors garantie'];
 
 // Init défauts — remplir la datalist (choix + saisie manuelle possible)
@@ -1717,10 +1717,10 @@ function siteFromMarqueVille(marque,ville){
 }
 
 // ── STATUTS TOGGLE ──
-// Règles d'exclusion pour le GROUPE 1 (statut dossier) : incomplet et nonfact sont mutuellement exclusifs
-// Les issues (retourconc/agarantie/fcession_issue) sont mutuellement exclusives entre elles
-const ISSUES_INCOMPLET=['retourconc','agarantie'];       // incomplet → retour concession ou à la garantie
-const ISSUES_NONFACT=['retourconc','fcession_issue'];    // non facturable → retour concession ou cession
+// GROUPE 1 (statut dossier) : incomplet et nonfact mutuellement exclusifs
+// Destinations (retourconc/agarantie) mutuellement exclusives entre elles
+const ISSUES_INCOMPLET=['retourconc','agarantie'];
+const ISSUES_NONFACT=['retourconc','agarantie'];
 
 window.toggleStatut=function(key){
   const btn=document.getElementById('tog-'+key);
@@ -1730,19 +1730,17 @@ window.toggleStatut=function(key){
   if(key==='incomplet'||key==='nonfact'){
     const other=key==='incomplet'?'nonfact':'incomplet';
     _statuts[key]=!_statuts[key];
-    if(_statuts[key]){ // si on active, désactiver l'autre + ses issues
+    if(_statuts[key]){
       _statuts[other]=false;
-      // Réinitialiser les issues incompatibles
-      ['retourconc','agarantie','fcession_issue'].forEach(iss=>{_statuts[iss]=false;});
+      ['retourconc','agarantie'].forEach(iss=>{_statuts[iss]=false;});
     } else {
-      // Si on désactive le statut dossier, vider aussi les issues
-      ['retourconc','agarantie','fcession_issue'].forEach(iss=>{_statuts[iss]=false;});
+      ['retourconc','agarantie'].forEach(iss=>{_statuts[iss]=false;});
     }
   }
-  // ISSUES : mutuellement exclusives entre elles
-  else if(['retourconc','agarantie','fcession_issue'].includes(key)){
+  // DESTINATIONS : mutuellement exclusives entre elles
+  else if(['retourconc','agarantie'].includes(key)){
     const wasOn=_statuts[key];
-    ['retourconc','agarantie','fcession_issue'].forEach(iss=>{_statuts[iss]=false;});
+    ['retourconc','agarantie'].forEach(iss=>{_statuts[iss]=false;});
     _statuts[key]=!wasOn;
   }
   else {
@@ -1758,22 +1756,15 @@ function refreshStatutButtons(){
     if(btn) btn.classList.toggle('active',_statuts[k]);
   });
 
-  // Afficher la zone des issues si incomplet OU nonfact actif
+  // Afficher la zone des destinations si incomplet OU nonfact actif
   const issuesZone=document.getElementById('issues-zone');
   const showIssues=_statuts.incomplet||_statuts.nonfact;
   if(issuesZone) issuesZone.style.display=showIssues?'block':'none';
 
-  // Logique intelligente : afficher seulement les issues cohérentes
-  const allowedIssues=_statuts.incomplet?ISSUES_INCOMPLET:(_statuts.nonfact?ISSUES_NONFACT:[]);
-  ['retourconc','agarantie','fcession_issue'].forEach(iss=>{
+  // Les deux destinations (retour concession / à la garantie) sont toujours disponibles
+  ['retourconc','agarantie'].forEach(iss=>{
     const b=document.getElementById('tog-'+iss);
-    if(!b)return;
-    if(allowedIssues.includes(iss)){
-      b.style.display='';
-    } else {
-      b.style.display='none';
-      _statuts[iss]=false;b.classList.remove('active');
-    }
+    if(b) b.style.display='';
   });
 
   // Afficher délai + commentaires si un statut dossier est actif
