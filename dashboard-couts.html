@@ -1107,11 +1107,14 @@ window.exportExcel=function(){
   const labelDossier=c=>{
     const l=[];
     if(c.incomplet)l.push('Dossier non conforme');
-    if(c.nonfact)l.push('Non facturable');
+    if(c.nonfact)l.push('Dossier non facturable');
+    if(c.nonrevenu)l.push('Dossier non revenu');
+    return l.join(' + ');
+  };
+  const labelDestination=c=>{
+    const l=[];
     if(c.retourconc)l.push('Retour concession');
     if(c.agarantie)l.push('À la garantie');
-    if(c.fcession_issue)l.push('Facturé cession');
-    if(c.nonrevenu)l.push('Dossier non revenu');
     return l.join(' + ');
   };
   const interv=c=>{
@@ -1119,33 +1122,33 @@ window.exportExcel=function(){
     return c.intervention||c.plainte||'';
   };
   const xMark=v=>v?'X':'';
-  const ctrlAoa=[['Site / KVPS','N°OR','Statut DG','Type de garantie','Service concerné','Intervention réalisée','Montant',
-    'Rattrapage (facturé garantie)','Risque annul.','DG sauvée','Annulation déf.','Facturé cession','Temps supp.',
-    'Nb relances','Date contrôle','Correspondant','Défaut 1','Défaut 2','Raison temps supp.']];
+  const ctrlAoa=[['Site / KVPS','N°OR','Statut dossier','Destination','Type de garantie','Service concerné','Intervention réalisée','Montant',
+    'Rattrapage (facturé garantie)','Risque annul.','DG passée malgré risque','Annulation déf.','Envoyé inutilement','Temps supp.','Facturé cession',
+    'Nb relances','Date contrôle','Correspondant','Défaut 1','Défaut 2']];
   ctrl.forEach(c=>ctrlAoa.push([
     (SITE_SHORT[c.site]||c.site||'')+(SITE_KVPS[c.site]?' ('+SITE_KVPS[c.site]+')':''),
     c.nor||'',
     labelDossier(c),
+    labelDestination(c),
     c.typegar||'',
     c.service||'',
     interv(c),
     mon(c.montant),
-    xMark(c.rattrapage||c.facturegar),xMark(c.risque),xMark(c.sauvee),xMark(c.annul),xMark(c.fcession||c.fcession_issue),xMark(c.temps),
+    xMark(c.rattrapage||c.facturegar),xMark(c.risque),xMark(c.malgre),xMark(c.annul),xMark(c.envoye_inutile),xMark(c.temps),xMark(c.fcession_issue||c.fcession),
     parseInt(c.relances)||0,
     c.dateControle?new Date(c.dateControle).toLocaleDateString('fr-FR'):(c._ts?new Date(c._ts).toLocaleDateString('fr-FR'):''),
     c.correspondant||'',
     c.defaut1||'',
-    c.defaut2||'',
-    c.raison_temps||''
+    c.defaut2||''
   ]));
   // Ligne total
   const totCtrlM=ctrl.reduce((t,c)=>t+mon(c.montant),0);
-  ctrlAoa.push(['TOTAL','','','','','',Math.round(totCtrlM*100)/100,'','','','','','','','','','','','']);
+  ctrlAoa.push(['TOTAL','','','','','','',Math.round(totCtrlM*100)/100,'','','','','','','','','','','','']);
   const ws3=XLSX.utils.aoa_to_sheet(ctrlAoa);
-  ws3['!cols']=[{wch:20},{wch:12},{wch:22},{wch:16},{wch:16},{wch:30},{wch:12},{wch:22},{wch:11},{wch:11},{wch:12},{wch:13},{wch:11},{wch:10},{wch:13},{wch:14},{wch:22},{wch:22},{wch:25}];
-  // Forcer le format nombre sur Montant (colonne G)
+  ws3['!cols']=[{wch:20},{wch:12},{wch:20},{wch:18},{wch:16},{wch:16},{wch:28},{wch:12},{wch:22},{wch:11},{wch:20},{wch:12},{wch:16},{wch:11},{wch:13},{wch:10},{wch:13},{wch:14},{wch:22},{wch:22}];
+  // Montant en colonne H
   for(let i=0;i<ctrl.length+1;i++){
-    const cell=ws3['G'+(i+2)];
+    const cell=ws3['H'+(i+2)];
     if(cell&&typeof cell.v==='number'){cell.t='n';cell.z='#,##0.00';}
   }
   XLSX.utils.book_append_sheet(wb,ws3,'Dossiers contrôle');

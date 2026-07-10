@@ -541,16 +541,7 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
       <div id="workflow-counters" style="display:flex;gap:10px;flex-wrap:wrap;padding:0 0 12px;"></div>
       <div id="relance-panel" style="display:none;"></div>
       <div class="panel-body">
-        <!-- Stats personnelles -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;">Mes statistiques</span>
-          <select id="kpi-periode" onchange="renderMyStats()" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;">
-            <option value="week">Cette semaine (7j)</option>
-            <option value="month">Ce mois (30j)</option>
-            <option value="all">Total</option>
-          </select>
-        </div>
-        <div id="my-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;"></div>
+        <!-- FILTRES (au-dessus des statistiques) -->
         <div class="toolbar">
           <select id="lf-site" onchange="renderList()">
             <option value="">Tous les sites</option>
@@ -562,28 +553,25 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <option value="Audi_Obernai">Audi Obernai</option>
             <option value="VW_Obernai">VW Obernai</option>
           </select>
-          <select id="lf-statut" onchange="renderList()">
-            <option value="">Tous statuts</option>
-            <optgroup label="Statut dossier">
-              <option value="incomplet">Dossier non conforme</option>
-              <option value="nonfact">Non facturable</option>
-              <option value="retourconc">Retour concession</option>
-              <option value="agarantie">À la garantie</option>
-            </optgroup>
-            <optgroup label="Statut facturation">
-              <option value="rattrapage">Rattrapage (facturé garantie)</option>
-              <option value="risque">Risque annulation</option>
-              <option value="sauvee">DG sauvée</option>
-              <option value="annul">Annulation définitive</option>
-              <option value="fcession">Facturé cession</option>
-              <option value="temps">Temps supp.</option>
-            </optgroup>
+          <select id="lf-dossier" onchange="renderList()" title="Filtre par statut dossier">
+            <option value="">Statut dossier : tous</option>
+            <option value="incomplet">Dossier non conforme</option>
+            <option value="nonfact">Dossier non facturable</option>
           </select>
-          <select id="lf-periode" onchange="renderList()">
-            <option value="">Toute période</option>
-            <option value="today">Aujourd'hui</option>
-            <option value="week">7 derniers jours</option>
-            <option value="month">30 derniers jours</option>
+          <select id="lf-destination" onchange="renderList()" title="Filtre par destination">
+            <option value="">Destination : toutes</option>
+            <option value="retourconc">Retour concession</option>
+            <option value="agarantie">À la garantie</option>
+          </select>
+          <select id="lf-factu" onchange="renderList()" title="Filtre par statut facturation">
+            <option value="">Statut facturation : tous</option>
+            <option value="rattrapage">Rattrapage (facturé garantie)</option>
+            <option value="risque">Risque d'annulation</option>
+            <option value="malgre">DG passée malgré risque</option>
+            <option value="annul">Annulation définitive</option>
+            <option value="envoye_inutile">Envoyé inutilement en garantie</option>
+            <option value="temps">Temps de traitement supp.</option>
+            <option value="fcession_issue">Facturé cession</option>
           </select>
           <select id="lf-mois" onchange="renderList()" title="Mois précis (par date de contrôle)">
             <option value="">Tous les mois</option>
@@ -597,11 +585,23 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
             <option value="Marion">Marion</option>
             <option value="Céline">Céline</option>
           </select>
-          <input type="text" id="lf-search" placeholder="N°OR, châssis, CCS, modèle, date, conseiller..." oninput="renderList()" style="min-width:200px;">
+          <input type="text" id="lf-search" placeholder="Rechercher : N°OR, VIN, CCS, site..." oninput="renderList()" style="min-width:220px;">
+          <button class="btn" onclick="resetFiltres()" style="background:#3a2a1a;color:#e6a817;border-color:#e6a81740;" title="Réinitialiser les filtres">↺ Filtres</button>
           <button class="btn" onclick="document.getElementById('import-suivi-file').click()" style="margin-left:auto;background:#1a3a5c;color:#7ec8e3;border-color:#7ec8e340;" title="Importer le tableau Suivi Annulation-Rattrapage">⬆ Importer Excel</button>
           <input type="file" id="import-suivi-file" accept=".xlsx,.xls" style="display:none" onchange="importSuiviRattrapage(this.files[0])">
           <button class="btn" onclick="exportExcel()" style="background:#1a3a2a;color:#5ee8b0;border-color:#5ee8b040;">↓ Excel</button>
         </div>
+
+        <!-- Stats personnelles (sous les filtres) -->
+        <div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px;">
+          <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;">Mes statistiques</span>
+          <select id="kpi-periode" onchange="renderMyStats()" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;">
+            <option value="week">Cette semaine (7j)</option>
+            <option value="month">Ce mois (30j)</option>
+            <option value="all">Total</option>
+          </select>
+        </div>
+        <div id="my-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;"></div>
         <div>
         <table style="width:100%;table-layout:auto;font-size:11px;">
           <thead>
@@ -2236,16 +2236,33 @@ window.generatePDF=async function(){
     y+=8;
   };
   const dossierKeys=statutsActifsKeys.filter(k=>GROUPE_DOSSIER.includes(k));
+  const destinationKeys=statutsActifsKeys.filter(k=>GROUPE_DESTINATION.includes(k));
   const factuKeys=statutsActifsKeys.filter(k=>GROUPE_FACTURATION.includes(k));
 
+  // Niveau 1 : Statut dossier
   section('Statut du dossier',[245,166,35]);
   if(dossierKeys.length) drawBadges(dossierKeys);
   else {doc.setFontSize(9);doc.setTextColor(150,155,170);doc.text('Aucun',22,y);y+=7;}
 
+  // Niveau 2 : Destination
+  if(destinationKeys.length){
+    if(y>255){doc.addPage();y=20;}
+    section('Destination',[52,152,219]);
+    drawBadges(destinationKeys);
+  }
+
+  // Niveau 3 : Statut facturation
   if(factuKeys.length){
     if(y>255){doc.addPage();y=20;}
     section('Statut facturation',[52,152,219]);
     drawBadges(factuKeys);
+    // CVSP : nom de la personne ayant validé le passage malgré risque
+    const cvsp=document.getElementById('f-cvsp')?document.getElementById('f-cvsp').value:'';
+    if(_statuts.malgre&&cvsp){
+      doc.setFontSize(8.5);doc.setFont('helvetica','italic');doc.setTextColor(232,131,60);
+      const cl=doc.splitTextToSize('DG passée malgré risque sur ordre de : '+cvsp,175);
+      doc.text(cl,18,y);y+=cl.length*4.5+2;
+    }
     // Raison temps supp si présente
     const raison=document.getElementById('f-raison-temps')?document.getElementById('f-raison-temps').value:'';
     if(_statuts.temps&&raison){
@@ -2711,29 +2728,40 @@ function renderWorkflowCounters(){
 
 // Filtre rapide en cliquant sur un compteur
 window.quickFilterWorkflow=function(label){
-  const statutSel=document.getElementById('lf-statut');
-  if(!statutSel)return;
+  // Réinitialiser d'abord
+  ['lf-dossier','lf-destination','lf-factu'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   const map={
-    'En attente à la garantie':'agarantie',
-    'Retournés en concession':'retourconc',
-    'Rattrapage (facturé garantie)':'rattrapage',
-    'Facturés cession':'fcession'
+    'En attente à la garantie':['lf-destination','agarantie'],
+    'Retournés en concession':['lf-destination','retourconc'],
+    'Rattrapage (facturé garantie)':['lf-factu','rattrapage'],
+    'Facturés cession':['lf-factu','fcession_issue']
   };
-  if(map[label]){statutSel.value=map[label];renderList();}
+  if(map[label]){
+    const [selId,val]=map[label];
+    const sel=document.getElementById(selId);
+    if(sel){sel.value=val;renderList();}
+  }
 };
 
 // Retourne les dossiers filtrés selon les filtres actifs (réutilisé par la liste ET l'export)
 window.getFilteredDossiers=function(){
   const fSite=document.getElementById('lf-site')?.value||'';
-  const fStat=document.getElementById('lf-statut')?.value||'';
-  const fSearch=(document.getElementById('lf-search')?.value||'').toLowerCase();
-  const fPeriode=document.getElementById('lf-periode')?.value||'';
+  const fDossier=document.getElementById('lf-dossier')?.value||'';
+  const fDestination=document.getElementById('lf-destination')?.value||'';
+  const fFactu=document.getElementById('lf-factu')?.value||'';
+  const fSearch=(document.getElementById('lf-search')?.value||'').toLowerCase().trim();
   const fAuthor=document.getElementById('lf-author')?.value||'';
   const fMois=document.getElementById('lf-mois')?.value||''; // format 'AAAA-MM'
 
   let data=Object.values(window._dossiers);
   if(fSite) data=data.filter(d=>d.site===fSite);
-  if(fStat) data=data.filter(d=>d[fStat]);
+  if(fDossier) data=data.filter(d=>d[fDossier]);
+  if(fDestination) data=data.filter(d=>d[fDestination]);
+  if(fFactu){
+    // "rattrapage" inclut aussi les anciens facturegar
+    if(fFactu==='rattrapage') data=data.filter(d=>d.rattrapage||d.facturegar);
+    else data=data.filter(d=>d[fFactu]);
+  }
   // Filtre mois précis (par date de contrôle)
   if(fMois){
     data=data.filter(d=>{
@@ -2744,35 +2772,30 @@ window.getFilteredDossiers=function(){
       return key===fMois;
     });
   }
-  // Filtre période — basé sur la date de contrôle
-  if(fPeriode){
-    const now=Date.now();
-    const refDate=d=>d.dateControle||d._ts||0;
-    if(fPeriode==='today'){
-      const t=new Date();t.setHours(0,0,0,0);
-      data=data.filter(d=>refDate(d)>=t.getTime());
-    } else if(fPeriode==='week'){
-      data=data.filter(d=>refDate(d)>=now-7*864e5);
-    } else if(fPeriode==='month'){
-      data=data.filter(d=>refDate(d)>=now-30*864e5);
-    }
-  }
   if(fAuthor){
     const author=fAuthor==='__me__'?_currentUser:fAuthor;
     data=data.filter(d=>d._createdBy===author);
   }
+  // Recherche : N°OR, VIN, CCS, site
   if(fSearch) data=data.filter(d=>
     (d.nor||'').toLowerCase().includes(fSearch)||
     (d.vin||'').toLowerCase().includes(fSearch)||
     (d.ccs||'').toLowerCase().includes(fSearch)||
-    (d.correspondant||'').toLowerCase().includes(fSearch)||
-    (d.modele||'').toLowerCase().includes(fSearch)||
-    (d.date||'').toLowerCase().includes(fSearch)||
-    (d._createdBy||'').toLowerCase().includes(fSearch)||
-    (d.defaut1||'').toLowerCase().includes(fSearch));
+    (SITE_SHORT[d.site]||d.site||'').toLowerCase().includes(fSearch)||
+    (d.correspondant||'').toLowerCase().includes(fSearch));
   return data;
 };
 
+// Réinitialiser tous les filtres
+window.resetFiltres=function(){
+  ['lf-site','lf-dossier','lf-destination','lf-factu','lf-mois','lf-author'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  const s=document.getElementById('lf-search');if(s)s.value='';
+  renderList();
+};
+
+// (ancienne signature conservée pour compat, non utilisée)
 // Peupler le sélecteur de mois avec les mois présents dans les données
 function buildMoisFilter(){
   const sel=document.getElementById('lf-mois');
@@ -3026,15 +3049,17 @@ function loadDossierIntoForm(d){
   document.getElementById('f-typegar').value=d.typegar||'';
   document.getElementById('f-codedommage').value=d.codedommage||'';
   document.getElementById('f-commentaires').value=d.commentaires||'';
+  const cvspEl=document.getElementById('f-cvsp');if(cvspEl)cvspEl.value=d.cvsp||'';
   clearInterventions();
   if(Array.isArray(d.interventions)&&d.interventions.length){
-    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||'',iv.factu||''));
+    d.interventions.forEach(iv=>addIntervention(iv.plainte||'',iv.piece||'',iv.montant||''));
   } else if(d.plainte||d.intervention){
     addIntervention(d.plainte||'',d.intervention||'',d.montant||'');
   }
   document.getElementById('f-defaut1').value=d.defaut1||'';
   document.getElementById('f-defaut2').value=d.defaut2||'';
   Object.keys(_statuts).forEach(k=>{_statuts[k]=!!d[k];});
+  if(typeof refreshStatutButtons==='function')refreshStatutButtons();
 }
 
 window.generatePDFFromDetail=async function(id){
@@ -3051,20 +3076,24 @@ window.exportExcel=function(){
   const data=getFilteredDossiers();
   if(!data.length){toast('Aucun dossier à exporter','info');return;}
 
-  // En-têtes dans l'ordre demandé
-  const heads=['Site / KVPS','N°OR','Statut DG','Type de garantie','Service concerné','Intervention réalisée','Montant',
-    'Rattrapage (facturé garantie)','Risque annul.','DG sauvée','Annulation déf.','Facturé cession','Temps supp.',
-    'Nb relances','Date contrôle','Correspondant','Défaut 1','Défaut 2','Raison temps supp.'];
+  // En-têtes : Statut dossier / Destination / puis 1 colonne par statut facturation
+  const heads=['Site / KVPS','N°OR','Statut dossier','Destination','Type de garantie','Service concerné','Intervention réalisée','Montant',
+    'Rattrapage (facturé garantie)','Risque annul.','DG passée malgré risque','Annulation déf.','Envoyé inutilement','Temps supp.','Facturé cession',
+    'Nb relances','Date contrôle','Correspondant','Défaut 1','Défaut 2'];
 
-  // Statut DG (groupe dossier) sous forme lisible
+  // Niveau 1 : Statut dossier
   const labelDossier=d=>{
     const l=[];
     if(d.incomplet)l.push('Dossier non conforme');
-    if(d.nonfact)l.push('Non facturable');
+    if(d.nonfact)l.push('Dossier non facturable');
+    if(d.nonrevenu)l.push('Dossier non revenu');
+    return l.join(' + ');
+  };
+  // Niveau 2 : Destination
+  const labelDestination=d=>{
+    const l=[];
     if(d.retourconc)l.push('Retour concession');
     if(d.agarantie)l.push('À la garantie');
-    if(d.fcession_issue)l.push('Facturé cession');
-    if(d.nonrevenu)l.push('Dossier non revenu');
     return l.join(' + ');
   };
   // Intervention réalisée (concaténation des plaintes/pièces)
@@ -3073,11 +3102,9 @@ window.exportExcel=function(){
     return d.intervention||'';
   };
   const xMark=v=>v?'X':'';
-  // Parsing robuste du montant → nombre (retire espaces, €, séparateurs de milliers)
   const parseMontant=v=>{
     if(v==null)return 0;
     let s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/\u00a0/g,'');
-    // Si virgule décimale française : "1.234,56" → "1234.56"
     if(s.includes(',')){s=s.replace(/\./g,'').replace(',','.');}
     return parseFloat(s)||0;
   };
@@ -3086,35 +3113,35 @@ window.exportExcel=function(){
     (SITE_SHORT[d.site]||d.site||'')+(SITE_KVPS[d.site]?' ('+SITE_KVPS[d.site]+')':''),
     d.nor||'',
     labelDossier(d),
+    labelDestination(d),
     d.typegar||'',
     d.service||'',
     interv(d),
     parseMontant(d.montant),
-    xMark(d.rattrapage||d.facturegar),xMark(d.risque),xMark(d.sauvee),xMark(d.annul),xMark(d.fcession),xMark(d.temps),
+    xMark(d.rattrapage||d.facturegar),xMark(d.risque),xMark(d.malgre),xMark(d.annul),xMark(d.envoye_inutile),xMark(d.temps),xMark(d.fcession_issue||d.fcession),
     parseInt(d.relances)||0,
     d.dateControle?new Date(d.dateControle).toLocaleDateString('fr-FR'):(d._ts?new Date(d._ts).toLocaleDateString('fr-FR'):''),
     d.correspondant||'',
     d.defaut1||'',
-    d.defaut2||'',
-    d.raison_temps||''
+    d.defaut2||''
   ]);
 
-  // Ligne de total (montant en nombre) — 19 colonnes (une de moins après fusion)
+  // Ligne de total (montant en nombre)
   const totalMontant=data.reduce((t,d)=>t+parseMontant(d.montant),0);
-  const totalRow=['TOTAL','','','','','',Math.round(totalMontant*100)/100,'','','','','','','','','','','',''];
+  const totalRow=['TOTAL','','','','','','',Math.round(totalMontant*100)/100,'','','','','','','','','','','',''];
 
   const ws=XLSX.utils.aoa_to_sheet([heads,...rows,totalRow]);
-  // Forcer le format nombre sur la colonne Montant (G) et Nb relances (N)
+  // Montant en colonne H, Nb relances en colonne P
   const nbLignes=rows.length;
   for(let i=0;i<=nbLignes;i++){
-    const rowNum=i+2; // +2 car ligne 1 = en-têtes, données dès ligne 2
-    const cellMontant=ws['G'+rowNum];
+    const rowNum=i+2;
+    const cellMontant=ws['H'+rowNum];
     if(cellMontant&&typeof cellMontant.v==='number'){cellMontant.t='n';cellMontant.z='#,##0.00';}
-    const cellRel=ws['N'+rowNum];
+    const cellRel=ws['P'+rowNum];
     if(cellRel&&typeof cellRel.v==='number'){cellRel.t='n';}
   }
-  // Largeurs de colonnes
-  ws['!cols']=[{wch:20},{wch:12},{wch:22},{wch:16},{wch:16},{wch:30},{wch:12},{wch:22},{wch:11},{wch:11},{wch:12},{wch:13},{wch:11},{wch:10},{wch:13},{wch:14},{wch:22},{wch:22},{wch:25}];
+  // Largeurs (20 colonnes)
+  ws['!cols']=[{wch:20},{wch:12},{wch:20},{wch:18},{wch:16},{wch:16},{wch:28},{wch:12},{wch:22},{wch:11},{wch:20},{wch:12},{wch:16},{wch:11},{wch:13},{wch:10},{wch:13},{wch:14},{wch:22},{wch:22}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Contrôle Garantie');
   // Nom du fichier : inclure le mois si un mois précis est filtré
