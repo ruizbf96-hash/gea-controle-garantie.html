@@ -617,13 +617,34 @@ async function parseCessions(rows,periode){
 }
 
 // Catégories de statut contrôle (depuis _ctrl)
-function ctrlStat(ctrl,site,key){
-  return ctrl.filter(c=>c.site===site&&c[key]).reduce((s,c)=>s+(parseFloat((c.montant||'0').toString().replace(',','.'))||0),0);
+// Détermine le statut FINAL unique d'un dossier (priorité du plus final au moins final)
+// Chaque dossier n'est compté que dans UNE seule catégorie (son dernier statut).
+const PRIORITE_STATUT=['annul','rattrapage','facturegar','fcession_issue','fcession','envoye_inutile','temps','risque','malgre','nonrevenu','retourconc','agarantie','incomplet','nonfact'];
+function statutFinal(c){
+  for(const k of PRIORITE_STATUT){
+    if(c[k]){
+      // Fusion : facturegar compte comme rattrapage ; fcession comme fcession_issue
+      if(k==='facturegar')return 'rattrapage';
+      if(k==='fcession')return 'fcession_issue';
+      return k;
+    }
+  }
+  return null;
 }
+// Compte les dossiers d'un site dont le STATUT FINAL == key (chaque dossier une seule fois)
 function ctrlNb(ctrl,site,key){
+  return ctrl.filter(c=>c.site===site&&statutFinal(c)===key).length;
+}
+function ctrlStat(ctrl,site,key){
+  return ctrl.filter(c=>c.site===site&&statutFinal(c)===key).reduce((s,c)=>s+mon(c.montant),0);
+}
+// Versions "brutes" (comptent tous les dossiers ayant le statut, même combiné) — pour "Retour concession = tous"
+function ctrlNbBrut(ctrl,site,key){
   return ctrl.filter(c=>c.site===site&&c[key]).length;
 }
-
+function ctrlStatBrut(ctrl,site,key){
+  return ctrl.filter(c=>c.site===site&&c[key]).reduce((s,c)=>s+mon(c.montant),0);
+}
 // ── REFRESH ──
 window.refresh=function(){
   const annee=document.getElementById('f-annee').value;
@@ -684,9 +705,11 @@ function renderExec(saga,ctrl,period){
 
   // Total contrôlé = somme de TOUS les montants (chaque dossier une fois)
   const totalCtrl=ctrl.reduce((t,c)=>t+M(c),0);
-  // Rattrapage = rattrapage OU facturegar (fusionnés)
-  const caRattrap=sumIf(c=>c.rattrapage||c.facturegar);
-  const caCession=sumIf(c=>c.fcession||c.fcession_issue);
+  // Rattrapage / Cession : par STATUT FINAL (chaque dossier une seule fois)
+  const sumFinal=k=>ctrl.filter(c=>statutFinal(c)===k).reduce((t,c)=>t+M(c),0);
+  const caRattrap=sumFinal('rattrapage');
+  const caCession=sumFinal('fcession_issue');
+  // Retour concession = TOUS les retournés (brut, comme demandé)
   const caRetour=sumIf(c=>c.retourconc);
   const caAttente=sumIf(c=>c.retourconc&&!factuDone(c));
   const nbDossiers=ctrl.length;
@@ -783,7 +806,8 @@ function buildCoutsTable(saga,ctrl,tblId,withActions){
     const rNb=ctrlNb(ctrl,s,'rattrapage'),rCA=ctrlStat(ctrl,s,'rattrapage');
     const iNb=ctrlNb(ctrl,s,'incomplet'),iCA=ctrlStat(ctrl,s,'incomplet');
     // Retour concession = retourconc + nonrevenu (dossiers clôturés non revenus)
-    const nNb=ctrlNb(ctrl,s,'retourconc')+ctrlNb(ctrl,s,'nonrevenu'),nCA=ctrlStat(ctrl,s,'retourconc')+ctrlStat(ctrl,s,'nonrevenu');
+    // Retour concession = TOUS les retournés (brut) + non revenus
+    const nNb=ctrlNbBrut(ctrl,s,'retourconc')+ctrlNbBrut(ctrl,s,'nonrevenu'),nCA=ctrlStatBrut(ctrl,s,'retourconc')+ctrlStatBrut(ctrl,s,'nonrevenu');
     const sNb=ctrlNb(ctrl,s,'sauvee'),sCA=ctrlStat(ctrl,s,'sauvee');
     const tNb=ctrlNb(ctrl,s,'temps');
     const audCA=ctrlStat(ctrl,s,'audit');
