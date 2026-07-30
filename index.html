@@ -197,9 +197,9 @@ tbody td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;}
     <div class="login-logo">GEA <span>Garantie</span></div>
     <div class="login-sub">Contrôle qualité garantie — TeamGarantie</div>
     <div class="user-grid">
-      <button class="user-btn" onclick="selectUser('Omar','7414')">Omar</button>
+      <button class="user-btn" onclick="selectUser('Omar','1472')">Omar</button>
       <button class="user-btn" onclick="selectUser('Nico','3682')">Nico</button>
-      <button class="user-btn" onclick="selectUser('Tahir','1912')">Tahir</button>
+      <button class="user-btn" onclick="selectUser('Tahir','3694')">Tahir</button>
       <button class="user-btn" onclick="selectUser('Marion','4715')">Marion</button>
       <button class="user-btn" onclick="selectUser('Céline','5826')" style="grid-column:1/-1;">Céline</button>
     </div>
@@ -693,12 +693,13 @@ const SITE_SHORT={'VW_Illkirch':'VW Illkirch','VW_Bischheim':'VW Bischheim','Aud
 const SITE_KVPS={'VW_Illkirch':'02153','VW_Bischheim':'02154','Audi_Hoenheim':'02155','Seat_Hoenheim':'63930','Skoda_Hoenheim':'02376','Audi_Obernai':'02486','VW_Obernai':'02485'};
 // Responsable(s) de chaque site (destinataire des relances). teamgarantie est toujours en CC.
 const SITE_RESPONSABLE={
-  'Audi_Hoenheim':'vimele.paquirissamy@geauto.fr;olivier.laas@geauto.fr',
+  'Audi_Hoenheim':'olivier.laas@geauto.fr',
   'Seat_Hoenheim':'pierre.mahler@geauto.fr',
   'Skoda_Hoenheim':'pierre.mahler@geauto.fr',
   'VW_Bischheim':'alexandre.bahloul@geauto.fr',
   'VW_Illkirch':'alexis.metzger@geauto.fr',
-  'VW_Obernai':'eric.goerger@geauto.fr',
+  'VW_Obernai':'eric.goerger@geauto.fr;guillaume.jehl@geauto.fr',
+  'Skoda_Obernai':'eric.goerger@geauto.fr;guillaume.jehl@geauto.fr',
   'Audi_Obernai':'florent.batt@geauto.fr'
 };
 // Format date JJ/MM/AAAA (depuis AAAA-MM-JJ ou autre)
@@ -2437,6 +2438,23 @@ window.sendMailFromDetail=async function(id){
   await sendMail();
 };
 
+// Basculer le type de relance d'un dossier : Normal (1×/jour) ↔ Intense (2×/jour)
+window.toggleRelanceType=function(id){
+  const d=window._dossiers[id];
+  if(!d)return;
+  const nouveau=!d.relanceIntense;
+  d.relanceIntense=nouveau;
+  const obj={...d,relanceIntense:nouveau};
+  delete obj._id;
+  if(window._db)window._set(window._ref(window._db,'controle_garantie/'+id),obj);
+  const btn=document.getElementById('btn-relance-type');
+  if(btn){
+    btn.innerHTML='↻ Relance : '+(nouveau?'Intense':'Normale');
+    btn.style.cssText=nouveau?'background:#3a0d1a;color:#ff4d6a;border-color:#ff4d6a60;':'background:#0d2a1a;color:#5ee8b0;border-color:#5ee8b040;';
+  }
+  toast(nouveau?'Relance intense activée (2×/jour : 9h et 14h)':'Relance normale (1×/jour : 9h)','success');
+};
+
 // ── OPTION 3 : RACCOURCIS CLAVIER ──
 document.addEventListener('keydown',e=>{
   if(!_currentUser)return;
@@ -2582,53 +2600,43 @@ function renderMyStats(){
 // ── COMPTEURS WORKFLOW (en attente garantie / retournés) ──
 // ── PANNEAU DE RAPPEL : dossiers retour concession non revenus depuis +4 jours ──
 const RELANCE_DELAI_JOURS=3; // délai de relance en jours
-// Intervalles de relance progressifs (jours depuis la date de contrôle)
-// 1er rappel à J+3, 2e à J+5 (+2), 3e à J+6 (+1). Après le 3e → clôture "non revenu".
-const RELANCE_PALIERS=[3,5,6];
+// Relance quotidienne : dossiers "À la garantie" sans statut facturation.
+// Relance TOUS LES JOURS dès J+0. Clôture automatique "non revenu" après 5 jours.
+const RELANCE_CLOTURE_JOURS=5;
 
 function getDossiersARelancer(){
   const all=Object.values(window._dossiers||{});
   const now=Date.now();
   const facturationDone=d=>GROUPE_FACTURATION.some(k=>d[k]);
   const res=all.filter(d=>{
-    if(!d.retourconc)return false;       // doit être en retour concession
+    if(!d.agarantie)return false;        // doit être "À la garantie"
     if(d.nonrevenu)return false;         // déjà clôturé "non revenu"
     if(facturationDone(d))return false;  // a un statut facturation → traité
-    const base=d.dateControle||d._ts||0;
-    if(!base)return false;
-    const joursEcoules=joursEcoules_safe(Math.floor((now-base)/864e5));
-    const nb=d._nbRelances||0;           // nombre de rappels déjà envoyés
-    if(nb>=RELANCE_PALIERS.length)return false; // 3 rappels faits → plus de relance
-    const seuil=RELANCE_PALIERS[nb];     // palier absolu à atteindre (depuis date contrôle)
-    if(joursEcoules<seuil)return false;  // palier pas encore atteint
-    // Anti-réapparition immédiate : si déjà relancé, attendre au moins 1 jour depuis le dernier rappel
+    // Anti-doublon : ne pas re-relancer plus d'une fois par jour
     if(d._lastRelanceTs){
       const joursDepuisRelance=Math.floor((now-d._lastRelanceTs)/864e5);
-      if(joursDepuisRelance<1)return false; // relancé il y a moins d'un jour → patienter
+      if(joursDepuisRelance<1)return false; // déjà relancé aujourd'hui
     }
     return true;
   });
-  console.log(`[Relance] ${all.length} dossiers, ${res.length} à relancer (paliers J+${RELANCE_PALIERS.join(', J+')})`);
+  console.log(`[Relance] ${all.length} dossiers, ${res.length} à relancer (à la garantie sans facturation, quotidien)`);
   return res;
 }
-function joursEcoules_safe(j){return isNaN(j)?0:j;}
 
-// Clôture automatique des dossiers ayant épuisé les 3 rappels et toujours pas revenus
+// Clôture automatique : dossiers "à la garantie" non traités depuis plus de 5 jours → "non revenu"
 function cloturerDossiersNonRevenus(){
   const all=Object.values(window._dossiers||{});
   const now=Date.now();
   const facturationDone=d=>GROUPE_FACTURATION.some(k=>d[k]);
   const aCloturer=all.filter(d=>{
-    if(!d.retourconc||d.nonrevenu||facturationDone(d))return false;
+    if(!d.agarantie||d.nonrevenu||facturationDone(d))return false;
     const base=d.dateControle||d._ts||0;
     if(!base)return false;
     const jours=Math.floor((now-base)/864e5);
-    const nb=d._nbRelances||0;
-    // 3 rappels envoyés ET dernier palier dépassé → clôture
-    return nb>=RELANCE_PALIERS.length && jours>RELANCE_PALIERS[RELANCE_PALIERS.length-1];
+    return jours>RELANCE_CLOTURE_JOURS; // plus de 5 jours sans traitement → clôture
   });
   aCloturer.forEach(d=>{
-    const obj={...d,nonrevenu:true,_clotureTs:now,_clotureBy:'Auto (relances épuisées)'};
+    const obj={...d,nonrevenu:true,_clotureTs:now,_clotureBy:'Auto (5 jours sans retour)'};
     delete obj._id;
     if(window._db)window._set(window._ref(window._db,'controle_garantie/'+d._id),obj);
   });
@@ -2644,22 +2652,17 @@ function renderRelancePanel(){
   // Grouper par site
   const parSite={};
   aRelancer.forEach(d=>{const s=d.site||'?';(parSite[s]=parSite[s]||[]).push(d);});
-  const ordinal=['1er','2e','3e'];
   // Un bouton par site (envoi individuel = fiable)
   const sitesHtml=Object.entries(parSite).map(([s,arr])=>{
     const kvps=SITE_KVPS[s]||'?????';
-    // Répartition des rappels dans ce site (combien de 1er, 2e, 3e)
-    const paliers={};
-    arr.forEach(d=>{const n=(d._nbRelances||0);paliers[n]=(paliers[n]||0)+1;});
-    const detail=Object.entries(paliers).sort((a,b)=>a[0]-b[0]).map(([n,c])=>`${c}×${ordinal[n]||(parseInt(n)+1)+'e'}`).join(', ');
-    return `<button onclick="sendRelanceSite('${s}')" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid #e67e22;border-radius:8px;padding:8px 12px;margin:3px;font-size:12px;cursor:pointer;color:var(--text);" title="${detail} rappel">
-      ✉ ${SITE_SHORT[s]||s} <span style="color:var(--text3);">(${kvps})</span> <strong style="color:#e67e22;">${arr.length}</strong> <span style="color:var(--text3);font-size:10px;">${detail}</span>
+    return `<button onclick="sendRelanceSite('${s}')" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid #3498db;border-radius:8px;padding:8px 12px;margin:3px;font-size:12px;cursor:pointer;color:var(--text);" title="Envoyer la relance à ce site">
+      ✉ ${SITE_SHORT[s]||s} <span style="color:var(--text3);">(${kvps})</span> <strong style="color:#3498db;">${arr.length}</strong>
     </button>`;
   }).join('');
   panel.innerHTML=`
-    <div style="background:#2a1f0d;border:1px solid #e67e22;border-radius:10px;padding:14px;margin-bottom:14px;">
-      <div style="font-size:14px;font-weight:700;color:#e67e22;">⚠ ${aRelancer.length} dossier(s) en attente de retour</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px;margin-bottom:8px;">Rappels progressifs : 1er à J+3, 2e à J+5, 3e à J+6 (depuis la date de contrôle). Après le 3e sans retour → clôturé "non revenu". Cliquez sur un site pour envoyer son rappel :</div>
+    <div style="background:#0d1f2a;border:1px solid #3498db;border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:700;color:#3498db;">⚠ ${aRelancer.length} dossier(s) à la garantie en attente de retour</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;margin-bottom:8px;">Relance quotidienne des dossiers "À la garantie" sans statut de facturation. Après 5 jours sans retour → clôturé "non revenu". Cliquez sur un site pour envoyer sa relance :</div>
       <div>${sitesHtml}</div>
     </div>`;
 }
@@ -2672,29 +2675,26 @@ window.sendRelanceSite=function(site){
   const siteName=SITE_SHORT[site]||site;
   const sujet=`RELANCE GARANTIE - ${siteName} (${kvps}) - ${aRelancer.length} dossier(s) en attente`;
   const lignes=aRelancer.map(d=>{
-    const ref=d._lastRelanceTs||d.dateControle||d._ts||0;
+    const ref=d.dateControle||d._ts||0;
     const jours=Math.floor((Date.now()-ref)/864e5);
-    const dejaRelance=d._lastRelanceTs?' (déjà relancé)':'';
-    return `  • N°OR ${d.nor||'—'} · VIN ${d.vin||'—'} · ${d.ccs||'—'} · en attente depuis ${jours} j${dejaRelance}`;
+    return `  • N°OR ${d.nor||'—'} · VIN ${d.vin||'—'} · ${d.ccs||'—'} · à la garantie depuis ${jours} j`;
   }).join('\n');
-  const corps=`Bonjour,\n\nLes dossiers suivants ont été retournés en concession (${siteName} - KVPS ${kvps}) et sont toujours en attente de retour :\n\n──────────────────────────────\n${lignes}\n──────────────────────────────\n\nMerci de nous retourner ces dossiers complétés dans les meilleurs délais.\n\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
+  const corps=`Bonjour,\n\nLes dossiers suivants ont été envoyés à la garantie (${siteName} - KVPS ${kvps}) et sont toujours en attente de retour :\n\n──────────────────────────────\n${lignes}\n──────────────────────────────\n\nMerci de nous retourner ces dossiers complétés dans les meilleurs délais.\n\nCordialement,\n${_currentUser||'—'}\nTeamGarantie — Grand Est Automobiles`;
   // Destinataire = responsable du site ; teamgarantie en copie (CC)
   const dest=SITE_RESPONSABLE[site]||'teamgarantie@geauto.fr';
   const mailtoUrl=`mailto:${encodeURIComponent(dest).replace(/%3B/g,';')}?cc=${encodeURIComponent('teamgarantie@geauto.fr')}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
   const a=document.createElement('a');a.href=mailtoUrl;a.style.display='none';
   document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500);
 
-  // Marquer ces dossiers comme relancés : incrémenter le compteur de rappels
+  // Marquer ces dossiers comme relancés aujourd'hui
   const now=Date.now();
   const updates=aRelancer.map(d=>{
-    const nb=(d._nbRelances||0)+1;
-    const obj={...d,_lastRelanceTs:now,_lastRelanceBy:_currentUser,_nbRelances:nb};
+    const obj={...d,_lastRelanceTs:now,_lastRelanceBy:_currentUser};
     delete obj._id;
     // Mise à jour LOCALE immédiate (le bouton disparaît tout de suite, sans attendre Firebase)
     if(window._dossiers[d._id]){
       window._dossiers[d._id]._lastRelanceTs=now;
       window._dossiers[d._id]._lastRelanceBy=_currentUser;
-      window._dossiers[d._id]._nbRelances=nb;
     }
     return window._db?window._set(window._ref(window._db,'controle_garantie/'+d._id),obj):Promise.resolve();
   });
@@ -2981,6 +2981,7 @@ window.showDetail=function(id){
     <button class="btn" onclick="printPDFFromDetail('${id}')" style="background:#1a3a5a;color:#7ec8e3;border-color:#7ec8e340;">🖨 Imprimer</button>
     <button class="btn pdf" onclick="generatePDFFromDetail('${id}')">💾 PDF</button>
     <button class="btn" onclick="sendMailFromDetail('${id}')" style="background:#2a1f0d;color:#e6a817;border-color:#e6a81740;">✉ Mail</button>
+    <button class="btn" id="btn-relance-type" onclick="toggleRelanceType('${id}')" style="${d.relanceIntense?'background:#3a0d1a;color:#ff4d6a;border-color:#ff4d6a60;':'background:#0d2a1a;color:#5ee8b0;border-color:#5ee8b040;'}" title="Type de relance : Intense = 2×/jour (9h et 14h), Normal = 1×/jour (9h)">↻ Relance : ${d.relanceIntense?'Intense':'Normale'}</button>
     <button class="btn" onclick="deleteDetail('${id}')" style="color:var(--danger);border-color:var(--danger)40;">Supprimer</button>
     <button class="btn" onclick="closeDetail()">Fermer</button>
   `;
